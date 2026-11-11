@@ -52,6 +52,7 @@ Ask at most one question, and only when a wrong guess would waste the whole buil
 
 ## 3. Build it so it works
 
+- **Chat beside the design.** Put `<meta name="ss-chat" content="open">` in the `<head>` of every working design. Owners and editors arrive with chat beside it on desktop, or a docked chat bar on a phone. Closing it is remembered for that space on their device. Read-only visitors keep the normal viewer. This opens the existing chat; it does not connect a session or grant access.
 - **Phone first.** Design at 390 px wide, then let it grow to 1440 px. Nothing scrolls sideways at 390 px. Long words and URLs wrap, and images and tables never set a width wider than the screen. Tap targets are at least 44 px. Body text is at least 16 px.
 - **One self-contained document.** Draw the logo as inline SVG (paste the SVG they gave you). Write icons as inline SVG. Draw illustrations with CSS or SVG, never with photos. Put fonts in a system stack that is close to the brand font, and add an `@font-face` with a data URI only when the person gave you the font file.
 - **Tokens first.** Put every brand value in `:root` as a CSS variable named for its role: `--brand-ink`, `--brand-accent`, `--brand-ground`, `--font-display`, `--font-body`, `--radius`, `--space`. Write the rest of the CSS with the variables. One edit then recolours the design, and a developer can lift the tokens straight out. With directions, give each direction its own tokens on its section (`[data-ss-id="direction-night-watch"] { --brand-accent: … }`), so a change to one never touches the others. Keep only the values all of them share in `:root`.
@@ -114,7 +115,7 @@ Save the design as a new version of the space. Then reply in at most five short 
 
 When the person wants sign-off ("send it to the client", "get approval", "I need a yes from Noor"):
 
-1. Add an approval form near the end. The platform sends it, from anyone who can open the space, with or without an account:
+1. Remove `<meta name="ss-chat" content="open">` from the client-facing copy so it opens on the design. Keep it on the working design if you make a separate copy. Add an approval form near the end. The platform sends it, from anyone who can open the space, with or without an account:
    ```html
    <form data-ss-form="approvals" class="no-print" aria-label="Approve this design">
      <label>Your name <input name="name" autocomplete="name" required></label>
