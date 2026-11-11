@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<!--
+  The tweaks panel (optional). Copy the <style>, the <details> and the <script> into the design.
+  Each slider is bound to one CSS variable in :root through data-var (a colour input needs a
+  plain hex token, not a color-mix). Add or remove sliders
+  to match the design's own tokens; a colour uses <input type="color">.
+  It changes only what the person sees on their own screen. "Copy values" copies the settings
+  as CSS, which the person sends back; the agent then writes them into :root in a new version
+  and removes the panel. Never leave it on a space that goes to a client.
+  This file runs as it is: open it to try it.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tweaks panel</title>
+<style>
+  :root { --brand-accent: #d9643a; --space: 8px; --radius: 10px; --type-scale: 1; }
+
+  /* tweaks: start */
+  .tweaks { position: fixed; right: 12px; bottom: 12px; z-index: 20; width: min(300px, calc(100vw - 24px));
+    background: #fff; color: #111; border: 1px solid #ccc; border-radius: 12px; box-shadow: 0 2px 0 rgba(0,0,0,.08);
+    font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .tweaks summary { min-height: 44px; display: flex; align-items: center; padding: 0 14px; cursor: pointer; font-weight: 600; }
+  .tweaks-body { padding: 0 14px 14px; display: grid; gap: 10px; }
+  .tweaks label { display: grid; gap: 4px; }
+  .tweaks input[type="range"] { width: 100%; min-height: 32px; }
+  .tweaks input[type="color"] { width: 100%; height: 36px; border: 1px solid #ccc; border-radius: 6px; background: #fff; }
+  .tweaks output { color: #555; font-variant-numeric: tabular-nums; }
+  .tweaks button { min-height: 44px; border: 0; border-radius: 8px; background: #111; color: #fff; font: inherit; cursor: pointer; }
+  /* tweaks: end */
+
+  /* demo only */
+  body { margin: 0; font-family: Georgia, serif; }
+  .demo { padding: calc(var(--space) * 4) calc(var(--space) * 2.5); }
+  .demo h1 { font-size: calc(40px * var(--type-scale)); margin: 0 0 calc(var(--space) * 2); }
+  .demo a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 calc(var(--space) * 2.5);
+    background: var(--brand-accent); color: #fff; border-radius: var(--radius); text-decoration: none; font-family: system-ui, sans-serif; }
+</style>
+</head>
+<body>
+<main class="demo"><h1 data-ss-id="demo-headline">Winter talks</h1><a href="#demo-headline">Book a seat</a></main>
+
+<details class="tweaks no-print" data-ss-react="off">
+  <summary>Tweaks</summary>
+  <div class="tweaks-body">
+    <label>Accent <input type="color" data-var="--brand-accent"></label>
+    <label>Spacing <input type="range" data-var="--space" data-unit="px" min="4" max="16" step="1"><output></output></label>
+    <label>Corners <input type="range" data-var="--radius" data-unit="px" min="0" max="28" step="1"><output></output></label>
+    <label>Type size <input type="range" data-var="--type-scale" min="0.8" max="1.4" step="0.05"><output></output></label>
+    <button type="button" data-tweaks-copy>Copy values</button>
+  </div>
+</details>
+
+<script>
+/* tweaks: start */
+(() => {
+  const panel = document.querySelector('.tweaks');
+  if (!panel) return;
+  const root = document.documentElement;
+  const inputs = [...panel.querySelectorAll('input[data-var]')];
+  const read = (v) => getComputedStyle(root).getPropertyValue(v).trim();
+  inputs.forEach((i) => {
+    const unit = i.dataset.unit || '';
+    const start = read(i.dataset.var);
+    i.value = unit ? parseFloat(start) : start;
+    const out = i.parentElement.querySelector('output');
+    const apply = () => {
+      root.style.setProperty(i.dataset.var, i.value + unit);
+      if (out) out.textContent = i.value + unit;
+    };
+    i.addEventListener('input', apply);
+    apply();
+  });
+  panel.querySelector('[data-tweaks-copy]').addEventListener('click', async (e) => {
+    const css = ':root { ' + inputs.map((i) => i.dataset.var + ': ' + i.value + (i.dataset.unit || '') + ';').join(' ') + ' }';
+    try { await navigator.clipboard.writeText(css); e.target.textContent = 'Copied: send them to Shepherd'; }
+    catch { prompt('Copy these values', css); }
+  });
+})();
+/* tweaks: end */
+</script>
+</body>
+</html>
