@@ -166,7 +166,7 @@ When they say "save this look", "make this our brand" or "use this style for eve
 
 ## The tweaks panel (optional)
 
-When the person wants to explore colour, spacing, corners or type size themselves, add the panel from assets/tweaks.html. Its file says how it works. When they send back the values it copied, write them into `:root` in a new version and remove the panel. Never leave it on a space that's going to a client.
+When the person wants to explore colour, spacing, corners or type size themselves, add the panel from assets/tweaks.html. Its file says how it works. In the Design workspace, anyone who can edit the space finds its controls under Tweaks, and closing Tweaks saves what they changed as a new version, for the direction on show. Those values sit in `<style data-ss-id="ss-style">` as `!important` rules: change or remove them there when you change the same tokens. If they send back values the panel copied instead, write them into `:root` in a new version. Remove the panel before the space goes to a client.
 
 ## Worked examples
 
