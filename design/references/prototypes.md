@@ -51,11 +51,12 @@ Keep state in one small object in an inline script, and draw from it. A rule wri
 - has a clear title and one main action, at least 44 px tall, within thumb reach near the bottom;
 - has a way back or onward, so there are no dead ends;
 - shows real content: real routes, real prices, real copy;
-- carries the brand tokens like any other design.
+- carries the brand tokens like any other design;
+- shows its other states where the flow has them: empty (a headline, one line saying why, and the next action), loading, error (what went wrong in plain words, a way to retry, and the person's input kept) and done. Give a way to reach each one, such as a search that finds nothing or a card that's declined.
 
 ## Checking it
 
-Walk it in your head from the first screen to the last, tapping every control. Then check the rules (try a fourth pick) and the back path. Render the draft at phone size, and check that no screen scrolls sideways.
+Walk it in your head from the first screen to the last, tapping every control. Then check the rules (try a fourth pick), the back path, and the empty and error states. Render the draft at phone size, and check that no screen scrolls sideways.
 
 ## Revisions
 

@@ -14,7 +14,7 @@ A direction is a different answer to "what should this feel like, and what shoul
 | Colour ground | Light ground, colour as accent | Dark or saturated ground, colour as field |
 | Density | A lot of air, few elements | Information-rich, many elements |
 | Shape | Soft: round corners, organic shapes | Hard: square edges, rules and lines |
-| Imagery | Illustration drawn in SVG or CSS | Type and colour only, no imagery |
+| Imagery | Shapes, rules and colour fields drawn in CSS | Type only, no imagery |
 | Voice of the headings | Warm and personal | Crisp and factual |
 
 With a brand given, all three directions use the brand's colours, fonts and logo. They differ in layout, lead, density, shape and how the brand's colours are balanced (mostly ground, mostly accent, mostly ink).
@@ -22,7 +22,7 @@ With a brand given, all three directions use the brand's colours, fonts and logo
 ## A way to get three
 
 1. **Safe:** the clearest version of what the request describes. A visitor finds every fact in seconds.
-2. **Bold:** the same facts with one strong idea pushed hard, such as a huge type headline, a dark field, or one striking illustration.
+2. **Bold:** the same facts with one strong idea pushed hard, such as a huge type headline, a dark field, or one striking number.
 3. **Unexpected:** a different structure, such as a price table as the hero, a single card, a story told in steps, or an editorial layout.
 
 Then check each against the axes table and change whatever two of them share.
@@ -43,6 +43,7 @@ Then check each against the axes table and change whatever two of them share.
 ## Mistakes to avoid
 
 - Three colour swaps of one layout.
+- A "safe" direction that is the default template: a hero, three feature cards and a cream page. Safe means clear, not generic; the look in SKILL.md's Never list is out in every direction.
 - One strong direction and two weak ones, made to push the person towards the strong one.
 - A direction that breaks the brand's own rules.
 - Directions that need explaining: if you need a paragraph to say why it's different, it isn't different enough.

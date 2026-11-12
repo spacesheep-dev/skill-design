@@ -18,11 +18,11 @@ Write every brand value as a CSS variable in `:root`, named by its role. Use the
 ```css
 :root {
   --brand-ink: #1f2a24;      /* "Forest" (text) */
-  --brand-ground: #fbf7f0;   /* "Flour" (background) */
+  --brand-ground: #f3f5f2;   /* "Chalk" (background) */
   --brand-accent: #d9643a;   /* "Ember" (accent, buttons) */
   --brand-muted: #6b7a70;    /* derived: ink at 65% on ground */
-  --font-display: "Fraunces", Georgia, "Times New Roman", serif;
-  --font-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Libre Baskerville", "Iowan Old Style", Georgia, serif;
+  --font-body: "Source Sans 3", system-ui, -apple-system, "Segoe UI", sans-serif;
   --radius: 10px;
   --space: 8px;              /* spacing unit; use multiples */
 }
@@ -52,7 +52,7 @@ A design system is a short Markdown note the person keeps in Settings → Design
 
 ## Colours
 - Navy #1d2b45: text and icons
-- Paper #f6f3ec: background
+- Paper #f4f5f7: background
 - Signal #e8b021: buttons and highlights, never behind the logo
 - Slate #5d6878: secondary text
 
@@ -69,7 +69,7 @@ A design system is a short Markdown note the person keeps in Settings → Design
 
 ## Do and don't
 - Do lead with what's on and when.
-- Don't use stock photos; use simple line drawings in Navy.
+- Don't use stock photos or drawings; let the type and the talks carry it.
 ```
 
 Keep it under about 60 lines. Write rules in plain words, one `#` heading per part, and give every colour as a hex code with its job.
