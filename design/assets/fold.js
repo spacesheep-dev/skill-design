@@ -4,8 +4,10 @@
 // first line `<!-- status: Night Watch: prices -->`. The loop folds each direction's parts, in name
 // order, into draw/frame.html between the markers `<!-- part:<slug> -->` and `<!-- /part:<slug> -->`,
 // writes work/index.html, and pushes the page and the status whenever they change. A file changed in
-// the last 300 ms waits for the next pass, so a part is never folded half-written. (Older pages:
-// draw/<slug>.html ending with `<!-- end <slug> -->`, its status in draw/<slug>.status.)
+// the last 300 ms waits for the next pass, so a part is never folded half-written. A direction keeps
+// its placeholder below its parts until they show 40 characters of text, so a first part of styles
+// alone, or a bare top bar, never blanks it. (Older pages: draw/<slug>.html ending with
+// `<!-- end <slug> -->`, its status in draw/<slug>.status.)
 //
 //   node fold.js start <link>                    step 1: a status on the space, its id printed, its source in work/
 //   node fold.js <space-id> &                    the loop, from the folder holding work/ and draw/
@@ -82,6 +84,9 @@ if (space === "push") {
 }
 
 const good = {};
+// Text a person would see: no styles, scripts, templates, comments or tags.
+const shownChars = (h) => h.replace(/<(style|script|template)\b[\s\S]*?<\/\1>/gi, " ").replace(/<!--[\s\S]*?-->/g, " ")
+  .replace(/<[^>]*>/g, " ").replace(/&[#\w]+;/g, "x").replace(/\s+/g, " ").trim().length;
 function fold() {
   const frame = read("draw/frame.html");
   if (!frame) return null;
@@ -101,7 +106,8 @@ function fold() {
       status = (read(`draw/${slug}.status`) || "").trim().split("\n")[0];
     }
     if (status) statuses.push(status);
-    return `<!-- part:${slug} -->${good[slug] ?? inner}<!-- /part:${slug} -->`;
+    const g = good[slug];
+    return `<!-- part:${slug} -->${g === undefined ? inner : shownChars(g) >= 40 ? g : g + inner}<!-- /part:${slug} -->`;
   });
   return { html, status: statuses.join(" · ").slice(0, 200) };
 }
