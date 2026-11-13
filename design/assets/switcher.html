@@ -62,39 +62,51 @@
 <script>
 /* switcher: start */
 (() => {
-  const dirs = [...document.querySelectorAll('section.direction')];
   const tabs = document.querySelector('.switcher-tabs');
   const line = document.querySelector('.switcher-line');
-  if (!dirs.length || !tabs) return;
-  const buttons = dirs.map((d) => {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.setAttribute('role', 'tab');
-    b.textContent = d.dataset.name || d.dataset.ssId;
-    b.addEventListener('click', () => { history.replaceState(null, '', '#' + d.dataset.ssId); show(d); dispatchEvent(new HashChangeEvent('hashchange')); });
-    tabs.appendChild(b);
-    return b;
-  });
-  function show(d) {
-    dirs.forEach((x, i) => {
-      const on = x === d;
-      x.classList.toggle('on', on);
-      buttons[i].setAttribute('aria-selected', String(on));
-    });
-    line.textContent = d.dataset.line || '';
-  }
+  if (!tabs) return;
+  const all = () => [...document.querySelectorAll('section.direction')];
+  const label = (d) => d.dataset.name || d.dataset.ssId;
+  let cur = null;
   function fromHash() {
-    const id = decodeURIComponent(location.hash.slice(1));
+    const dirs = all(), id = decodeURIComponent(location.hash.slice(1));
     return dirs.find((d) => d.dataset.ssId === id)
       || dirs.find((d) => d.contains(document.getElementById(id) || document.querySelector('[data-ss-id="' + CSS.escape(id) + '"]')))
       || dirs.find((d) => d.hasAttribute('data-default'))
       || dirs[0];
   }
+  function show(d) {
+    if (!d) return;
+    cur = d;
+    all().forEach((x, i) => {
+      x.classList.toggle('on', x === d);
+      if (tabs.children[i]) tabs.children[i].setAttribute('aria-selected', String(x === d));
+    });
+    line.textContent = d.dataset.line || '';
+  }
+  function draw() {
+    tabs.replaceChildren(...all().map((d) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.setAttribute('role', 'tab');
+      b.textContent = label(d);
+      b.addEventListener('click', () => { history.replaceState(null, '', '#' + d.dataset.ssId); show(d); dispatchEvent(new HashChangeEvent('hashchange')); });
+      return b;
+    }));
+    show(fromHash());
+  }
+  // A live push redraws the page from its source, where the tabs are empty: draw them again.
+  const stale = () => {
+    const dirs = all();
+    return tabs.children.length !== dirs.length || dirs.some((d, i) => tabs.children[i].textContent !== label(d))
+      || !document.contains(cur) || line.textContent !== (cur.dataset.line || '');
+  };
+  new MutationObserver(() => { if (stale()) draw(); })
+    .observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-name', 'data-line', 'data-ss-id'] });
   addEventListener('hashchange', () => show(fromHash()));
-  const initial = fromHash();
-  show(initial);
-  if (!location.hash && initial.hasAttribute('data-default') && document.querySelector('meta[name="ss-canvas"][content="on"]')) {
-    history.replaceState(null, '', '#' + initial.dataset.ssId);
+  draw();
+  if (cur && !location.hash && cur.hasAttribute('data-default') && document.querySelector('meta[name="ss-canvas"][content="on"]')) {
+    history.replaceState(null, '', '#' + cur.dataset.ssId);
   }
 })();
 /* switcher: end */

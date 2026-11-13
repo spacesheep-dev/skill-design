@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<!--
+  The starter page: copy it to index.html.
+  1. Set the title, and for each direction its slug (direction-slug, its blocks slug-part), data-name, data-line and tokens.
+  2. Push it: that is the frame. Then fill one direction at a time, replacing its .drawing block.
+  One design, not directions: keep one section, and drop the switcher's nav and script.
+  Keep the metas, the switcher and the ids.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Design title</title>
+<meta name="ss-chat" content="open">
+<meta name="ss-workspace" content="design">
+<meta name="ss-canvas" content="on">
+<style>
+  /* switcher: start */
+  .switcher { position: sticky; top: 0; z-index: 10; background: #fff; border-bottom: 1px solid #ddd;
+    padding: 8px 12px 6px; font: 15px/1.3 system-ui, -apple-system, "Segoe UI", sans-serif; color: #111; }
+  .switcher-tabs { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+  .switcher-tabs::-webkit-scrollbar { display: none; }
+  .switcher-tabs button { flex: 0 0 auto; min-height: 44px; padding: 0 14px; border: 1px solid #ccc;
+    border-radius: 22px; background: #fff; color: #111; font: inherit; cursor: pointer; }
+  .switcher-tabs button[aria-selected="true"] { background: #111; color: #fff; border-color: #111; }
+  .switcher-tabs button:focus-visible { outline: 3px solid #2563eb; outline-offset: 2px; }
+  .switcher-line { margin: 6px 2px 0; font-size: 13px; color: #555; min-height: 1.3em; }
+  .direction { display: none; }
+  .direction.on { display: block; }
+  html:has(meta[name="ss-canvas"][content="on"]) .direction { display: block; }
+  /* switcher: end */
+
+  /* shared: what every direction uses */
+  :root { --space: 8px; --radius: 6px; --step-0: 16px; --step-1: 20px; --step-2: 25px; --step-3: 31px; --step-4: 39px; --step-5: 49px;
+    --ease: cubic-bezier(.2,.7,.2,1); --dur: 240ms; }
+  *, *::before, *::after { box-sizing: border-box; }
+  body { margin: 0; overflow-wrap: anywhere; }
+  img, svg { max-width: 100%; height: auto; }
+  h1, h2, h3 { text-wrap: balance; } p { text-wrap: pretty; }
+  :focus-visible { outline: 3px solid currentColor; outline-offset: 3px; }
+  .direction { background: var(--brand-ground); color: var(--brand-ink); font: var(--step-0)/1.6 var(--font-body); min-height: 70vh; }
+
+  /* each direction: its own tokens */
+  [data-ss-id="direction-first"]  { --brand-ink: #1d2320; --brand-ground: #f3f5f2; --brand-accent: #1f6f50;
+    --font-display: "Iowan Old Style", Palatino, Georgia, serif; --font-body: "Avenir Next", "Segoe UI", sans-serif; }
+  [data-ss-id="direction-second"] { --brand-ink: #f2efe8; --brand-ground: #15171c; --brand-accent: #ffb703;
+    --font-display: "Avenir Next", Futura, "Gill Sans", sans-serif; --font-body: "Avenir Next", "Segoe UI", sans-serif; }
+  [data-ss-id="direction-third"]  { --brand-ink: #10242e; --brand-ground: #e6eef2; --brand-accent: #c2410c;
+    --font-display: ui-monospace, Menlo, monospace; --font-body: Charter, "Iowan Old Style", Georgia, serif; }
+
+  /* being drawn: replaced by the direction itself */
+  .drawing { padding: calc(var(--space) * 6) calc(var(--space) * 3); }
+  .drawing h2 { margin: 0 0 var(--space); font: 600 var(--step-4)/1.1 var(--font-display); }
+  .drawing p { margin: 0 0 calc(var(--space) * 4); opacity: .8; }
+  .drawing i { display: block; height: 14px; margin: 0 0 12px; border-radius: 7px; background: currentColor; opacity: .12;
+    animation: drawing 1.4s var(--ease) infinite alternate; }
+  .drawing i:nth-of-type(2) { width: 80%; } .drawing i:nth-of-type(3) { width: 55%; }
+  @keyframes drawing { to { opacity: .28; } }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+
+<nav data-ss-canvas="pin" class="switcher no-print" aria-label="Design directions" data-ss-react="off">
+  <div class="switcher-tabs" role="tablist"></div>
+  <p class="switcher-line" aria-live="polite"></p>
+</nav>
+
+<section class="direction" data-ss-frame="desktop" data-ss-section data-ss-id="direction-first" data-ss-thing="direction/first" data-ss-label="First" data-name="First" data-line="One line on what it leads with." data-ss-x="0" data-ss-y="0">
+  <div class="drawing" data-ss-id="first-drawing"><h2>First</h2><p>Being drawn…</p><i></i><i></i><i></i></div>
+</section>
+
+<section class="direction" data-ss-frame="desktop" data-ss-section data-ss-id="direction-second" data-ss-thing="direction/second" data-ss-label="Second" data-name="Second" data-line="One line on what it leads with." data-ss-x="1352" data-ss-y="0">
+  <div class="drawing" data-ss-id="second-drawing"><h2>Second</h2><p>Being drawn…</p><i></i><i></i><i></i></div>
+</section>
+
+<section class="direction" data-ss-frame="desktop" data-ss-section data-ss-id="direction-third" data-ss-thing="direction/third" data-ss-label="Third" data-name="Third" data-line="One line on what it leads with." data-ss-x="2704" data-ss-y="0">
+  <div class="drawing" data-ss-id="third-drawing"><h2>Third</h2><p>Being drawn…</p><i></i><i></i><i></i></div>
+</section>
+
+<script>
+/* switcher: start */
+(() => {
+  const tabs = document.querySelector('.switcher-tabs');
+  const line = document.querySelector('.switcher-line');
+  if (!tabs) return;
+  const all = () => [...document.querySelectorAll('section.direction')];
+  const label = (d) => d.dataset.name || d.dataset.ssId;
+  let cur = null;
+  function fromHash() {
+    const dirs = all(), id = decodeURIComponent(location.hash.slice(1));
+    return dirs.find((d) => d.dataset.ssId === id)
+      || dirs.find((d) => d.contains(document.getElementById(id) || document.querySelector('[data-ss-id="' + CSS.escape(id) + '"]')))
+      || dirs.find((d) => d.hasAttribute('data-default'))
+      || dirs[0];
+  }
+  function show(d) {
+    if (!d) return;
+    cur = d;
+    all().forEach((x, i) => {
+      x.classList.toggle('on', x === d);
+      if (tabs.children[i]) tabs.children[i].setAttribute('aria-selected', String(x === d));
+    });
+    line.textContent = d.dataset.line || '';
+  }
+  function draw() {
+    tabs.replaceChildren(...all().map((d) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.setAttribute('role', 'tab');
+      b.textContent = label(d);
+      b.addEventListener('click', () => { history.replaceState(null, '', '#' + d.dataset.ssId); show(d); dispatchEvent(new HashChangeEvent('hashchange')); });
+      return b;
+    }));
+    show(fromHash());
+  }
+  // A live push redraws the page from its source, where the tabs are empty: draw them again.
+  const stale = () => {
+    const dirs = all();
+    return tabs.children.length !== dirs.length || dirs.some((d, i) => tabs.children[i].textContent !== label(d))
+      || !document.contains(cur) || line.textContent !== (cur.dataset.line || '');
+  };
+  new MutationObserver(() => { if (stale()) draw(); })
+    .observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-name', 'data-line', 'data-ss-id'] });
+  addEventListener('hashchange', () => show(fromHash()));
+  draw();
+  if (cur && !location.hash && cur.hasAttribute('data-default') && document.querySelector('meta[name="ss-canvas"][content="on"]')) {
+    history.replaceState(null, '', '#' + cur.dataset.ssId);
+  }
+})();
+/* switcher: end */
+</script>
+</body>
+</html>
