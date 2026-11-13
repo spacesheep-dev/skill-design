@@ -9,36 +9,39 @@ You make designs as spaces: one self-contained HTML document that the person ope
 
 **The person watches the page fill in as you build it. Nothing waits for a check before its first push, and no 45 seconds pass with nothing new on the page or in its status line.**
 
-**Your budget:** real content on the page within two minutes of the frame. A choice you can revise later, make now and push. At a high effort you will want to deliberate before every part: a shown draft beats a considered silence.
+**Your budget:** the first direction's top on the page by 2 minutes, every direction's by 4, finished and saved by 6. A choice you can revise later, make now and push. At a high effort you will want to deliberate before every part: think a direction through once, then write all of it.
 
 **Getting this skill:** as a folder, everything is here. Otherwise, `npx -y spacesheep@latest skills get @spacesheep/design --view full` gives these words and the file list, and a file is fetched with `npx -y spacesheep@latest skills get @spacesheep/design --path <file> --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).file.text))' > <where>`. Read a reference only at the step that names it.
 
 ## Order of work
 
-`<space>` below is the space's id, from step 1 on (saves by its link are refused from the second one on). Write it in full in every shell call, since each call starts fresh. A push draws the page in every open tab in about 2 seconds. A save takes 15 seconds or more, so saves run in the background (the save line, below) and never hold up the next push. Without a shell (a Shepherd turn), take the same steps with your own tools.
+`<space>` below is the space's id, from step 1 on (saves by its link are refused from the second one on). Write it in full in every shell call, since each call starts fresh. A push draws the page in every open tab in about 2 seconds. A save takes 15 seconds or more, so it runs in the background (the save line, below). Without a shell (a Shepherd turn), take the same steps with your own tools.
 
 1. **Start at once.** With the link the person gave: `npx -y spacesheep@latest live push --space <link> --status "Reading your brief" && S=$(npx -y spacesheep@latest spaces get <link> | sed -n 's/^ *id: //p' | head -1) && echo "space: $S" && npx -y spacesheep@latest read "$S" -o work`. The id it prints is `<space>`. Read by the id, never the link, or the first save is refused. If `work/index.html` isn't a design yet, copy the starter over it: `cp assets/base.html work/index.html` from this skill's folder, or fetch `assets/base.html` to `work/index.html`. With no space yet, put the starter in `work`: `npx -y spacesheep@latest deploy work --title "<working title>" --json` makes one, and its `space.id` is `<space>`.
 2. **Push the frame within 90 seconds, before you read anything else.** From the brief alone, set the title and each direction's slug, name, line and tokens in `work/index.html` (section 2 says how many). Push it, save it, and say in chat: "Three directions on the way: Harbour Chart, Night Watch, Logbook. Say if one is wrong."
-3. **Read what the brief points at,** with a status for each thing ("Reading Spark's Orbit pages"). The moment the shared look is set (the brand's tokens, logo and fonts), push it, so the frame changes colour and type before any section is written. If the reading changes a direction, rename it and push. Names and slugs may change until a direction's first part is drawn.
-4. **Draw.** With directions to draw and helpers you can start (subagents, parallel tasks), give each direction to one: the helpers path, below. Otherwise draw breadth first, in parts of at most 45 seconds of writing. After each part, push the page and the next part's status in one shell call: `npx -y spacesheep@latest live push --space <space> --html "$(cat work/index.html)" && npx -y spacesheep@latest live push --space <space> --status "Drawing Night Watch: prices"`.
-   1. **The top of every direction first** (of one design, its top). Replace each direction's `.drawing` block with its hero, pushing after each one. The person sees all three ideas within about 3 minutes and can redirect before most of the work is spent. Save once all three tops are in, and say so in chat.
-   2. **Then fill in each direction, top down,** one part at a time: the hero's detail, then the list, then the rest. A part that would take longer than 45 seconds to write is two parts. When a direction is complete, save it with its picture and say one line in chat.
-5. **Nothing waits for a look.** A finished direction's save leaves a picture of it, `<slug>.png`, about 30 seconds later. When it's there, look at it and run the checks in section 5 on your source while you go on drawing. Their fixes go into a later push. If `save.log` shows an error, fix it and save again. No local browser, Playwright, local server or build script.
-6. **Finish in one pass:** one look per direction, one round of fixes, then the last save in the foreground, `npx -y spacesheep@latest deploy work --space <space> -m "Three directions"`, so your reply names a saved version (section 6). Then the reply.
+3. **Read until 1:00, only what every direction shares:** the product's name, its real navigation labels, and the brand's tokens, logo and fonts, with a status for each ("Reading Spark's navigation"). Push the tokens you find, in each direction's token line, so the frame changes colour and type. If the reading changes a direction, rename it now: names and slugs are fixed once drawing starts.
+4. **Start the page's only writer,** from the folder that holds `work` (without a folder, fetch `assets/fold.js` first): `mkdir -p draw && cp work/index.html draw/frame.html && node <this skill's folder>/assets/fold.js <space> > draw/fold.out 2>&1 &`. Within 2 seconds of a change it folds each direction's parts into the frame between its `<!-- part:<slug> -->` markers (rename them with the slug, or add them if the page has none), writes `work/index.html`, and pushes the page and the status line. From now on nobody else pushes or edits `work/index.html`: change the frame, tokens included, in `draw/frame.html`. A part goes in with one call, from the same folder:
+   ```sh
+   node <this skill's folder>/assets/fold.js add night-watch "Night Watch: prices" <<'PART'
+   <div class="prices" data-ss-id="night-watch-prices">…</div>
+   PART
+   ```
+5. **Draw, from 1:00.** With helpers you can start (subagents, parallel tasks), give each direction to one: the helpers, below. Otherwise draw it yourself the same way. Think the design through once, then send its parts as calls in one message, with no checks between them: the top of every direction first, then each direction top down. A part goes inside its direction's section, takes at most 45 seconds of writing, and every id in it starts with the slug. Your last call counts the request's facts in each `draw/<slug>.html` and adds any that's missing.
+6. **Finish in one pass.** `sleep 3 && touch draw/stop`, so the page has the last parts and the writer stops. Save with a picture of each direction (the save line). Meanwhile run checks 2 to 7 of section 5 on the source of any direction not yet checked. When the pictures are there, look at each once (check 8), make one round of fixes, then save in the foreground, `npx -y spacesheep@latest deploy work --space <space> -m "Three directions"`, so your reply names a saved version (section 6). Skip that save when nothing needed fixing. If `save.log` shows an error, fix it and save again. No local browser, Playwright, local server or build script.
 
-**The save line**, for the frame, the three tops and each finished direction, never one per part. It saves, pushes the newest page again (a save lands seconds behind your newest push), puts the status back (a save takes it down), and takes the picture:
+**The save line**, for the frame and the finish, never one per part. It saves, pushes the newest page again (a save lands behind your newest push), puts the status back (a save takes it down), and takes the pictures at once:
 
 ```sh
-(npx -y spacesheep@latest deploy work --space <space> -m "Night Watch" && npx -y spacesheep@latest live push --space <space> --html "$(cat work/index.html)" && npx -y spacesheep@latest live push --space <space> --status "Drawing Logbook" && npx -y spacesheep@latest spaces screenshot <space> --width 1920 --height 1080 --section direction-night-watch -o night-watch.png) > save.log 2>&1 &
+(npx -y spacesheep@latest deploy work --space <space> -m "Three directions" && npx -y spacesheep@latest live push --space <space> --html "$(cat work/index.html)" && npx -y spacesheep@latest live push --space <space> --status "Checking the three directions" && for d in harbour-chart night-watch logbook; do npx -y spacesheep@latest spaces screenshot <space> --width 1920 --height 1080 --section direction-$d -o $d.png & done; wait) > save.log 2>&1 &
 ```
 
-The frame's and the tops' saves take no picture: end their line after the status. Keep the page under 100 KB, so a push fits in one shell argument.
+The frame's save takes no picture: end its line after the status. Keep the page under 100 KB, so a push fits in one shell argument.
 
-**The helpers path**, once the frame and the shared look are pushed:
+**The helpers**, one per direction, all started in one message at 1:00, with the tokens or without them:
 
-1. **Start the page's only writer:** `mkdir -p draw && cp work/index.html draw/frame.html && node <this skill's folder>/assets/fold.js <space> > draw/fold.out 2>&1 &`, from the folder that holds `work` (without a folder, fetch `assets/fold.js` first). Within about 2 seconds of a helper's change, it folds each helper's file into the frame between that direction's `<!-- part:<slug> -->` markers, writes `work/index.html`, and pushes the page and the helpers' status lines. The markers carry each direction's slug: rename them with it, or add them around each direction's content if the page has none. From now on nobody else pushes or edits `work/index.html`; change the frame in `draw/frame.html`.
-2. **Start one helper per direction, all at once.** Give each the brief's facts, the shared tokens, its direction's name, slug, line and idea, sections 3 and 4 of this skill, your budget, and these words: "Draw only your direction, top down from its hero, into `draw/<slug>.html`: what goes inside its section, every id starting `<slug>-`, and the line `<!-- end <slug> -->` always last. Write the hero within two minutes, then add each part (at most 45 seconds of writing) just above that line. Before each part, write what it is in one line to `draw/<slug>.status` ("Night Watch: prices"). Never push, save or touch another file." Say in chat that the three are being drawn at once.
-3. **When all are back,** `sleep 3 && touch draw/stop`, so the page has their last parts and the writer stops. Save with a picture of each direction (the save line, with one `spaces screenshot` per direction), then go on to steps 5 and 6.
+1. **First write `draw/BRIEF.md`:** the request word for word, every fact in it, the product's name and real navigation labels, the tokens found so far, and each direction's slug, name, line and idea.
+2. **Keep each prompt short:** "Read `<folder>/draw/BRIEF.md` and sections 3 and 4 of `<this skill's folder>/SKILL.md`, then only the code your direction needs. Draw only Night Watch (`night-watch`) with `fold.js add` from `<folder>` (order of work, step 4): every id starting `night-watch-`, each part at most 45 seconds of writing. Think it through once, then send all its parts as calls in one message, its top first, with no checks between them. Your last call counts the brief's facts in `draw/night-watch.html` and adds any that's missing. Then stop: no other checks and no rewrites, since the lead looks at the picture. Never push, save or touch another direction's files." Say in chat that the three are being drawn at once.
+3. **While they draw,** put the shared look you find after 1:00 in `draw/frame.html`: helpers write with its variables, so the page takes it at the next fold. As each helper comes back, run checks 2 to 7 of section 5 on its `draw/<slug>.html` and fix there: the writer folds it in. When all are back, finish (step 6).
 
 ## What good looks like
 
@@ -120,7 +123,7 @@ Ask at most one question, and only when a wrong guess would waste the whole buil
 
 ## 5. Checks, once it's visible
 
-Run these after each direction is on the page (order of work, step 5), on your source and the one picture, and fix what they find in the next push. Do one round per direction, then move on and say in your reply what is still rough.
+Run each once per direction: 1 in the last call of whoever drew it, 2 to 7 on its source once it's drawn, 8 on its picture at the finish (order of work, step 6). One round of fixes, then say in your reply what is still rough.
 
 1. **Facts.** Every fact from the request is in the design, spelled as given, and every direction names the product it sits in. Count the items: "six items" means six.
 2. **Brand.** Every colour is one of the brand's tokens or a neutral made from the ink. The fonts are the brand's or the stack you named. The logo is theirs, unchanged. references/brand.md has the full check.
@@ -166,13 +169,13 @@ One design, because the brand and content are fixed. Push the frame at once, the
 Edit only inside `talks`: cut each talk to its date and title, keeping every id, and set the dates to `var(--brand-ink)`. Check the contrast, push, save, and reply in one line with both changes.
 
 **"We need a landing page for Tidewell, an app that tells small-boat owners when their mooring fees are due and lets them pay from a phone. It's £6 a month, and the first month is free. Give me three directions I can flick between."**
-Within 90 seconds the frame is up with three named, empty directions and a chat line naming them. Then the three heroes, then each direction filled in part by part (with helpers, all three at once), each with every fact (due-date reminders, paying from a phone, £6 a month, first month free). After each one's save, its picture and the checks.
+Within 90 seconds the frame is up with three named, empty directions and a chat line naming them. Helpers draw the three at once, each top first and with every fact (due-date reminders, paying from a phone, £6 a month, first month free). Then one save with the three pictures, one look at each, one round of fixes.
 Then "The third one, but bolder. Don't touch the words." Change only the type and colour tokens on the third direction's section, check its contrast, make it the default, and add a line to Decisions.
 
 ## Files
 
 - assets/base.html: the starter page, with the metas, the switcher, tokens and three empty directions. Copy it at step 1.
-- assets/fold.js: the page's only writer on the helpers path. Start it at that path's step 1.
+- assets/fold.js: the page's only writer, and `add` puts in each part. Start it at order of work, step 4.
 - references/directions.md: making directions differ and naming them. Read it at order of work, step 3.
 - references/brand.md: reading a brand sheet into tokens, the brand check, and the design system note format. Read it at order of work, step 3, when a brand is given.
 - references/prototypes.md: screens, navigation and state in one space. Read it before drawing a prototype.

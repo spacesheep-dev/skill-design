@@ -1,21 +1,38 @@
 #!/usr/bin/env node
-// Lets helpers draw one page at once. Each helper writes only draw/<slug>.html (its direction,
-// ending with the line `<!-- end <slug> -->`) and draw/<slug>.status (one line). This loop is the
-// page's only writer: it folds the helpers' files into draw/frame.html, between the markers
-// `<!-- part:<slug> -->` and `<!-- /part:<slug> -->`, writes work/index.html, and pushes the page
-// and the status whenever they change. A file caught half-written (no end line) is skipped and the
-// last whole copy is used, so the page never steps back.
+// The page's only writer, so one agent or several helpers can draw one page part by part. Each
+// direction's parts collect in draw/<slug>.html (ending with the line `<!-- end <slug> -->`), its
+// status in draw/<slug>.status. The loop folds those files into draw/frame.html, between the
+// markers `<!-- part:<slug> -->` and `<!-- /part:<slug> -->`, writes work/index.html, and pushes
+// the page and the status whenever they change. A file caught half-written (no end line) is
+// skipped and the last whole copy is used, so the page never steps back.
 //
-//   node fold.js <space-id> &      run from the folder holding work/ and draw/
-//   touch draw/pushnow             push the page again (after a save lands)
-//   touch draw/stop                stop (it also stops after 30 minutes)
+//   node fold.js <space-id> &                    the loop, from the folder holding work/ and draw/
+//   node fold.js add <slug> "<status>" < part    add a part above the end line, set the status
+//   touch draw/pushnow                           push the page again (after a save lands)
+//   touch draw/stop                              stop (it also stops after 30 minutes)
 const fs = require("fs");
 const { execFileSync, execSync } = require("child_process");
 
 const space = process.argv[2];
 if (!space) {
-  console.error("usage: node fold.js <space-id>");
+  console.error('usage: node fold.js <space-id>   or   node fold.js add <slug> "<status>" < part.html');
   process.exit(2);
+}
+// Write whole files only (a temporary copy in draw/, then a rename), so no reader sees half of one.
+const swap = (f, text) => { const t = `draw/.${f.replace(/\//g, "_")}.tmp`; fs.writeFileSync(t, text); fs.renameSync(t, f); };
+if (space === "add") {
+  const slug = process.argv[3];
+  if (!/^[a-z0-9-]+$/.test(slug || "")) { console.error("add: the slug is lowercase letters, digits and dashes"); process.exit(2); }
+  const part = fs.readFileSync(0, "utf8").trim();
+  const file = `draw/${slug}.html`, end = `<!-- end ${slug} -->`;
+  fs.mkdirSync("draw", { recursive: true });
+  const was = fs.existsSync(file) ? fs.readFileSync(file, "utf8") : end + "\n";
+  const at = was.lastIndexOf(end);
+  const now = at < 0 ? `${was.trimEnd()}\n${part}\n${end}\n` : `${was.slice(0, at)}${part}\n${end}\n`;
+  swap(file, now);
+  if (process.argv[4]) swap(`draw/${slug}.status`, process.argv[4] + "\n");
+  console.log(`${slug}: ${now.length} bytes`);
+  process.exit(0);
 }
 // The CLI: one on the PATH, else npx's copy found once (a push then takes about 0.5 s, not 3).
 let cli = ["npx", "-y", "spacesheep@latest"];
@@ -62,8 +79,7 @@ while (!fs.existsSync("draw/stop") && Date.now() < until) {
   const page = fold();
   const again = fs.existsSync("draw/pushnow");
   if (page && (page.html !== shown || again)) {
-    fs.writeFileSync("draw/.index.tmp", page.html);
-    fs.renameSync("draw/.index.tmp", "work/index.html");
+    swap("work/index.html", page.html);
     if (push("--html", page.html)) {
       shown = page.html;
       if (again) fs.rmSync("draw/pushnow", { force: true });
