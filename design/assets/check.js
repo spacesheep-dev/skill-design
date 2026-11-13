@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 // Every check the source can decide, so neither the lead nor a helper writes a check script.
-// Run it from the folder holding work/ and draw/:
+// It only reads, in the folder holding work/ and draw/:
 //
-//   node check.js              every direction, then the page as a whole
-//   node check.js <slug>       one direction (a helper's closing check)
+//   node check.js -C <folder>          every direction, then the page as a whole
+//   node check.js -C <folder> <slug>   one direction (a helper's closing check)
 //
 // It reads work/index.html, each direction's parts (draw/<slug>/*.html, else draw/<slug>.html, else
 // its section of the page) and draw/BRIEF.md, whose lines `fact: …` must show in every direction,
@@ -15,10 +15,15 @@ const fs = require("fs");
 const path = require("path");
 const vm = require("vm");
 
-const only = process.argv[2];
+const args = process.argv.slice(2);
+if (args[0] === "-C") {
+  try { process.chdir(args[1]); } catch { console.error(`check: no folder ${args[1]}`); process.exit(2); }
+  args.splice(0, 2);
+}
+const only = args[0];
 const read = (f) => { try { return fs.readFileSync(f, "utf8"); } catch { return null; } };
 const page = read("work/index.html");
-if (page === null) { console.error("check: no work/index.html here (run it from the folder holding work/ and draw/)"); process.exit(2); }
+if (page === null) { console.error("check: no work/index.html here (give -C the folder holding work/ and draw/)"); process.exit(2); }
 
 const CONTROLS = new Set(["a", "button", "input", "label", "select", "textarea", "summary", "option"]);
 const NEUTRAL = /^(#fff|#ffffff|#000|#000000|white|black|transparent|currentcolor|inherit|initial|unset|none|rgba?\(\s*(0\s*,\s*0\s*,\s*0|255\s*,\s*255\s*,\s*255)\b[^)]*\))$/i;
