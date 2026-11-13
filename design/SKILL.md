@@ -120,7 +120,9 @@ Run these after each direction is on the page (order of work, step 5), on your s
 5. **Contrast.** Text passes AA: 4.5:1, or 3:1 at 24 px and larger, in hover, focus and selected states too. Change the background or border, never fade the text, and show a `:focus-visible` ring.
 6. **Paper, when asked.** It fits the sheet, and nothing needed depends on motion or is hidden.
 7. **Anchors.** Every readable block has a unique `data-ss-id`, and no control has one.
-8. **Look.** Score the picture from 1 to 5 on fit (made for this brief, or your usual default?), hierarchy (one place for the eye?), finish (type, spacing and alignment exact?), specificity (could it belong to anyone else?) and restraint (one accent, one bold move, nothing from Never). Fix anything under 3.
+8. **Look.** Score the picture from 1 to 5 on fit (made for this brief, or your usual default?), hierarchy (one place for the eye?), finish (type, spacing and alignment exact?), specificity (could it belong to anyone else?) and restraint (one accent, one bold move, nothing from Never). Fix anything under 3. Then look for two faults:
+   - **Nothing is cut off** at the edge of its column, card or screen. A row of chips or tags wraps, never runs out.
+   - **No empty tile or band looks like content.** A grid's spare last cell stays plain background, never a tinted block that reads as a blank card.
 
 ## 6. Say what you made
 
