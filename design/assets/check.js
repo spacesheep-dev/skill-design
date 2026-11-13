@@ -135,12 +135,13 @@ function checkUnit(slug, u) {
     }
     for (const k of ["for", "aria-controls"]) if (a[k] && !a[k].split(/\s+/).every((x) => idsAll.has(x))) fail(slug, where(m.index), `${k}="${a[k]}" names no id on the page`);
     if (a.placeholder) {
-      // Its room: the narrowest px width, basis or flex basis set on the field or the two tags around it
-      // (outside desktop-only rules), else a phone's full width; about 8.5 px a character at 16 px.
+      // The source can't see a field's font or what shares its row, so the room is a plain limit: in
+      // rounds 8 and 9 the narrowest phone field held 20 characters (a 322 px field in large type held 21).
+      // A px width, basis or flex basis set on the field or the two tags around it can only lower it.
       const near = [a.class || "", ...[...u.text.slice(Math.max(0, m.index - 600), m.index).matchAll(/<[a-z][^>]*class="([^"]*)"[^>]*>/gi)].slice(-2).map((x) => x[1])].join(" ").split(/\s+/).filter(Boolean);
       const px = phoneWidths.filter((w) => near.some((c) => w.sel.includes("." + c))).map((w) => w.px);
-      const room = Math.floor((Math.min(358, ...px) - 40) / 8.5);
-      if (a.placeholder.length > room) fail(slug, where(m.index), `placeholder "${a.placeholder}" is ${a.placeholder.length} characters; its field has room for about ${room} on a phone: shorten it or give the field its own row`);
+      const room = Math.min(20, Math.floor((Math.min(358, ...px) - 40) / 8.5));
+      if (a.placeholder.length > room) fail(slug, where(m.index), `placeholder "${a.placeholder}" is ${a.placeholder.length} characters; at most ${room} fit its field on a phone: shorten it, and let the label say the rest`);
     }
     const control = name === "button" || name === "select" || a.role === "tab" || (name === "input" && /^(checkbox|radio)$/i.test(a.type || ""));
     if (control && !Object.keys(a).some((k) => k.startsWith("on")) && a.type !== "submit") {
