@@ -1,11 +1,12 @@
 <!DOCTYPE html>
 <!--
   The direction switcher. Copy the <style>, the <nav> and the <script> into the design,
-  and make each direction a <section class="direction" data-ss-section data-ss-id="direction-<slug>"
-  data-ss-thing="direction/<slug>" data-ss-label="<Name>"> with a data-name (shown on its tab) and a data-line (one line under the tabs).
+  and make each direction a <section class="direction" data-ss-frame="desktop" data-ss-section data-ss-id="direction-<slug>"
+  data-ss-frame="desktop" data-ss-thing="direction/<slug>" data-ss-label="<Name>"> with a data-name (shown on its tab) and a data-line (one line under the tabs).
   - A link ending in #direction-<slug> opens that direction.
   - data-default on one section makes it the one the space opens on (after a pick).
-  - Printing shows only the direction on screen.
+  - In a working canvas all directions stay visible; hashes move its camera.
+  - Without the canvas meta, the client copy shows one direction at a time.
   This file runs as it is: open it to see three demo directions.
 -->
 <html lang="en">
@@ -13,6 +14,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Direction switcher</title>
+<meta name="ss-canvas" content="on">
 <style>
   /* switcher: start */
   .switcher { position: sticky; top: 0; z-index: 10; background: #fff; border-bottom: 1px solid #ddd;
@@ -26,6 +28,7 @@
   .switcher-line { margin: 6px 2px 0; font-size: 13px; color: #555; min-height: 1.3em; }
   .direction { display: none; }
   .direction.on { display: block; }
+  html:has(meta[name="ss-canvas"][content="on"]) .direction { display: block; }
   /* switcher: end */
 
   /* demo only */
@@ -44,13 +47,13 @@
   <p class="switcher-line" aria-live="polite"></p>
 </nav>
 
-<section class="direction" data-ss-section data-ss-id="direction-harbour-chart" data-ss-thing="direction/harbour-chart" data-ss-label="Harbour Chart" data-name="Harbour Chart" data-line="Calm and plain; leads with the due date.">
+<section class="direction" data-ss-frame="desktop" data-ss-section data-ss-id="direction-harbour-chart" data-ss-thing="direction/harbour-chart" data-ss-label="Harbour Chart" data-name="Harbour Chart" data-line="Calm and plain; leads with the due date.">
   <div class="demo d1"><h1 data-ss-id="chart-headline">Never miss a mooring fee</h1><p data-ss-id="chart-intro">Demo direction one.</p></div>
 </section>
-<section class="direction" data-ss-section data-ss-id="direction-night-watch" data-ss-thing="direction/night-watch" data-ss-label="Night Watch" data-name="Night Watch" data-line="Dark field and huge type; leads with the promise.">
+<section class="direction" data-ss-frame="desktop" data-ss-section data-ss-id="direction-night-watch" data-ss-thing="direction/night-watch" data-ss-label="Night Watch" data-name="Night Watch" data-line="Dark field and huge type; leads with the promise.">
   <div class="demo d2"><h1 data-ss-id="nightwatch-headline">Your fees, on watch</h1><p data-ss-id="nightwatch-intro">Demo direction two.</p></div>
 </section>
-<section class="direction" data-ss-section data-ss-id="direction-logbook" data-ss-thing="direction/logbook" data-ss-label="Logbook" data-name="Logbook" data-line="Editorial columns; leads with the price.">
+<section class="direction" data-ss-frame="desktop" data-ss-section data-ss-id="direction-logbook" data-ss-thing="direction/logbook" data-ss-label="Logbook" data-name="Logbook" data-line="Editorial columns; leads with the price.">
   <div class="demo d3"><h1 data-ss-id="logbook-headline">£6 a month</h1><p data-ss-id="logbook-intro">Demo direction three.</p></div>
 </section>
 
@@ -66,7 +69,7 @@
     b.type = 'button';
     b.setAttribute('role', 'tab');
     b.textContent = d.dataset.name || d.dataset.ssId;
-    b.addEventListener('click', () => { history.replaceState(null, '', '#' + d.dataset.ssId); show(d); });
+    b.addEventListener('click', () => { history.replaceState(null, '', '#' + d.dataset.ssId); show(d); dispatchEvent(new HashChangeEvent('hashchange')); });
     tabs.appendChild(b);
     return b;
   });
@@ -86,7 +89,11 @@
       || dirs[0];
   }
   addEventListener('hashchange', () => show(fromHash()));
-  show(fromHash());
+  const initial = fromHash();
+  show(initial);
+  if (!location.hash && initial.hasAttribute('data-default') && document.querySelector('meta[name="ss-canvas"][content="on"]')) {
+    history.replaceState(null, '', '#' + initial.dataset.ssId);
+  }
 })();
 /* switcher: end */
 </script>
