@@ -57,8 +57,7 @@ Ask at most one question, and only when a wrong guess would waste the whole buil
 
 ## 3. Build it so it works
 
-- **Chat beside the design.** Put `<meta name="ss-chat" content="open">` in the `<head>` of every working design. Owners and editors arrive with chat beside it on desktop, or a docked chat bar on a phone. Closing it is remembered for that space on their device. Read-only visitors keep the normal viewer. This opens the existing chat; it does not connect a session or grant access.
-- **Open it as a design.** Put `<meta name="ss-workspace" content="design">` in the same `<head>`. Spacesheep then frames the space as a design workspace: the file's tab with Present, Export and Share, and a row with its version, Comment, Edit and Draw. It changes the frame only, never who can see or change the space.
+- **Chat beside the design.** Put `<meta name="ss-chat" content="open">` in the `<head>` of every working design. Owners and editors arrive with chat beside it on desktop, or a docked chat bar on a phone. Closing it is remembered for that space on their device. Read-only visitors keep the normal viewer. This opens the existing chat; it does not connect a session or grant access. A second word puts one chat in front when the person has both: `content="open session"` when you are their own session building it, so their replies come back to you, or `content="open shepherd"`. With `open` alone, a linked session that can be reached comes first.
 - **Phone first.** Design at 390 px wide, then let it grow to 1440 px. Nothing scrolls sideways at 390 px. Long words and URLs wrap, and images and tables never set a width wider than the screen. Tap targets are at least 44 px. Body text is at least 16 px.
 - **One self-contained document.** Draw the logo as inline SVG (paste the SVG they gave you). Write icons as inline SVG from one family: the same stroke and corners, outlined or filled but not mixed, coloured with `currentColor`, and only where they help someone find or tap something. Carry the design with type, colour, shape and the real content, never with photos or with people and scenes drawn in SVG. Put fonts in a system stack that is close to the brand font, and add an `@font-face` with a data URI only when the person gave you the font file.
 - **Tokens first.** Put every brand value in `:root` as a CSS variable named for its role: `--brand-ink`, `--brand-accent`, `--brand-ground`, `--font-display`, `--font-body`, `--radius`, `--space`. Write the rest of the CSS with the variables. One edit then recolours the design, and a developer can lift the tokens straight out. With directions, give each direction its own tokens on its section (`[data-ss-id="direction-night-watch"] { --brand-accent: … }`), so a change to one never touches the others. Keep only the values all of them share in `:root`.
@@ -125,7 +124,7 @@ Save the design as a new version of the space. Then reply in at most five short 
 
 When the person wants sign-off ("send it to the client", "get approval", "I need a yes from Noor"):
 
-1. Remove `<meta name="ss-chat" content="open">` and `<meta name="ss-workspace" content="design">` from the client-facing copy so it opens on the design alone. Keep them on the working design if you make a separate copy. Add an approval form near the end. The platform sends it, from anyone who can open the space, with or without an account:
+1. Remove the `ss-chat` meta from the client-facing copy so it opens on the design alone. Keep it on the working design if you make a separate copy. Add an approval form near the end. The platform sends it, from anyone who can open the space, with or without an account:
    ```html
    <form data-ss-form="approvals" class="no-print" aria-label="Approve this design">
      <label>Your name <input name="name" autocomplete="name" required></label>
@@ -166,7 +165,7 @@ When they say "save this look", "make this our brand" or "use this style for eve
 
 ## The tweaks panel (optional)
 
-When the person wants to explore colour, spacing, corners or type size themselves, add the panel from assets/tweaks.html. Its file says how it works. In the Design workspace, anyone who can edit the space finds its controls under Tweaks, and closing Tweaks saves what they changed as a new version, for the direction on show. Those values sit in `<style data-ss-id="ss-style">` as `!important` rules: change or remove them there when you change the same tokens. If they send back values the panel copied instead, write them into `:root` in a new version. Remove the panel before the space goes to a client.
+When the person wants to explore colour, spacing, corners or type size themselves, add the panel from assets/tweaks.html. Its file says how it works. If they send back values the panel copied instead, write them into `:root` in a new version. Remove the panel before the space goes to a client.
 
 ## Worked examples
 
