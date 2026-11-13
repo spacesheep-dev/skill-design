@@ -19,4 +19,4 @@ Spacesheep's official Design skill, in the [Agent Skills](https://agentskills.io
 
 ## History
 
-Up to `v1.0.0`, the folder's history is the app repo's (`packages/app/skills/official/design/`), commit for commit.
+Up to `v1.1.0`, the folder's history is the app repo's (`packages/app/skills/official/design/`), commit for commit.
