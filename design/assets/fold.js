@@ -6,6 +6,7 @@
 // the page and the status whenever they change. A file caught half-written (no end line) is
 // skipped and the last whole copy is used, so the page never steps back.
 //
+//   node fold.js start <link>                    step 1: a status on the space, its id printed, its source in work/
 //   node fold.js <space-id> &                    the loop, from the folder holding work/ and draw/
 //   node fold.js add <slug> "<status>" < part    add a part above the end line, set the status
 //   node fold.js push <space-id>                 push work/index.html once (the save line)
@@ -16,7 +17,7 @@ const { execFileSync, execSync } = require("child_process");
 
 let space = process.argv[2];
 if (!space) {
-  console.error('usage: node fold.js <space-id>   or   node fold.js add <slug> "<status>" < part.html   or   node fold.js push <space-id>');
+  console.error('usage: node fold.js start <link>   or   node fold.js <space-id>   or   node fold.js add <slug> "<status>" < part.html   or   node fold.js push <space-id>');
   process.exit(2);
 }
 // Write whole files only (a temporary copy in draw/, then a rename), so no reader sees half of one.
@@ -61,6 +62,19 @@ function push(flag, value) {
   }
 }
 
+if (space === "start") {
+  // Step 1 in one call, so the skill needs no shell substitution: a status on the link, the space's
+  // id (the line `id: ...` of `spaces get`), and its source read into work/ by that id.
+  const link = process.argv[3];
+  const run = (args) => execFileSync(cli[0], [...cli.slice(1), ...args], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 60000 });
+  try { run(["live", "push", "--space", link, "--status", "Reading your brief"]); }
+  catch (e) { console.error(`status refused: ${String(e.stderr || e.message).trim().slice(0, 200)}`); }
+  const id = ((run(["spaces", "get", link]).match(/^ *id: (.*)$/m) || [])[1] || "").trim();
+  if (!id) { console.error(`start: no id in the answer to spaces get ${link}`); process.exit(1); }
+  process.stdout.write(run(["read", id, "-o", "work"]));
+  console.log(`space: ${id}`);
+  process.exit(0);
+}
 if (space === "push") {
   // Once, from the save line: a save lands behind the newest push, so push the page again.
   space = process.argv[3];
