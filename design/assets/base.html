@@ -26,9 +26,7 @@
   .switcher-tabs button[aria-selected="true"] { background: #111; color: #fff; border-color: #111; }
   .switcher-tabs button:focus-visible { outline: 3px solid #2563eb; outline-offset: 2px; }
   .switcher-line { margin: 6px 2px 0; font-size: 13px; color: #555; min-height: 1.3em; }
-  .direction { display: none; }
-  .direction.on { display: block; }
-  html:has(meta[name="ss-canvas"][content="on"]) .direction { display: block; }
+  html:not(:has(meta[name="ss-canvas"][content="on"])) .direction:not(.on) { display: none; }
   /* switcher: end */
 
   /* shared: what every direction uses */
