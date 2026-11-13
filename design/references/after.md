@@ -20,7 +20,7 @@ When the person wants sign-off ("send it to the client", "get approval", "I need
    ```
    Add a line above it saying which version it approves ("You're approving version 6, 11 Nov").
 2. Tell the person how it works: they share the link, and the client needs no account. Each answer is emailed to them and kept in the space's private records. Clients can comment on any block too.
-3. When the decision comes back, record it under Decisions. A request for changes is a revision (SKILL.md, step 7).
+3. When the decision comes back, record it under Decisions. A request for changes is a revision (SKILL.md, section 7).
 
 ## Hand it to a developer
 

@@ -16,13 +16,13 @@ You make designs as spaces: one self-contained HTML document that the person ope
 `<space>` below is the space's id, from step 1 on (saves by its link are refused from the second one on). Write it in full in every shell call, since each call starts fresh. A push draws the page in every open tab in about 2 seconds. A save takes 15 seconds or more, so saves run in the background (the save line, below) and never hold up the next push. Without a shell (a Shepherd turn), take the same steps with your own tools.
 
 1. **Start at once.** With the link the person gave: `npx -y spacesheep@latest live push --space <link> --status "Reading your brief" && npx -y spacesheep@latest spaces get <link> | head -2 && npx -y spacesheep@latest read <link> -o work`. Its `id:` line is `<space>`. If `work/index.html` isn't a design yet, copy the starter over it: `cp assets/base.html work/index.html` from this skill's folder, or fetched: `npx -y spacesheep@latest skills get @spacesheep/design --path assets/base.html --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).file.text))' > work/index.html`. With no space yet, put the starter in `work`: `npx -y spacesheep@latest deploy work --title "<working title>" --json` makes one, and its `space.id` is `<space>`.
-2. **Push the frame within 90 seconds, before you read anything else.** From the brief alone, set the title and each direction's slug, name, line and tokens in `work/index.html` (step 2 below says how many). Push it, save it, and say in chat: "Three directions on the way: Harbour Chart, Night Watch, Logbook. Say if one is wrong."
+2. **Push the frame within 90 seconds, before you read anything else.** From the brief alone, set the title and each direction's slug, name, line and tokens in `work/index.html` (section 2 says how many). Push it, save it, and say in chat: "Three directions on the way: Harbour Chart, Night Watch, Logbook. Say if one is wrong."
 3. **Read what the brief points at,** with a status for each thing ("Reading Spark's Orbit pages"). The moment the shared look is set (the brand's tokens, logo and fonts), push it, so the frame changes colour and type before any section is written. If the reading changes a direction, rename it and push. Names and slugs may change until a direction's first part is drawn.
 4. **Draw breadth first, in parts of at most 45 seconds of writing.** After each part, push the page and the next part's status in one shell call: `npx -y spacesheep@latest live push --space <space> --html "$(cat work/index.html)" && npx -y spacesheep@latest live push --space <space> --status "Drawing Night Watch: prices"`.
-   1. **The top of every direction first.** Replace each direction's `.drawing` block with its hero, pushing after each one. The person sees all three ideas within about 3 minutes and can redirect before most of the work is spent. Save once all three tops are in, and say so in chat.
+   1. **The top of every direction first** (of one design, its top). Replace each direction's `.drawing` block with its hero, pushing after each one. The person sees all three ideas within about 3 minutes and can redirect before most of the work is spent. Save once all three tops are in, and say so in chat.
    2. **Then fill in each direction, top down,** one part at a time: the hero's detail, then the list, then the rest. A part that would take longer than 45 seconds to write is two parts. When a direction is complete, save it with its picture and say one line in chat.
-5. **Nothing waits for a look.** A finished direction's save leaves a picture of it, `<slug>.png`, about 30 seconds later. When it's there, look at it and run the checks in step 5 on your source while you go on drawing. Their fixes go into a later push. If `save.log` shows an error, fix it and save again. No local browser, Playwright, local server or build script.
-6. **Finish.** Run the last save in the foreground, `npx -y spacesheep@latest deploy work --space <space> -m "Three directions"`, so your reply names a saved version (step 6).
+5. **Nothing waits for a look.** A finished direction's save leaves a picture of it, `<slug>.png`, about 30 seconds later. When it's there, look at it and run the checks in section 5 on your source while you go on drawing. Their fixes go into a later push. If `save.log` shows an error, fix it and save again. No local browser, Playwright, local server or build script.
+6. **Finish.** Run the last save in the foreground, `npx -y spacesheep@latest deploy work --space <space> -m "Three directions"`, so your reply names a saved version (section 6).
 
 **The save line**, for the frame, the three tops and each finished direction, never one per part. It saves, pushes the newest page again (a save lands seconds behind your newest push), puts the status back (a save takes it down), and takes the picture:
 
@@ -30,7 +30,7 @@ You make designs as spaces: one self-contained HTML document that the person ope
 (npx -y spacesheep@latest deploy work --space <space> -m "Night Watch" && npx -y spacesheep@latest live push --space <space> --html "$(cat work/index.html)" && npx -y spacesheep@latest live push --space <space> --status "Drawing Logbook" && npx -y spacesheep@latest spaces screenshot <space> --width 1920 --height 1080 --section direction-night-watch -o night-watch.png) > save.log 2>&1 &
 ```
 
-The frame's and the tops' saves take no picture: end their line after the status. Keep the page under 100 KB (no embedded fonts or images), so a push fits in one shell argument.
+The frame's and the tops' saves take no picture: end their line after the status. Keep the page under 100 KB, so a push fits in one shell argument.
 
 ## What good looks like
 
@@ -40,7 +40,7 @@ The frame's and the tops' saves take no picture: end their line after the status
 - **Every fact survives.** Each name, price, time, item and claim in the request appears in the design, spelled as given.
 - **It is easy to change.** Stable `data-ss-id`s mean comments stay pinned across versions. Colours and spacing live in CSS variables, so a change is one edit.
 - **It keeps its history.** Each change is its own version with a one-line reason, and decisions are written down on the space.
-- **It looks chosen, not generated.** Each screen has one place for the eye, one accent and one bold move, and nothing a template would add by habit.
+- **It looks chosen, not generated.** Nothing a template would add by habit.
 
 When readability and style pull apart, choose in this order: readable and accessible, easy to use, a clear hierarchy, then style, then decoration.
 
@@ -67,7 +67,7 @@ The frame goes up from the request alone (order of work, step 2). Everything els
    4. Nothing. Choose a look on purpose and say which and why in your reply. Set it from who it's for, on four dials: colour mood, type character, density and decoration. A plumber's page is plain, sturdy and quick to scan; a wine bar is dark, fine and spare; a kids' swim club is bright and rounded; a clearance sale is loud and dense.
    If they said "our brand" and none of these exist, ask once which they mean, and build in a neutral look meanwhile.
 3. **The space as it is now.** A redesign starts from the space's source, not the starter: it keeps every word, link, form and `data-ss-id` unless the person asked for new ones.
-4. **The kind of design:** a one-pager or landing page, a clickable prototype, something for paper, a deck, or a set of components. Each has a part in step 4.
+4. **The kind of design:** a one-pager or landing page, a clickable prototype, something for paper, a deck, or a set of components. Each has a part in section 4.
 
 Ask at most one question, and only when a wrong guess would waste the whole build. Otherwise make the best guess, build it, and name the guess in your reply.
 
@@ -78,7 +78,7 @@ Ask at most one question, and only when a wrong guess would waste the whole buil
 - Read references/directions.md while the frame is up (order of work, step 3), and rename the directions if it changes them. It covers how to make them differ, how to name them and the mistakes to avoid.
 - **All the directions sit in one space,** in one row on the canvas, with the pinned switcher: `assets/base.html` has both. Each direction is a `<section class="direction" data-ss-section data-ss-id="direction-<slug>" data-ss-thing="direction/<slug>">`. The `data-ss-thing` keeps comments on a direction while another shows. A link ending in `#direction-<slug>` opens that direction, and in a chat reply a button opens one with `{"emit": {"name": "show-direction", "data": {"id": "direction-<slug>"}}}`.
 - **Name each direction by its idea** in 1 to 3 words ("Harbour Chart", "Night Watch", "Logbook"), never "Option A". Its line says what it is for ("Calm and plain, for owners who check once a month").
-- **When the person picks one** ("the third, but bolder"), change only that direction, and make it the one the space opens on (`data-default`). Remove the others only when they say to ("go with it", "drop the others"), and record the pick under Decisions (step 6).
+- **When the person picks one** ("the third, but bolder"), change only that direction, and make it the one the space opens on (`data-default`). Remove the others only when they say to ("go with it", "drop the others"), and record the pick under Decisions (section 6).
 
 ## 3. Build it so it works
 
@@ -137,7 +137,7 @@ Reply in at most five short lines:
 
 - **A request can come from the chat or from a comment that asks Shepherd** (it mentions @shepherd, or the person tapped Send to Shepherd). A comment is pinned to a block, and that block is the target: change only what it names.
 - **Read the current source first** (`npx -y spacesheep@latest read <space> -o work`). The person may have changed words in Edit mode since your last version. Keep their edits.
-- **Show it, then save it.** Push a status, make the smallest change on the block's `data-ss-id`, push the page, then save it with the save line. Replace the whole document only for a redesign. Keep every `data-ss-id`.
+- **Show it, then save it.** Push a status, make the smallest change on the block's `data-ss-id`, push the page, then save it with the save line. Replace the whole document only for a redesign.
 - **"Keep the layout" means nothing moves.** Change only token values, words or the one property named. A mood word ("calmer", "bolder") moves the matching tokens: hue and neutrals for colour, size and weight for type. Check contrast again.
 - **Several asks:** make and push them one at a time, then save once.
 - **Close the loop.** On a turn started from a comment, your reply is posted under it and you can't resolve it: say what changed in one line. On a chat turn, resolve each comment your change answered.
@@ -151,7 +151,7 @@ For client approval, a hand-off to a developer, saving a look as a brand, the tw
 ## Worked examples
 
 **"Brand sheet and logo attached. We need a flyer for Harbour Lane Library's winter talks: a title, four talks with dates and speakers, the address and a book-a-seat button. People will read it on a phone, and we'll pin it up printed on one A4 page."**
-One design, because the brand and content are fixed. Push the frame with the title and the brand's tokens at once. Then read the brand sheet (references/brand.md), paste the logo inline, and draw top-down: the title block, the four talks with the date first, the address, the button. Add `@page { size: A4; margin: 12mm }` and the Download PDF button. Save it, look at its picture, and check: 4 talks, every colour a token, one A4 sheet. Reply: "Flyer in your brand. I wrote the title as 'Winter talks at Harbour Lane'. Comment on any block with @shepherd to change it."
+One design, because the brand and content are fixed. Push the frame at once, then read the brand sheet (references/brand.md) and push the shared look: its tokens and the logo inline. Draw top down: the title block, the four talks with the date first, the address, the button. Add `@page { size: A4; margin: 12mm }` and the Download PDF button. Save it, look at its picture, and check: 4 talks, every colour a token, one A4 sheet. Reply: "Flyer in your brand. I wrote the title as 'Winter talks at Harbour Lane'. Comment on any block with @shepherd to change it."
 
 **The comment "@shepherd just the date and the title, and make the dates our navy", pinned on the talks list.**
 Edit only inside `talks`: cut each talk to its date and title, keeping every id, and set the dates to `var(--brand-ink)`. Check the contrast, push, save, and reply in one line with both changes.
@@ -164,7 +164,7 @@ Then "The third one, but bolder. Don't touch the words." Change only the type an
 
 - assets/base.html: the starter page, with the metas, the switcher, tokens and three empty directions. Copy it at step 1.
 - references/directions.md: making directions differ and naming them. Read it at order of work, step 3.
-- references/brand.md: reading a brand sheet into tokens, the brand check, and the design system note format. Read it at step 3 when a brand is given or asked for.
+- references/brand.md: reading a brand sheet into tokens, the brand check, and the design system note format. Read it at order of work, step 3, when a brand is given.
 - references/prototypes.md: screens, navigation and state in one space. Read it before drawing a prototype.
 - references/after.md: approval, hand-off, saving a brand, the tweaks panel and the limits. Read it when one comes up.
 - references/handoff.md: the "For developers" section. Read it before a hand-off.
