@@ -9,7 +9,7 @@ You make designs as spaces: one self-contained HTML document that the person ope
 
 **The person watches the page fill in as you build it. Nothing waits for a check before its first push, and no 45 seconds pass with nothing new on the page or in its status line.**
 
-**Your budget:** the first direction's top on the page by 2 minutes, every direction's by 4, finished and saved by 6. A choice you can revise later, make now and push. At a high effort you will want to deliberate before every part: think a direction through once, then write all of it.
+**Your budget:** the first direction's top on the page by 2 minutes, every direction's by 4, finished and saved by 6. A choice you can revise later, make now and push. At a high effort, send each direction's top before any long thought, then think the rest through once.
 
 **Getting this skill:** as a folder, everything is here. Otherwise, `npx -y spacesheep@latest skills get @spacesheep/design --view full` gives these words and the file list, and a file is fetched with `npx -y spacesheep@latest skills get @spacesheep/design --path <file> --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).file.text))' > <where>`. Read a reference only at the step that names it.
 
@@ -26,7 +26,7 @@ You make designs as spaces: one self-contained HTML document that the person ope
    <div class="prices" data-ss-id="night-watch-prices">…</div>
    PART
    ```
-5. **Draw, from 1:00.** With helpers you can start (subagents, parallel tasks), give each direction to one: the helpers, below. Otherwise draw it yourself the same way. Think the design through once, then send its parts as calls in one message, with no checks between them: the top of every direction first, then each direction top down. A part goes inside its direction's section, takes at most 45 seconds of writing, and every id in it starts with the slug. Your last call counts the request's facts in each `draw/<slug>.html` and adds any that's missing.
+5. **Draw, from 1:00.** With helpers you can start (subagents, parallel tasks), give each direction to one: the helpers, below. Otherwise draw it yourself the same way: every direction's top first, before any long thought, then the rest, thought through once and sent as calls in one message with no checks between them, each direction top down. A part goes inside its direction's section, takes at most 45 seconds of writing, and every id in it starts with the slug. Your last call counts the request's facts in each `draw/<slug>.html` and adds any that's missing.
 6. **Finish in one pass.** `sleep 3 && touch draw/stop`, so the page has the last parts and the writer stops. Save with a picture of each direction (the save line). Meanwhile run checks 2 to 7 of section 5 on the source of any direction not yet checked. When the pictures are there, look at each once (check 8), make one round of fixes, then save in the foreground, `npx -y spacesheep@latest deploy work --space <space> -m "Three directions"`, so your reply names a saved version (section 6). Skip that save when nothing needed fixing. If `save.log` shows an error, fix it and save again. No local browser, Playwright, local server or build script.
 
 **The save line**, for the frame and the finish, never one per part. It saves, pushes the newest page again (a save lands behind your newest push), puts the status back (a save takes it down), and takes the pictures at once:
@@ -40,7 +40,7 @@ The frame's save takes no picture: end its line after the status. Keep the page 
 **The helpers**, one per direction, all started in one message at 1:00, with the tokens or without them:
 
 1. **First write `draw/BRIEF.md`:** the request word for word, every fact in it, the product's name and real navigation labels, the tokens found so far, and each direction's slug, name, line and idea.
-2. **Keep each prompt short:** "Read `<folder>/draw/BRIEF.md` and sections 3 and 4 of `<this skill's folder>/SKILL.md`, then only the code your direction needs. Draw only Night Watch (`night-watch`) with `fold.js add` from `<folder>` (order of work, step 4): every id starting `night-watch-`, each part at most 45 seconds of writing. Think it through once, then send all its parts as calls in one message, its top first, with no checks between them. Your last call counts the brief's facts in `draw/night-watch.html` and adds any that's missing. Then stop: no other checks and no rewrites, since the lead looks at the picture. Never push, save or touch another direction's files." Say in chat that the three are being drawn at once.
+2. **Keep each prompt short:** "Read `<folder>/draw/BRIEF.md` and sections 3 and 4 of `<this skill's folder>/SKILL.md`. Draw only Night Watch (`night-watch`) with `fold.js add` from `<folder>` (order of work, step 4): every id starting `night-watch-`, each part at most 45 seconds of writing. Send its top at once, from the brief, before any long thought. Then read only the code it needs, think the rest through once, and send it as calls in one message, with no checks between them. Your last call counts the brief's facts in `draw/night-watch.html` and adds any that's missing. Then stop: no other checks and no rewrites, since the lead looks at the picture. Never push, save or touch another direction's files." Say in chat that the three are being drawn at once.
 3. **While they draw,** put the shared look you find after 1:00 in `draw/frame.html`: helpers write with its variables, so the page takes it at the next fold. As each helper comes back, run checks 2 to 7 of section 5 on its `draw/<slug>.html` and fix there: the writer folds it in. When all are back, finish (step 6).
 
 ## What good looks like
@@ -151,7 +151,7 @@ Reply in at most five short lines:
 - **"Keep the layout" means nothing moves.** Change only token values, words or the one property named. A mood word ("calmer", "bolder") moves the matching tokens: hue and neutrals for colour, size and weight for type. Check contrast again.
 - **Several asks:** make and push them one at a time, then save once.
 - **Close the loop.** On a turn started from a comment, your reply is posted under it and you can't resolve it: say what changed in one line. On a chat turn, resolve each comment your change answered.
-- **Every change is a version,** so history reads as a changelog. "Undo that" restores the earlier values in a new version; any version can also be restored from the space's history.
+- **Every change is a version,** so history reads as a changelog. "Undo that" restores the earlier values in a new version.
 - **Trying something without losing the current design:** add it as a new direction named for what changed ("Night Watch, lighter").
 
 ## 8. After the build
