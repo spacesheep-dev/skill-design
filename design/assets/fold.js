@@ -8,14 +8,15 @@
 //
 //   node fold.js <space-id> &                    the loop, from the folder holding work/ and draw/
 //   node fold.js add <slug> "<status>" < part    add a part above the end line, set the status
+//   node fold.js push <space-id>                 push work/index.html once (the save line)
 //   touch draw/pushnow                           push the page again (after a save lands)
 //   touch draw/stop                              stop (it also stops after 30 minutes)
 const fs = require("fs");
 const { execFileSync, execSync } = require("child_process");
 
-const space = process.argv[2];
+let space = process.argv[2];
 if (!space) {
-  console.error('usage: node fold.js <space-id>   or   node fold.js add <slug> "<status>" < part.html');
+  console.error('usage: node fold.js <space-id>   or   node fold.js add <slug> "<status>" < part.html   or   node fold.js push <space-id>');
   process.exit(2);
 }
 // Write whole files only (a temporary copy in draw/, then a rename), so no reader sees half of one.
@@ -45,17 +46,27 @@ for (const find of ["command -v spacesheep", "npx -y -p spacesheep@latest -c 'co
 
 const read = (f) => { try { return fs.readFileSync(f, "utf8"); } catch { return null; } };
 const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
-const log = (line) => fs.appendFileSync("draw/fold.log", `${new Date().toISOString()} ${line}\n`);
+const log = (line) => { fs.mkdirSync("draw", { recursive: true }); fs.appendFileSync("draw/fold.log", `${new Date().toISOString()} ${line}\n`); };
 
+// The page goes through stdin, as JSON to the push_live tool: no argument limit (Linux refuses one over 128 KB).
 function push(flag, value) {
+  const html = flag === "--html";
   try {
-    execFileSync(cli[0], [...cli.slice(1), "live", "push", "--space", space, flag, value],
-      { stdio: ["ignore", "ignore", "pipe"], timeout: 20000 });
+    execFileSync(cli[0], [...cli.slice(1), ...(html ? ["call", "push_live", "-"] : ["live", "push", "--space", space, flag, value])],
+      { input: html ? JSON.stringify({ space, html: value }) : "", stdio: ["pipe", "ignore", "pipe"], timeout: 20000 });
     return true;
   } catch (e) {
     log(`${flag} refused: ${String(e.stderr || e.message).trim().slice(0, 300)}`);
     return false;
   }
+}
+
+if (space === "push") {
+  // Once, from the save line: a save lands behind the newest push, so push the page again.
+  space = process.argv[3];
+  const ok = push("--html", fs.readFileSync("work/index.html", "utf8"));
+  console.log(ok ? `pushed ${fs.statSync("work/index.html").size} bytes` : "push refused: see draw/fold.log");
+  process.exit(ok ? 0 : 1);
 }
 
 const good = {};

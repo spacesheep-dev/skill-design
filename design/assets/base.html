@@ -41,6 +41,22 @@
   :focus-visible { outline: 3px solid currentColor; outline-offset: 3px; }
   .direction { background: var(--brand-ground); color: var(--brand-ink); font: var(--step-0)/1.6 var(--font-body); min-height: 70vh; }
 
+  /* phone guard: rows wrap and stack, so nothing scrolls sideways or runs past an edge at 390 px */
+  :where(.direction *) { min-width: 0; }
+  :where(.direction) :where(pre, code, kbd, samp) { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .cards { display: grid; gap: calc(var(--space) * 2); grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+    margin: 0; padding: 0; list-style: none; }
+  .stack { width: 100%; border-collapse: collapse; }
+  @media (max-width: 40rem) {
+    .stack, .stack tbody, .stack tr { display: block; }
+    .stack thead { display: none; }
+    .stack tr { padding: var(--space) 0; border-bottom: 1px solid color-mix(in srgb, currentColor 20%, transparent); }
+    .stack td { display: flex; align-items: baseline; justify-content: space-between; gap: calc(var(--space) * 2); padding: 2px 0; text-align: right; }
+    .stack td::before { content: attr(data-label); text-align: left; opacity: .75; }
+    .stack td:first-child { justify-content: flex-start; text-align: left; font-weight: 600; }
+    .stack td:first-child::before { content: none; }
+  }
+
   /* each direction: its own tokens */
   [data-ss-id="direction-first"]  { --brand-ink: #1d2320; --brand-ground: #f3f5f2; --brand-accent: #1f6f50;
     --font-display: "Iowan Old Style", Palatino, Georgia, serif; --font-body: "Avenir Next", "Segoe UI", sans-serif; }
