@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
   The starter page: copy it to index.html.
-  1. Set the title, and for each direction its slug (direction-slug, its blocks slug-part), data-name, data-line and tokens.
+  1. Set the title, and for each direction its slug (direction-slug, its blocks slug-part), data-ss-label (its name), data-line and tokens.
   2. Push it: that is the frame. Then fill one direction at a time, replacing its .drawing block.
   One design, not directions: keep one section, and drop the switcher's nav and script.
   Keep the metas, the switcher and the ids.
@@ -66,15 +66,15 @@
   <p class="switcher-line" aria-live="polite"></p>
 </nav>
 
-<section class="direction" data-ss-frame="desktop" data-ss-section data-ss-id="direction-first" data-ss-thing="direction/first" data-ss-label="First" data-name="First" data-line="One line on what it leads with." data-ss-x="0" data-ss-y="0">
+<section class="direction" data-ss-frame="desktop" data-ss-section data-ss-id="direction-first" data-ss-thing="direction/first" data-ss-label="First" data-line="One line on what it leads with." data-ss-x="0" data-ss-y="0">
   <div class="drawing" data-ss-id="first-drawing"><h2>First</h2><p>Being drawn…</p><i></i><i></i><i></i></div>
 </section>
 
-<section class="direction" data-ss-frame="desktop" data-ss-section data-ss-id="direction-second" data-ss-thing="direction/second" data-ss-label="Second" data-name="Second" data-line="One line on what it leads with." data-ss-x="1352" data-ss-y="0">
+<section class="direction" data-ss-frame="desktop" data-ss-section data-ss-id="direction-second" data-ss-thing="direction/second" data-ss-label="Second" data-line="One line on what it leads with." data-ss-x="1352" data-ss-y="0">
   <div class="drawing" data-ss-id="second-drawing"><h2>Second</h2><p>Being drawn…</p><i></i><i></i><i></i></div>
 </section>
 
-<section class="direction" data-ss-frame="desktop" data-ss-section data-ss-id="direction-third" data-ss-thing="direction/third" data-ss-label="Third" data-name="Third" data-line="One line on what it leads with." data-ss-x="2704" data-ss-y="0">
+<section class="direction" data-ss-frame="desktop" data-ss-section data-ss-id="direction-third" data-ss-thing="direction/third" data-ss-label="Third" data-line="One line on what it leads with." data-ss-x="2704" data-ss-y="0">
   <div class="drawing" data-ss-id="third-drawing"><h2>Third</h2><p>Being drawn…</p><i></i><i></i><i></i></div>
 </section>
 
@@ -85,7 +85,7 @@
   const line = document.querySelector('.switcher-line');
   if (!tabs) return;
   const all = () => [...document.querySelectorAll('section.direction')];
-  const label = (d) => d.dataset.name || d.dataset.ssId;
+  const label = (d) => d.dataset.ssLabel || d.dataset.name || d.dataset.ssId;
   let cur = null;
   function fromHash() {
     const dirs = all(), id = decodeURIComponent(location.hash.slice(1));
@@ -121,7 +121,7 @@
       || !document.contains(cur) || line.textContent !== (cur.dataset.line || '');
   };
   new MutationObserver(() => { if (stale()) draw(); })
-    .observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-name', 'data-line', 'data-ss-id'] });
+    .observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-ss-label', 'data-name', 'data-line', 'data-ss-id'] });
   addEventListener('hashchange', () => show(fromHash()));
   draw();
   if (cur && !location.hash && cur.hasAttribute('data-default') && document.querySelector('meta[name="ss-canvas"][content="on"]')) {

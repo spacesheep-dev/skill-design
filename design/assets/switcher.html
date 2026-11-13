@@ -2,7 +2,7 @@
 <!--
   The direction switcher. Copy the <style>, the <nav> and the <script> into the design,
   and make each direction a <section class="direction" data-ss-frame="desktop" data-ss-section data-ss-id="direction-<slug>"
-  data-ss-thing="direction/<slug>" data-ss-label="<Name>"> with a data-name (shown on its tab) and a data-line (one line under the tabs).
+  data-ss-thing="direction/<slug>" data-ss-label="<Name>"> (its label is its tab) and a data-line (one line under the tabs).
   - A link ending in #direction-<slug> opens that direction.
   - data-default on one section makes it the one the space opens on (after a pick).
   - In a working canvas the tabs stay pinned at screen size and select the direction.
@@ -49,13 +49,13 @@
   <p class="switcher-line" aria-live="polite"></p>
 </nav>
 
-<section class="direction" data-ss-frame="desktop" data-ss-section data-ss-id="direction-harbour-chart" data-ss-x="0" data-ss-y="0" data-ss-thing="direction/harbour-chart" data-ss-label="Harbour Chart" data-name="Harbour Chart" data-line="Calm and plain; leads with the due date.">
+<section class="direction" data-ss-frame="desktop" data-ss-section data-ss-id="direction-harbour-chart" data-ss-x="0" data-ss-y="0" data-ss-thing="direction/harbour-chart" data-ss-label="Harbour Chart" data-line="Calm and plain; leads with the due date.">
   <div class="demo d1"><h1 data-ss-id="chart-headline">Never miss a mooring fee</h1><p data-ss-id="chart-intro">Demo direction one.</p></div>
 </section>
-<section class="direction" data-ss-frame="desktop" data-ss-section data-ss-id="direction-night-watch" data-ss-x="1352" data-ss-y="0" data-ss-thing="direction/night-watch" data-ss-label="Night Watch" data-name="Night Watch" data-line="Dark field and huge type; leads with the promise.">
+<section class="direction" data-ss-frame="desktop" data-ss-section data-ss-id="direction-night-watch" data-ss-x="1352" data-ss-y="0" data-ss-thing="direction/night-watch" data-ss-label="Night Watch" data-line="Dark field and huge type; leads with the promise.">
   <div class="demo d2"><h1 data-ss-id="nightwatch-headline">Your fees, on watch</h1><p data-ss-id="nightwatch-intro">Demo direction two.</p></div>
 </section>
-<section class="direction" data-ss-frame="desktop" data-ss-section data-ss-id="direction-logbook" data-ss-x="2704" data-ss-y="0" data-ss-thing="direction/logbook" data-ss-label="Logbook" data-name="Logbook" data-line="Editorial columns; leads with the price.">
+<section class="direction" data-ss-frame="desktop" data-ss-section data-ss-id="direction-logbook" data-ss-x="2704" data-ss-y="0" data-ss-thing="direction/logbook" data-ss-label="Logbook" data-line="Editorial columns; leads with the price.">
   <div class="demo d3"><h1 data-ss-id="logbook-headline">£6 a month</h1><p data-ss-id="logbook-intro">Demo direction three.</p></div>
 </section>
 
@@ -66,7 +66,7 @@
   const line = document.querySelector('.switcher-line');
   if (!tabs) return;
   const all = () => [...document.querySelectorAll('section.direction')];
-  const label = (d) => d.dataset.name || d.dataset.ssId;
+  const label = (d) => d.dataset.ssLabel || d.dataset.name || d.dataset.ssId;
   let cur = null;
   function fromHash() {
     const dirs = all(), id = decodeURIComponent(location.hash.slice(1));
@@ -102,7 +102,7 @@
       || !document.contains(cur) || line.textContent !== (cur.dataset.line || '');
   };
   new MutationObserver(() => { if (stale()) draw(); })
-    .observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-name', 'data-line', 'data-ss-id'] });
+    .observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-ss-label', 'data-name', 'data-line', 'data-ss-id'] });
   addEventListener('hashchange', () => show(fromHash()));
   draw();
   if (cur && !location.hash && cur.hasAttribute('data-default') && document.querySelector('meta[name="ss-canvas"][content="on"]')) {

@@ -9,18 +9,26 @@ You make designs as spaces: one self-contained HTML document that the person ope
 
 **The person watches the page fill in as you build it. Nothing waits for a check before its first push, and no 45 seconds pass with nothing new on the page or in its status line.**
 
-**Getting this skill:** as a folder, everything is here. Otherwise, `npx -y spacesheep@latest skills get @spacesheep/design --view full` gives these words and the file list, and adding `--path assets/base.html` gives the starter page. Read a reference only at the step that names it.
+**Getting this skill:** as a folder, everything is here. Otherwise, `npx -y spacesheep@latest skills get @spacesheep/design --view full` gives these words and the file list, and step 1 fetches the starter page. Read a reference only at the step that names it.
 
 ## Order of work
 
-In a terminal, set `ss="npx -y spacesheep@latest"` and `S` to the space's link. A push draws the page in every open tab in about 100 ms, with no new version. A deploy saves a version. Without a shell (a Shepherd turn), take the same steps with your own tools.
+Below, `<space>` is the space's link: write it in full in every shell call, since each call starts fresh. A push draws the page in every open tab in about 2 seconds. A save (deploy) takes 15 seconds or more, so saves run in the background and never hold up the next push. Without a shell (a Shepherd turn), take the same steps with your own tools.
 
-1. **Start at once.** Copy `assets/base.html` to `index.html`. On a space already: `$ss live push --space $S --status "Reading your brief"`. With no space yet, `$ss deploy index.html --title "<working title>" --json` makes one (its `url` is `S`); then push the status.
-2. **Push the frame within 90 seconds, before you read anything else.** From the brief alone, set the title, each direction's name, line and tokens in `index.html` (step 2 below says how many). Then show and save it in one line: `$ss live push --space $S --html "$(cat index.html)" && $ss deploy index.html --space $S -m "Frame"`. Say in chat: "Three directions on the way: Harbour Chart, Night Watch, Logbook. Say if one is wrong."
+1. **Start at once.** `npx -y spacesheep@latest live push --space <space> --status "Reading your brief"`, then `npx -y spacesheep@latest read <space> -o work`. If `work/index.html` isn't a design yet, copy the starter over it: `cp assets/base.html work/index.html` from this skill's folder, or fetched: `npx -y spacesheep@latest skills get @spacesheep/design --path assets/base.html --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).file.text))' > work/index.html`. With no space yet, put the starter in `work` and `npx -y spacesheep@latest deploy work --title "<working title>" --json` makes one (its `url` is the space).
+2. **Push the frame within 90 seconds, before you read anything else.** From the brief alone, set the title and each direction's slug, name, line and tokens in `work/index.html` (step 2 below says how many). Push it, then save it behind you (the save line, below), and say in chat: "Three directions on the way: Harbour Chart, Night Watch, Logbook. Say if one is wrong."
 3. **Read what the brief points at,** pushing a status for each thing you read ("Reading Spark's Orbit pages"), then settle the brand (step 1 below). If the reading changes a direction, rename it and push again. Names and slugs may change until a direction's first part is drawn.
-4. **Draw one direction at a time, top of the page first.** Replace its `.drawing` block with its first part (the hero) and push: `$ss live push --space $S --html "$(cat index.html)"`. Write and push each next part the same way, with a status for each ("Drawing Night Watch: prices"). When the direction is done, deploy it (`-m "Night Watch"`) and say one line in chat. A deploy takes the status line down: push the next one straight after.
-5. **Look once it's visible.** After each direction's deploy, take one picture, `$ss spaces screenshot $S --width 390 --section direction-<slug> -o shot.png`, and run the checks in step 5 on your source. Fix what they find in the next push. No local browser, Playwright, local server or build script.
-6. **Finish.** Deploy the last fixes (`-m "Three directions"`), then reply (step 6).
+4. **Draw one direction at a time, top of the page first.** Replace its `.drawing` block with its first part (the hero) and push, with its status in the same shell call: `npx -y spacesheep@latest live push --space <space> --html "$(cat work/index.html)" && npx -y spacesheep@latest live push --space <space> --status "Drawing Night Watch: prices"`. Write and push each next part the same way. When the direction is done, say one line in chat, save it with the save line, and go straight on to the next direction.
+5. **Look once it's saved.** Each direction's save leaves a picture of it, `<slug>.png`, after about 30 seconds. When it's there, look at it and run the checks in step 5 on your source. Fix what they find in your next push. If `save.log` shows an error, fix it and save again. No local browser, Playwright, local server or build script.
+6. **Finish.** Run the last save in the foreground, `npx -y spacesheep@latest deploy work --space <space> -m "Three directions"`, so your reply names a saved version (step 6).
+
+**The save line**, for the frame and each finished direction (never one per part). It saves, pushes the page again (a save lands seconds later, behind your newest push), puts the status back (a save takes it down), and takes a picture of the direction:
+
+```sh
+(npx -y spacesheep@latest deploy work --space <space> -m "Night Watch" && npx -y spacesheep@latest live push --space <space> --html "$(cat work/index.html)" && npx -y spacesheep@latest live push --space <space> --status "Drawing Logbook" && npx -y spacesheep@latest spaces screenshot <space> --width 1920 --height 1080 --section direction-night-watch -o night-watch.png) > save.log 2>&1 &
+```
+
+The frame's save has no picture: end it after the status.
 
 ## What good looks like
 
@@ -126,10 +134,10 @@ Reply in at most five short lines:
 ## 7. Revise from comments and chat
 
 - **A request can come from the chat or from a comment that asks Shepherd** (it mentions @shepherd, or the person tapped Send to Shepherd). A comment is pinned to a block, and that block is the target: change only what it names.
-- **Read the current source first** (`$ss read $S -o .`). The person may have changed words in Edit mode since your last version. Keep their edits.
-- **Show it, then save it.** Push a status, make the smallest change on the block's `data-ss-id`, push the page, then deploy. Replace the whole document only for a redesign. Keep every `data-ss-id`.
+- **Read the current source first** (`npx -y spacesheep@latest read <space> -o work`). The person may have changed words in Edit mode since your last version. Keep their edits.
+- **Show it, then save it.** Push a status, make the smallest change on the block's `data-ss-id`, push the page, then save it with the save line. Replace the whole document only for a redesign. Keep every `data-ss-id`.
 - **"Keep the layout" means nothing moves.** Change only token values, words or the one property named. A mood word ("calmer", "bolder") moves the matching tokens: hue and neutrals for colour, size and weight for type. Check contrast again.
-- **Several asks:** make and push them one at a time, then deploy once.
+- **Several asks:** make and push them one at a time, then save once.
 - **Close the loop.** On a turn started from a comment, your reply is posted under it and you can't resolve it: say what changed in one line. On a chat turn, resolve each comment your change answered.
 - **Every change is a version,** so history reads as a changelog. "Undo that" restores the earlier values in a new version; any version can also be restored from the space's history.
 - **Trying something without losing the current design:** add it as a new direction named for what changed ("Night Watch, lighter").
