@@ -49,9 +49,9 @@
     .stack, .stack tbody, .stack tr { display: block; }
     .stack thead { display: none; }
     .stack tr { padding: var(--space) 0; border-bottom: 1px solid color-mix(in srgb, currentColor 20%, transparent); }
-    .stack td { display: flex; align-items: baseline; justify-content: space-between; gap: calc(var(--space) * 2); padding: 2px 0; text-align: right; }
+    .stack td { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: calc(var(--space) * 2); padding: 2px 0; text-align: right; }
     .stack td::before { content: attr(data-label); text-align: left; opacity: .75; }
-    .stack td:first-child { justify-content: flex-start; text-align: left; font-weight: 600; }
+    .stack td:first-child { display: block; text-align: left; font-weight: 600; }
     .stack td:first-child::before { content: none; }
   }
 

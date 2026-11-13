@@ -1,14 +1,15 @@
 #!/usr/bin/env node
 // The page's only writer, so one agent or several helpers can draw one page part by part. Each
-// direction's parts collect in draw/<slug>.html (ending with the line `<!-- end <slug> -->`), its
-// status in draw/<slug>.status. The loop folds those files into draw/frame.html, between the
-// markers `<!-- part:<slug> -->` and `<!-- /part:<slug> -->`, writes work/index.html, and pushes
-// the page and the status whenever they change. A file caught half-written (no end line) is
-// skipped and the last whole copy is used, so the page never steps back.
+// part is a file, draw/<slug>/<NN>.html, written whole with an agent's Write tool (no shell), its
+// first line `<!-- status: Night Watch: prices -->`. The loop folds each direction's parts, in name
+// order, into draw/frame.html between the markers `<!-- part:<slug> -->` and `<!-- /part:<slug> -->`,
+// writes work/index.html, and pushes the page and the status whenever they change. A file changed in
+// the last 300 ms waits for the next pass, so a part is never folded half-written. (Older pages:
+// draw/<slug>.html ending with `<!-- end <slug> -->`, its status in draw/<slug>.status.)
 //
 //   node fold.js start <link>                    step 1: a status on the space, its id printed, its source in work/
 //   node fold.js <space-id> &                    the loop, from the folder holding work/ and draw/
-//   node fold.js add <slug> "<status>" < part    add a part above the end line, set the status
+//   node fold.js add <slug> "<status>" < part    the same as writing the next draw/<slug>/<NN>.html
 //   node fold.js push <space-id>                 push work/index.html once (the save line)
 //   touch draw/pushnow                           push the page again (after a save lands)
 //   touch draw/stop                              stop (it also stops after 30 minutes)
@@ -26,14 +27,11 @@ if (space === "add") {
   const slug = process.argv[3];
   if (!/^[a-z0-9-]+$/.test(slug || "")) { console.error("add: the slug is lowercase letters, digits and dashes"); process.exit(2); }
   const part = fs.readFileSync(0, "utf8").trim();
-  const file = `draw/${slug}.html`, end = `<!-- end ${slug} -->`;
-  fs.mkdirSync("draw", { recursive: true });
-  const was = fs.existsSync(file) ? fs.readFileSync(file, "utf8") : end + "\n";
-  const at = was.lastIndexOf(end);
-  const now = at < 0 ? `${was.trimEnd()}\n${part}\n${end}\n` : `${was.slice(0, at)}${part}\n${end}\n`;
-  swap(file, now);
-  if (process.argv[4]) swap(`draw/${slug}.status`, process.argv[4] + "\n");
-  console.log(`${slug}: ${now.length} bytes`);
+  fs.mkdirSync(`draw/${slug}`, { recursive: true });
+  const n = fs.readdirSync(`draw/${slug}`).filter((f) => /^\d+\.html$/.test(f)).length + 1;
+  const file = `draw/${slug}/${String(n).padStart(2, "0")}.html`;
+  swap(file, (process.argv[4] ? `<!-- status: ${process.argv[4]} -->\n` : "") + part + "\n");
+  console.log(`${file}: ${part.length} bytes`);
   process.exit(0);
 }
 // The CLI: one on the PATH, else npx's copy found once (a push then takes about 0.5 s, not 3).
@@ -89,9 +87,19 @@ function fold() {
   if (!frame) return null;
   const statuses = [];
   const html = frame.replace(/<!-- part:([a-z0-9-]+) -->([\s\S]*?)<!-- \/part:\1 -->/g, (m, slug, inner) => {
-    const part = read(`draw/${slug}.html`);
-    if (part && part.trimEnd().endsWith(`<!-- end ${slug} -->`)) good[slug] = part;
-    const status = (read(`draw/${slug}.status`) || "").trim().split("\n")[0];
+    const dir = `draw/${slug}`;
+    const files = fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => f.endsWith(".html")).sort() : [];
+    let status = "";
+    if (files.length) {
+      const fresh = files.some((f) => Date.now() - fs.statSync(`${dir}/${f}`).mtimeMs < 300);
+      const parts = files.map((f) => read(`${dir}/${f}`) || "");
+      if (!fresh) good[slug] = parts.join("\n");
+      status = ((parts[parts.length - 1].match(/^\s*<!-- status: (.*?) -->/) || [])[1] || "").trim();
+    } else {
+      const part = read(`draw/${slug}.html`);
+      if (part && part.trimEnd().endsWith(`<!-- end ${slug} -->`)) good[slug] = part;
+      status = (read(`draw/${slug}.status`) || "").trim().split("\n")[0];
+    }
     if (status) statuses.push(status);
     return `<!-- part:${slug} -->${good[slug] ?? inner}<!-- /part:${slug} -->`;
   });
