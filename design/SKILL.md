@@ -13,22 +13,24 @@ You make designs as spaces: one self-contained HTML document that the person ope
 
 ## Order of work
 
-Below, `<space>` is the space's link: write it in full in every shell call, since each call starts fresh. A push draws the page in every open tab in about 2 seconds. A save (deploy) takes 15 seconds or more, so saves run in the background and never hold up the next push. Without a shell (a Shepherd turn), take the same steps with your own tools.
+`<space>` below is the space's id, from step 1 on (saves by its link are refused from the second one on). Write it in full in every shell call, since each call starts fresh. A push draws the page in every open tab in about 2 seconds. A save takes 15 seconds or more, so saves run in the background (the save line, below) and never hold up the next push. Without a shell (a Shepherd turn), take the same steps with your own tools.
 
-1. **Start at once.** `npx -y spacesheep@latest live push --space <space> --status "Reading your brief"`, then `npx -y spacesheep@latest read <space> -o work`. If `work/index.html` isn't a design yet, copy the starter over it: `cp assets/base.html work/index.html` from this skill's folder, or fetched: `npx -y spacesheep@latest skills get @spacesheep/design --path assets/base.html --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).file.text))' > work/index.html`. With no space yet, put the starter in `work` and `npx -y spacesheep@latest deploy work --title "<working title>" --json` makes one (its `url` is the space).
-2. **Push the frame within 90 seconds, before you read anything else.** From the brief alone, set the title and each direction's slug, name, line and tokens in `work/index.html` (step 2 below says how many). Push it, then save it behind you (the save line, below), and say in chat: "Three directions on the way: Harbour Chart, Night Watch, Logbook. Say if one is wrong."
-3. **Read what the brief points at,** pushing a status for each thing you read ("Reading Spark's Orbit pages"), then settle the brand (step 1 below). If the reading changes a direction, rename it and push again. Names and slugs may change until a direction's first part is drawn.
-4. **Draw one direction at a time, top of the page first.** Replace its `.drawing` block with its first part (the hero) and push, with its status in the same shell call: `npx -y spacesheep@latest live push --space <space> --html "$(cat work/index.html)" && npx -y spacesheep@latest live push --space <space> --status "Drawing Night Watch: prices"`. Write and push each next part the same way. When the direction is done, say one line in chat, save it with the save line, and go straight on to the next direction.
-5. **Look once it's saved.** Each direction's save leaves a picture of it, `<slug>.png`, after about 30 seconds. When it's there, look at it and run the checks in step 5 on your source. Fix what they find in your next push. If `save.log` shows an error, fix it and save again. No local browser, Playwright, local server or build script.
+1. **Start at once.** With the link the person gave: `npx -y spacesheep@latest live push --space <link> --status "Reading your brief" && npx -y spacesheep@latest spaces get <link> | head -2 && npx -y spacesheep@latest read <link> -o work`. Its `id:` line is `<space>`. If `work/index.html` isn't a design yet, copy the starter over it: `cp assets/base.html work/index.html` from this skill's folder, or fetched: `npx -y spacesheep@latest skills get @spacesheep/design --path assets/base.html --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).file.text))' > work/index.html`. With no space yet, put the starter in `work`: `npx -y spacesheep@latest deploy work --title "<working title>" --json` makes one, and its `space.id` is `<space>`.
+2. **Push the frame within 90 seconds, before you read anything else.** From the brief alone, set the title and each direction's slug, name, line and tokens in `work/index.html` (step 2 below says how many). Push it, save it, and say in chat: "Three directions on the way: Harbour Chart, Night Watch, Logbook. Say if one is wrong."
+3. **Read what the brief points at,** with a status for each thing ("Reading Spark's Orbit pages"). The moment the shared look is set (the brand's tokens, logo and fonts), push it, so the frame changes colour and type before any section is written. If the reading changes a direction, rename it and push. Names and slugs may change until a direction's first part is drawn.
+4. **Draw breadth first, in parts of at most 45 seconds of writing.** After each part, push the page and the next part's status in one shell call: `npx -y spacesheep@latest live push --space <space> --html "$(cat work/index.html)" && npx -y spacesheep@latest live push --space <space> --status "Drawing Night Watch: prices"`.
+   1. **The top of every direction first.** Replace each direction's `.drawing` block with its hero, pushing after each one. The person sees all three ideas within about 3 minutes and can redirect before most of the work is spent. Save once all three tops are in, and say so in chat.
+   2. **Then fill in each direction, top down,** one part at a time: the hero's detail, then the list, then the rest. A part that would take longer than 45 seconds to write is two parts. When a direction is complete, save it with its picture and say one line in chat.
+5. **Nothing waits for a look.** A finished direction's save leaves a picture of it, `<slug>.png`, about 30 seconds later. When it's there, look at it and run the checks in step 5 on your source while you go on drawing. Their fixes go into a later push. If `save.log` shows an error, fix it and save again. No local browser, Playwright, local server or build script.
 6. **Finish.** Run the last save in the foreground, `npx -y spacesheep@latest deploy work --space <space> -m "Three directions"`, so your reply names a saved version (step 6).
 
-**The save line**, for the frame and each finished direction (never one per part). It saves, pushes the page again (a save lands seconds later, behind your newest push), puts the status back (a save takes it down), and takes a picture of the direction:
+**The save line**, for the frame, the three tops and each finished direction, never one per part. It saves, pushes the newest page again (a save lands seconds behind your newest push), puts the status back (a save takes it down), and takes the picture:
 
 ```sh
 (npx -y spacesheep@latest deploy work --space <space> -m "Night Watch" && npx -y spacesheep@latest live push --space <space> --html "$(cat work/index.html)" && npx -y spacesheep@latest live push --space <space> --status "Drawing Logbook" && npx -y spacesheep@latest spaces screenshot <space> --width 1920 --height 1080 --section direction-night-watch -o night-watch.png) > save.log 2>&1 &
 ```
 
-The frame's save has no picture: end it after the status.
+The frame's and the tops' saves take no picture: end their line after the status. Keep the page under 100 KB (no embedded fonts or images), so a push fits in one shell argument.
 
 ## What good looks like
 
@@ -51,7 +53,7 @@ When readability and style pull apart, choose in this order: readable and access
 - Never change what the person didn't ask to change during a revision. That covers words, order, spacing, other directions and the ids.
 - Never fall back on the look that reads as machine-made, unless the brand or the person asks for it: a cream, beige or peach page by default; purple or blue-to-pink gradients, or a gradient on every surface; a stock UI sans (Inter, Roboto, Arial, plain `system-ui`) for headlines; rounded cards with a coloured left border; an icon beside every heading; emoji as icons; blobs, orbs and glows; people or scenes drawn in SVG.
 - Never invent evidence: numbers, ratings, testimonials, customer logos, awards or press quotes the person didn't give. Leave that part out and say in your reply what would fill it.
-- Never promise what Spacesheep can't do: dragging boxes on a canvas, PowerPoint or Google Slides export, Figma import, or saving a brand for them. Say what to do instead (see "Limits" below).
+- Never promise what Spacesheep can't do: dragging boxes on a canvas, PowerPoint or Google Slides export, Figma import, or saving a brand for them. Say what to do instead (references/after.md, "Limits").
 
 ## 1. Read the brief
 
@@ -73,7 +75,7 @@ Ask at most one question, and only when a wrong guess would waste the whole buil
 
 - **Make three directions** when the person asks for options, directions, "a few", "some ideas" or "different looks". Make three as well when the look is the point and still open: a one-pager, landing page, poster or flyer in a new space, with no brand given and no style named. When they name a number, use it, from 2 to 5: more than 5 dilutes each one, so offer 5 and say why.
 - **Make one design** when the brand and content are fixed and the person asked for one thing ("make a one-pager in our brand"), and for a prototype, a deck or a component sheet unless they ask for options.
-- Read references/directions.md before naming directions (order of work, step 2). It covers how to make them differ, how to name them and the mistakes to avoid.
+- Read references/directions.md while the frame is up (order of work, step 3), and rename the directions if it changes them. It covers how to make them differ, how to name them and the mistakes to avoid.
 - **All the directions sit in one space,** in one row on the canvas, with the pinned switcher: `assets/base.html` has both. Each direction is a `<section class="direction" data-ss-section data-ss-id="direction-<slug>" data-ss-thing="direction/<slug>">`. The `data-ss-thing` keeps comments on a direction while another shows. A link ending in `#direction-<slug>` opens that direction, and in a chat reply a button opens one with `{"emit": {"name": "show-direction", "data": {"id": "direction-<slug>"}}}`.
 - **Name each direction by its idea** in 1 to 3 words ("Harbour Chart", "Night Watch", "Logbook"), never "Option A". Its line says what it is for ("Calm and plain, for owners who check once a month").
 - **When the person picks one** ("the third, but bolder"), change only that direction, and make it the one the space opens on (`data-default`). Remove the others only when they say to ("go with it", "drop the others"), and record the pick under Decisions (step 6).
@@ -81,7 +83,7 @@ Ask at most one question, and only when a wrong guess would waste the whole buil
 ## 3. Build it so it works
 
 - **The starter carries the frame.** `assets/base.html` has three metas: `ss-chat` puts chat beside the design (`content="open session"` when you are the person's own session, so their replies come back to you), `ss-workspace` adds Spacesheep's design bars (files, sizes, Tweaks), and `ss-canvas` lays the directions side by side with pan, zoom and Fit. Add no canvas, camera or controls of your own: Comment, Edit and versions are Spacesheep's.
-- **Screens on the canvas.** Each screen is marked `data-ss-frame="phone"`, `tablet`, `desktop` or a size such as `800x600`, plus `data-ss-label`. Every direction and screen stays visible on the canvas: never hide one. Place a section yourself with `data-ss-x` and `data-ss-y` (desktop directions sit at y 0, x spaced by 1,352).
+- **Screens on the canvas.** Mark each screen `data-ss-frame="phone"`, `tablet`, `desktop` or a size such as `800x600`, with a `data-ss-label`, and place it with `data-ss-x` and `data-ss-y` if you need to. Every screen stays visible: never hide one.
 - **Phone first.** Design at 390 px wide, then let it grow to 1440 px. Nothing scrolls sideways at 390 px. Tap targets are at least 44 px. Body text is at least 16 px.
 - **One self-contained document.** Draw the logo as inline SVG (paste the SVG they gave you). Write icons as inline SVG from one family, coloured with `currentColor`, and only where they help someone find or tap something. Carry the design with type, colour, shape and the real content. Use system font stacks close to the brand font; add an `@font-face` with a data URI only when the person gave you the font file.
 - **Tokens first.** Every brand value is a CSS variable named for its role (`--brand-ink`, `--brand-accent`, `--brand-ground`, `--font-display`, `--font-body`, `--radius`, `--space`). Each direction sets its own on its section, as the starter does, so a change to one never touches the others. Write the rest of the CSS with the variables.
@@ -142,68 +144,30 @@ Reply in at most five short lines:
 - **Every change is a version,** so history reads as a changelog. "Undo that" restores the earlier values in a new version; any version can also be restored from the space's history.
 - **Trying something without losing the current design:** add it as a new direction named for what changed ("Night Watch, lighter").
 
-## 8. Approval from a client
+## 8. After the build
 
-When the person wants sign-off ("send it to the client", "get approval", "I need a yes from Noor"):
-
-1. Make a client copy without the `ss-chat`, `ss-workspace` and `ss-canvas` metas, so it opens on the design alone, one direction at a time. Add an approval form near the end; the platform sends it from anyone who can open the space, with or without an account:
-   ```html
-   <form data-ss-form="approvals" class="no-print" aria-label="Approve this design">
-     <label>Your name <input name="name" autocomplete="name" required></label>
-     <fieldset><legend>Your decision</legend>
-       <label><input type="radio" name="decision" value="Approve" required> Approve</label>
-       <label><input type="radio" name="decision" value="Request changes"> Request changes</label>
-     </fieldset>
-     <label>Notes <textarea name="message" rows="3"></textarea></label>
-     <button>Send decision</button>
-   </form>
-   ```
-   Add a line above it saying which version it approves ("You're approving version 6, 11 Nov").
-2. Tell the person how it works: they share the link, and the client needs no account. Each answer is emailed to them and kept in the space's private records. Clients can comment on any block too.
-3. When the decision comes back, record it under Decisions. A request for changes is a revision (step 7).
-
-## 9. Hand it to a developer
-
-When they say "hand it off", "send to Claude Code", "build this" or "for the dev", read references/handoff.md and add its folded "For developers" section. Then tell the person that a coding agent with access can pull the source with `npx -y spacesheep@latest read <the space's link> -o <folder>`.
-
-## 10. Saving a look as a brand
-
-When they say "save this look" or "make this our brand": write a design system note from the tokens in the format in references/brand.md, and put it in your reply as one block to copy. Tell them to paste it into Settings → Design systems. You don't save it yourself. If design systems aren't on for their account, say so and keep the note on the space in a folded section.
-
-## Limits: what to say instead
-
-| They ask for | Say and do |
-|---|---|
-| Change words by hand | "Open ⋯ → Edit and type straight into the space; it's saved as a new version." |
-| Drag, resize or align boxes by hand | "Comment on the block with what to move, or say it here; I'll make the change." Offer the tweaks panel. |
-| PowerPoint or Google Slides | "The space has a PDF download, and a deck here plays on any phone. There's no PowerPoint or Slides export." |
-| Import a Figma file, a .zip or 3D files | "Paste the HTML, tokens or colours here, or describe the screens; I'll rebuild it here." |
-| Branches | "Each direction in the switcher is a branch you can compare, and every version stays in history." |
-| Live co-editing | "Share it with edit access: they can change words in Edit mode and comment on any block." |
-
-## The tweaks panel (optional)
-
-When the person wants to explore colour, spacing, corners or type size themselves, add the panel from assets/tweaks.html; its file says how it works. Closing Tweaks saves their values as a new version, in `<style data-ss-id="ss-style">` as `!important` rules: change or remove them there when you change the same tokens. Remove the panel before the space goes to a client.
+For client approval, a hand-off to a developer, saving a look as a brand, the tweaks panel, or anything Spacesheep can't do (PowerPoint, Figma, dragging boxes), read references/after.md first.
 
 ## Worked examples
 
 **"Brand sheet and logo attached. We need a flyer for Harbour Lane Library's winter talks: a title, four talks with dates and speakers, the address and a book-a-seat button. People will read it on a phone, and we'll pin it up printed on one A4 page."**
-One design, because the brand and content are fixed. Push the frame with the title and the brand's tokens at once. Then read the brand sheet (references/brand.md), paste the logo inline, and draw top-down: the title block, the four talks with the date first, the address, the button. Add `@page { size: A4; margin: 12mm }` and the Download PDF button. Deploy, look at 390 px, check 4 talks, every colour a token, one A4 sheet. Reply: "Flyer in your brand. I wrote the title as 'Winter talks at Harbour Lane'. Comment on any block with @shepherd to change it."
+One design, because the brand and content are fixed. Push the frame with the title and the brand's tokens at once. Then read the brand sheet (references/brand.md), paste the logo inline, and draw top-down: the title block, the four talks with the date first, the address, the button. Add `@page { size: A4; margin: 12mm }` and the Download PDF button. Save it, look at its picture, and check: 4 talks, every colour a token, one A4 sheet. Reply: "Flyer in your brand. I wrote the title as 'Winter talks at Harbour Lane'. Comment on any block with @shepherd to change it."
 
 **The comment "@shepherd just the date and the title, and make the dates our navy", pinned on the talks list.**
-Edit only inside `talks`: cut each talk to its date and title, keeping every id, and set the dates to `var(--brand-ink)`. Check the contrast, push, deploy, and reply in one line with both changes.
+Edit only inside `talks`: cut each talk to its date and title, keeping every id, and set the dates to `var(--brand-ink)`. Check the contrast, push, save, and reply in one line with both changes.
 
 **"We need a landing page for Tidewell, an app that tells small-boat owners when their mooring fees are due and lets them pay from a phone. It's £6 a month, and the first month is free. Give me three directions I can flick between."**
-Within 90 seconds the frame is up with three named, empty directions and a chat line naming them. Then each direction is drawn hero first and pushed part by part, each with every fact (due-date reminders, paying from a phone, £6 a month, first month free). After each one's deploy, one picture at 390 px and the checks.
+Within 90 seconds the frame is up with three named, empty directions and a chat line naming them. Then the three heroes, pushed one by one, then each direction filled in part by part, each with every fact (due-date reminders, paying from a phone, £6 a month, first month free). After each one's save, its picture and the checks.
 Then "The third one, but bolder. Don't touch the words." Change only the type and colour tokens on the third direction's section, check its contrast, make it the default, and add a line to Decisions.
 
 ## Files
 
 - assets/base.html: the starter page, with the metas, the switcher, tokens and three empty directions. Copy it at step 1.
-- references/directions.md: making directions differ and naming them. Read it at order of work, step 2, before naming them.
+- references/directions.md: making directions differ and naming them. Read it at order of work, step 3.
 - references/brand.md: reading a brand sheet into tokens, the brand check, and the design system note format. Read it at step 3 when a brand is given or asked for.
 - references/prototypes.md: screens, navigation and state in one space. Read it before drawing a prototype.
+- references/after.md: approval, hand-off, saving a brand, the tweaks panel and the limits. Read it when one comes up.
 - references/handoff.md: the "For developers" section. Read it before a hand-off.
 - references/coverage.md: background for whoever maintains this skill, not needed for a turn.
 - assets/switcher.html: the switcher on its own, with three demo directions.
-- assets/tweaks.html: the optional tweaks panel.
+- assets/tweaks.html: the optional tweaks panel (references/after.md says when).
