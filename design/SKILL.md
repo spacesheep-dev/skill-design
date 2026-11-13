@@ -9,20 +9,22 @@ You make designs as spaces: one self-contained HTML document that the person ope
 
 **The person watches the page fill in as you build it. Nothing waits for a check before its first push, and no 45 seconds pass with nothing new on the page or in its status line.**
 
-**Getting this skill:** as a folder, everything is here. Otherwise, `npx -y spacesheep@latest skills get @spacesheep/design --view full` gives these words and the file list, and step 1 fetches the starter page. Read a reference only at the step that names it.
+**Your budget:** real content on the page within two minutes of the frame. A choice you can revise later, make now and push. At a high effort you will want to deliberate before every part: a shown draft beats a considered silence.
+
+**Getting this skill:** as a folder, everything is here. Otherwise, `npx -y spacesheep@latest skills get @spacesheep/design --view full` gives these words and the file list, and a file is fetched with `npx -y spacesheep@latest skills get @spacesheep/design --path <file> --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).file.text))' > <where>`. Read a reference only at the step that names it.
 
 ## Order of work
 
 `<space>` below is the space's id, from step 1 on (saves by its link are refused from the second one on). Write it in full in every shell call, since each call starts fresh. A push draws the page in every open tab in about 2 seconds. A save takes 15 seconds or more, so saves run in the background (the save line, below) and never hold up the next push. Without a shell (a Shepherd turn), take the same steps with your own tools.
 
-1. **Start at once.** With the link the person gave: `npx -y spacesheep@latest live push --space <link> --status "Reading your brief" && S=$(npx -y spacesheep@latest spaces get <link> | sed -n 's/^ *id: //p' | head -1) && echo "space: $S" && npx -y spacesheep@latest read "$S" -o work`. The id it prints is `<space>`. Read by the id, never the link, or the first save is refused. If `work/index.html` isn't a design yet, copy the starter over it: `cp assets/base.html work/index.html` from this skill's folder, or fetched: `npx -y spacesheep@latest skills get @spacesheep/design --path assets/base.html --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).file.text))' > work/index.html`. With no space yet, put the starter in `work`: `npx -y spacesheep@latest deploy work --title "<working title>" --json` makes one, and its `space.id` is `<space>`.
+1. **Start at once.** With the link the person gave: `npx -y spacesheep@latest live push --space <link> --status "Reading your brief" && S=$(npx -y spacesheep@latest spaces get <link> | sed -n 's/^ *id: //p' | head -1) && echo "space: $S" && npx -y spacesheep@latest read "$S" -o work`. The id it prints is `<space>`. Read by the id, never the link, or the first save is refused. If `work/index.html` isn't a design yet, copy the starter over it: `cp assets/base.html work/index.html` from this skill's folder, or fetch `assets/base.html` to `work/index.html`. With no space yet, put the starter in `work`: `npx -y spacesheep@latest deploy work --title "<working title>" --json` makes one, and its `space.id` is `<space>`.
 2. **Push the frame within 90 seconds, before you read anything else.** From the brief alone, set the title and each direction's slug, name, line and tokens in `work/index.html` (section 2 says how many). Push it, save it, and say in chat: "Three directions on the way: Harbour Chart, Night Watch, Logbook. Say if one is wrong."
 3. **Read what the brief points at,** with a status for each thing ("Reading Spark's Orbit pages"). The moment the shared look is set (the brand's tokens, logo and fonts), push it, so the frame changes colour and type before any section is written. If the reading changes a direction, rename it and push. Names and slugs may change until a direction's first part is drawn.
-4. **Draw breadth first, in parts of at most 45 seconds of writing.** After each part, push the page and the next part's status in one shell call: `npx -y spacesheep@latest live push --space <space> --html "$(cat work/index.html)" && npx -y spacesheep@latest live push --space <space> --status "Drawing Night Watch: prices"`.
+4. **Draw.** With directions to draw and helpers you can start (subagents, parallel tasks), give each direction to one: the helpers path, below. Otherwise draw breadth first, in parts of at most 45 seconds of writing. After each part, push the page and the next part's status in one shell call: `npx -y spacesheep@latest live push --space <space> --html "$(cat work/index.html)" && npx -y spacesheep@latest live push --space <space> --status "Drawing Night Watch: prices"`.
    1. **The top of every direction first** (of one design, its top). Replace each direction's `.drawing` block with its hero, pushing after each one. The person sees all three ideas within about 3 minutes and can redirect before most of the work is spent. Save once all three tops are in, and say so in chat.
    2. **Then fill in each direction, top down,** one part at a time: the hero's detail, then the list, then the rest. A part that would take longer than 45 seconds to write is two parts. When a direction is complete, save it with its picture and say one line in chat.
 5. **Nothing waits for a look.** A finished direction's save leaves a picture of it, `<slug>.png`, about 30 seconds later. When it's there, look at it and run the checks in section 5 on your source while you go on drawing. Their fixes go into a later push. If `save.log` shows an error, fix it and save again. No local browser, Playwright, local server or build script.
-6. **Finish.** Run the last save in the foreground, `npx -y spacesheep@latest deploy work --space <space> -m "Three directions"`, so your reply names a saved version (section 6).
+6. **Finish in one pass:** one look per direction, one round of fixes, then the last save in the foreground, `npx -y spacesheep@latest deploy work --space <space> -m "Three directions"`, so your reply names a saved version (section 6). Then the reply.
 
 **The save line**, for the frame, the three tops and each finished direction, never one per part. It saves, pushes the newest page again (a save lands seconds behind your newest push), puts the status back (a save takes it down), and takes the picture:
 
@@ -31,6 +33,12 @@ You make designs as spaces: one self-contained HTML document that the person ope
 ```
 
 The frame's and the tops' saves take no picture: end their line after the status. Keep the page under 100 KB, so a push fits in one shell argument.
+
+**The helpers path**, once the frame and the shared look are pushed:
+
+1. **Start the page's only writer:** `mkdir -p draw && cp work/index.html draw/frame.html && node <this skill's folder>/assets/fold.js <space> > draw/fold.out 2>&1 &`, from the folder that holds `work` (without a folder, fetch `assets/fold.js` first). Within about 2 seconds of a helper's change, it folds each helper's file into the frame between that direction's `<!-- part:<slug> -->` markers, writes `work/index.html`, and pushes the page and the helpers' status lines. The markers carry each direction's slug: rename them with it, or add them around each direction's content if the page has none. From now on nobody else pushes or edits `work/index.html`; change the frame in `draw/frame.html`.
+2. **Start one helper per direction, all at once.** Give each the brief's facts, the shared tokens, its direction's name, slug, line and idea, sections 3 and 4 of this skill, your budget, and these words: "Draw only your direction, top down from its hero, into `draw/<slug>.html`: what goes inside its section, every id starting `<slug>-`, and the line `<!-- end <slug> -->` always last. Write the hero within two minutes, then add each part (at most 45 seconds of writing) just above that line. Before each part, write what it is in one line to `draw/<slug>.status` ("Night Watch: prices"). Never push, save or touch another file." Say in chat that the three are being drawn at once.
+3. **When all are back,** `sleep 3 && touch draw/stop`, so the page has their last parts and the writer stops. Save with a picture of each direction (the save line, with one `spaces screenshot` per direction), then go on to steps 5 and 6.
 
 ## What good looks like
 
@@ -84,13 +92,14 @@ Ask at most one question, and only when a wrong guess would waste the whole buil
 
 - **The starter carries the frame.** `assets/base.html` has three metas: `ss-chat` puts chat beside the design (`content="open session"` when you are the person's own session, so their replies come back to you), `ss-workspace` adds Spacesheep's design bars (files, sizes, Tweaks), and `ss-canvas` lays the directions side by side with pan, zoom and Fit. Add no canvas, camera or controls of your own: Comment, Edit and versions are Spacesheep's.
 - **Screens on the canvas.** Mark each screen `data-ss-frame="phone"`, `tablet`, `desktop` or a size such as `800x600`, with a `data-ss-label`, and place it with `data-ss-x` and `data-ss-y` if you need to. Every screen stays visible: never hide one.
-- **Phone first.** Design at 390 px wide, then let it grow to 1440 px. Nothing scrolls sideways at 390 px. Tap targets are at least 44 px. Body text is at least 16 px.
+- **Phone first.** Design at 390 px wide, then let it grow to 1440 px. The page never scrolls sideways at 390 px: a row of tabs or links wraps between words or scrolls inside itself, and no word is ever broken. Tap targets are at least 44 px. Body text is at least 16 px.
 - **One self-contained document.** Draw the logo as inline SVG (paste the SVG they gave you). Write icons as inline SVG from one family, coloured with `currentColor`, and only where they help someone find or tap something. Carry the design with type, colour, shape and the real content. Use system font stacks close to the brand font; add an `@font-face` with a data URI only when the person gave you the font file.
 - **Tokens first.** Every brand value is a CSS variable named for its role (`--brand-ink`, `--brand-accent`, `--brand-ground`, `--font-display`, `--font-body`, `--radius`, `--space`). Each direction sets its own on its section, as the starter does, so a change to one never touches the others. Write the rest of the CSS with the variables.
 - **Type that reads as designed.** Pair a display face with a different, quieter body face; use one family only for dense tools and data. Set every size on the starter's scale. Body text has a line height of 1.5 to 1.7 and lines of 45 to 75 characters (`max-width: 68ch`). Without a font file a display stack can still have character: `"Iowan Old Style", Palatino, Georgia, serif`, `"Avenir Next", Futura, "Gill Sans", sans-serif` or `ui-monospace, Menlo, monospace`.
+- **Grids and rows.** A grid's spare last cell stays plain background, never a tinted block that reads as a card. A row of chips, tags or links fits its column or wraps: nothing is cut at its container's edge.
 - **One place for the eye.** Each screen has one thing seen first, then a second and a third level. Make the levels with size, weight, colour and space, not with boxes, borders and cards.
 - **One accent, one bold move.** The accent shows at most twice on a screen: the main action and one highlight. Give the design one decisive move, such as a huge headline, one dark field or one striking number, and keep the rest quiet.
-- **Real content only.** Use the person's words and facts. Where the request lacks something a real design needs, write plausible, specific wording and flag it in your reply ("I wrote the doors-open time as 6:30 pm: please check").
+- **Real content only.** Use the person's words and facts, and name the product the design sits in on every direction (a page inside Spark says Spark). Where the request lacks something a real design needs, write plausible, specific wording and flag it in your reply ("I wrote the doors-open time as 6:30 pm: please check").
 - **Everything clickable does something.** A link goes to a section, another screen or a real address. A button changes the state, opens what it names, or, in a mockup, shows a short line saying what it would do. Never leave a dead `href="#"`.
 - **Commentable.** Every readable block has a unique, descriptive `data-ss-id` with its direction's prefix (`chart-hero`, `nightwatch-prices`). Every top-level section has `data-ss-section`. Ids stay stable from version to version.
 - **Accessible.** Text passes WCAG AA contrast against its own background. Use real `<button>` and `<a>` elements, labels on inputs, visible focus styles, and `prefers-reduced-motion` to switch movement off.
@@ -111,18 +120,16 @@ Ask at most one question, and only when a wrong guess would waste the whole buil
 
 ## 5. Checks, once it's visible
 
-Run these after each direction is on the page (order of work, step 5), on your source and the one picture, and fix what they find in the next push. Do at most two rounds per direction, then move on and say in your reply what is still rough.
+Run these after each direction is on the page (order of work, step 5), on your source and the one picture, and fix what they find in the next push. Do one round per direction, then move on and say in your reply what is still rough.
 
-1. **Facts.** Every fact from the request is in the design, spelled as given. Count the items: "six items" means six.
+1. **Facts.** Every fact from the request is in the design, spelled as given, and every direction names the product it sits in. Count the items: "six items" means six.
 2. **Brand.** Every colour is one of the brand's tokens or a neutral made from the ink. The fonts are the brand's or the stack you named. The logo is theirs, unchanged. references/brand.md has the full check.
-3. **Phone.** Nothing is wider than 390 px: no fixed widths, no long unbroken strings, images with `max-width: 100%`. Tap targets are 44 px or more. Display type is sized with `clamp()` and fits its column, never forced with `white-space: nowrap`. Nothing overlaps by accident.
+3. **Phone.** Nothing is wider than 390 px: no fixed widths, no long unbroken strings, no word broken in two, images with `max-width: 100%`. Tap targets are 44 px or more. Display type is sized with `clamp()` and fits its column, never forced with `white-space: nowrap`. Nothing overlaps by accident.
 4. **Clicks.** Every link and button has a target or a state change. A prototype can be walked from its first screen to its last.
 5. **Contrast.** Text passes AA: 4.5:1, or 3:1 at 24 px and larger, in hover, focus and selected states too. Change the background or border, never fade the text, and show a `:focus-visible` ring.
 6. **Paper, when asked.** It fits the sheet, and nothing needed depends on motion or is hidden.
 7. **Anchors.** Every readable block has a unique `data-ss-id`, and no control has one.
-8. **Look.** Score the picture from 1 to 5 on fit (made for this brief, or your usual default?), hierarchy (one place for the eye?), finish (type, spacing and alignment exact?), specificity (could it belong to anyone else?) and restraint (one accent, one bold move, nothing from Never). Fix anything under 3. Then look for two faults:
-   - **Nothing is cut off** at the edge of its column, card or screen. A row of chips or tags wraps, never runs out.
-   - **No empty tile or band looks like content.** A grid's spare last cell stays plain background, never a tinted block that reads as a blank card.
+8. **Look.** Score the picture from 1 to 5 on fit (made for this brief, or your usual default?), hierarchy (one place for the eye?), finish (type, spacing and alignment exact?), specificity (could it belong to anyone else?) and restraint (one accent, one bold move, nothing from Never). Fix anything under 3. Then confirm the grid and row rules of section 3 in the picture: nothing cut off at an edge of its column, card or screen, and no empty tile or band that looks like content.
 
 ## 6. Say what you made
 
@@ -159,12 +166,13 @@ One design, because the brand and content are fixed. Push the frame at once, the
 Edit only inside `talks`: cut each talk to its date and title, keeping every id, and set the dates to `var(--brand-ink)`. Check the contrast, push, save, and reply in one line with both changes.
 
 **"We need a landing page for Tidewell, an app that tells small-boat owners when their mooring fees are due and lets them pay from a phone. It's £6 a month, and the first month is free. Give me three directions I can flick between."**
-Within 90 seconds the frame is up with three named, empty directions and a chat line naming them. Then the three heroes, pushed one by one, then each direction filled in part by part, each with every fact (due-date reminders, paying from a phone, £6 a month, first month free). After each one's save, its picture and the checks.
+Within 90 seconds the frame is up with three named, empty directions and a chat line naming them. Then the three heroes, then each direction filled in part by part (with helpers, all three at once), each with every fact (due-date reminders, paying from a phone, £6 a month, first month free). After each one's save, its picture and the checks.
 Then "The third one, but bolder. Don't touch the words." Change only the type and colour tokens on the third direction's section, check its contrast, make it the default, and add a line to Decisions.
 
 ## Files
 
 - assets/base.html: the starter page, with the metas, the switcher, tokens and three empty directions. Copy it at step 1.
+- assets/fold.js: the page's only writer on the helpers path. Start it at that path's step 1.
 - references/directions.md: making directions differ and naming them. Read it at order of work, step 3.
 - references/brand.md: reading a brand sheet into tokens, the brand check, and the design system note format. Read it at order of work, step 3, when a brand is given.
 - references/prototypes.md: screens, navigation and state in one space. Read it before drawing a prototype.
