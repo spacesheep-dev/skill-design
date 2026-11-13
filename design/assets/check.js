@@ -6,9 +6,10 @@
 //   node check.js <slug>       one direction (a helper's closing check)
 //
 // It reads work/index.html, each direction's parts (draw/<slug>/*.html, else draw/<slug>.html, else
-// its section of the page) and draw/BRIEF.md, whose lines `fact: …` must show in every direction and
-// `not: …` must show in none. It prints one line per failure with the file and line to edit, or
-// "all pass". What it can't decide is the look: contrast, hierarchy, fit, what a picture shows.
+// its section of the page) and draw/BRIEF.md, whose lines `fact: …` must show in every direction,
+// `not: …` in none, and `ask: …` (the request) never six words in a row. It prints one line per
+// failure with the file and line to edit, or "all pass". What it can't decide is the look: contrast,
+// hierarchy, fit, what a picture shows.
 const fs = require("fs");
 const path = require("path");
 const vm = require("vm");
@@ -181,6 +182,17 @@ const norm = (s) => s.replace(/&nbsp;| /g, " ").replace(/&amp;/g, "&").replace(
 const brief = read("draw/BRIEF.md") || "";
 const facts = [...brief.matchAll(/^\s*[-*]?\s*fact:\s*(.+?)\s*$/gim)].map((m) => m[1]);
 const nots = [...brief.matchAll(/^\s*[-*]?\s*not:\s*(.+?)\s*$/gim)].map((m) => m[1]);
+// The request (`ask: …` lines): six of its words in a row on the page are the brief quoted, not designed.
+// Words a `fact:` covers break a run, so facts given in the request's own order still pass.
+const words = (s) => norm(s).match(/[\p{L}\p{N}]+(?:['.,][\p{L}\p{N}]+)*/gu) || [];
+const quotes = [];
+for (const ask of [...brief.matchAll(/^\s*[-*]?\s*ask:\s*(.+?)\s*$/gim)].map((m) => words(m[1]))) {
+  const cut = ask.map(() => false);
+  for (const f of facts.map(words).filter((w) => w.length))
+    for (let i = 0; i + f.length <= ask.length; i++) if (f.every((w, j) => ask[i + j] === w)) f.forEach((_, j) => (cut[i + j] = true));
+  for (let i = 0; i + 6 <= ask.length; i++) if (!cut.slice(i, i + 6).includes(true)) quotes.push(ask.slice(i, i + 6));
+}
+const shownText = (t) => t.replace(/<(script|style)\b[\s\S]*?<\/\1>/gi, " ").replace(/<[^>]*?\b(alt|title|aria-label|placeholder|value)="([^"]*)"[^>]*>/gi, " $2 ").replace(/<[^>]+>/g, " ");
 
 const dirs = directions(page).filter((d) => !only || d.slug === only);
 if (only && !dirs.length) { console.error(`check: no direction "${only}" on the page`); process.exit(2); }
@@ -188,9 +200,17 @@ for (const d of dirs) {
   const units = sources(d);
   for (const u of units) checkUnit(d.slug, u);
   const all = units.map((u) => u.text).join("\n");
-  const shown = norm(all.replace(/<(script|style)\b[\s\S]*?<\/\1>/gi, " ").replace(/<[^>]*?\b(alt|title|aria-label|placeholder|value)="([^"]*)"[^>]*>/gi, " $2 ").replace(/<[^>]+>/g, " "));
+  const shown = norm(shownText(all));
   for (const f of facts) if (!shown.includes(norm(f))) fail(d.slug, units[units.length - 1].file, `missing fact: "${f}"`);
   for (const f of nots) if (shown.includes(norm(f))) fail(d.slug, (units.find((u) => norm(u.text.replace(/<[^>]+>/g, " ")).includes(norm(f))) || units[0]).file, `shows "${f}", which the brief says no direction may`);
+  for (const u of units) {
+    const said = ` ${words(shownText(u.text)).join(" ")} `;
+    const q = quotes.find((q) => said.includes(` ${q.join(" ")} `));
+    if (!q) continue;
+    const at = u.text.search(new RegExp(q.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("(?:[^\\p{L}\\p{N}]|<[^>]*>|&[a-z#0-9]+;)+"), "iu"));
+    fail(d.slug, at < 0 ? u.file : `${u.file}:${u.base + lineAt(u.text, at)}`, `quotes the request ("${q.join(" ")}"): the design shows a requirement, the page never states it`);
+    break;
+  }
 }
 if (!only && page.length > 200000) fail("page", "work/index.html", `the page is ${Math.round(page.length / 1000)} KB: over 200 KB is slow on a phone`);
 

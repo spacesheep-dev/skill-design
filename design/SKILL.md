@@ -5,7 +5,7 @@ description: Use when someone asks for a design to look at or click through, suc
 
 # Design
 
-You make designs as spaces: one self-contained HTML document that the person opens on a phone, comments on block by block, approves, and hands to a developer. Spacesheep's own rules for a space still hold (Design Standards, mobile first, `data-ss-id` anchors, forms, slides and paper). This skill adds how a good designer works, and in what order.
+You make designs as spaces: one self-contained HTML document that the person opens on a phone, comments on block by block, approves, and hands to a developer. Spacesheep's own rules for a space still hold (Design Standards, mobile first, `data-ss-id` anchors, forms, slides and paper).
 
 **The person watches the page fill in as you build it. Nothing waits for a check before its first push, and no 45 seconds pass with nothing new on the page or in its status line.**
 
@@ -15,7 +15,7 @@ You make designs as spaces: one self-contained HTML document that the person ope
 
 ## Order of work
 
-`<space>` below is the space's id, from step 1 on (saves by its link are refused from the second one on). Write it in full in every shell call, since each call starts fresh. A push shows in every open tab in about 2 seconds; a save runs in the background (the save line, below). No command here uses `$(`, backticks or a heredoc, and none of yours may: a permission check can't read one, so it stalls. Anything longer than a line goes through your Write or Edit tool. Without a shell (a Shepherd turn), take the same steps with your own tools.
+`<space>` below is the space's id, from step 1 on (saves by its link are refused from the second one on). Write it in full in every shell call, since each call starts fresh. A save runs in the background (the save line, below). No command here uses `$(`, backticks or a heredoc, and none of yours may: a permission check can't read one, so it stalls. Anything longer than a line goes through your Write or Edit tool. Without a shell (a Shepherd turn), take the same steps with your own tools.
 
 1. **Start at once.** With the link the person gave: `node <this skill's folder>/assets/fold.js start <link>` (without the folder, fetch `assets/fold.js` and `assets/check.js` first). It puts up a status, reads the space into `work` by its id, and prints the id: that is `<space>`. If `work/index.html` isn't a design yet, copy the starter over it: `cp assets/base.html work/index.html` from this skill's folder, or fetch `assets/base.html` to `work/index.html`. With no space yet, put the starter in `work`: `npx -y spacesheep@latest deploy work --title "<working title>" --json` makes one, and its `space.id` is `<space>`.
 2. **Push the frame within 90 seconds,** having read only references/directions.md. From the brief alone, set the title and each direction's slug, name, line and tokens in `work/index.html` (section 2 says how many): names and slugs are fixed from here. Push it, `node <this skill's folder>/assets/fold.js push <space>`, save it, and say in chat: "Three directions on the way: Harbour Chart, Night Watch, Logbook. Say if one is wrong."
@@ -34,8 +34,8 @@ The frame's save takes no picture: end its line after the status. Take no pictur
 
 **The helpers**, one per direction, all started in one message straight after the writer, each at `medium` effort where your client lets you (Claude Code's `effort`):
 
-1. **A few lines each, no brief yet:** "You draw Night Watch (`night-watch`): <its line and idea>. The facts: <every fact in the request>. Must hold in every direction, in the person's words: "<each requirement they stated>". Read sections 3 and 4 of `<this skill's folder>/SKILL.md`, then send the direction's top: each part is one Write call to `<folder>/draw/night-watch/01.html`, `02.html` and on, its first line `<!-- status: Night Watch: <the part> -->`, every id starting `night-watch-`, at most 45 seconds of writing. Then read the brief once, `until grep -qs 'end brief' <folder>/draw/BRIEF.md; do sleep 2; done; cat <folder>/draw/BRIEF.md`, think the rest through once, and send it as parts in one message, no checks between them. Your last part is the script for Night Watch's own tabs, filters and buttons. Then run `node <this skill's folder>/assets/check.js night-watch` from `<folder>` and fix what it lists, once. Then stop: no other checks or rewrites. Never push, save or touch another direction's files." Say in chat that the three are being drawn at once.
-2. **While they draw their tops, write the brief** (step 5): the request word for word, the product's name and real navigation labels, the tokens and logo, sample rows, and what each direction is for. Write it to `draw/BRIEF.md` with a line `fact: …` per fact, `not: …` for words no direction may show (the admin's own menu, when the person wants it separate), and `<!-- end brief -->` last.
+1. **A few lines each, no brief yet:** "You draw Night Watch (`night-watch`): <its line and idea>. The facts: <every fact in the request>. Must hold in every direction, in the person's words: "<each requirement they stated>". The design shows each; the page never quotes one. Read sections 3 and 4 of `<this skill's folder>/SKILL.md`, then send the direction's top: each part is one Write call to `<folder>/draw/night-watch/01.html`, `02.html` and on, its first line `<!-- status: Night Watch: <the part> -->`, every id starting `night-watch-`, at most 45 seconds of writing. Then read the brief once, `until grep -qs 'end brief' <folder>/draw/BRIEF.md; do sleep 2; done; cat <folder>/draw/BRIEF.md`, think the rest through once, and send it as parts in one message, no checks between them. Your last part is the script for Night Watch's own tabs, filters and buttons. Then run `node <this skill's folder>/assets/check.js night-watch` from `<folder>` and fix what it lists, once. Then stop: no other checks or rewrites. Never push, save or touch another direction's files." Say in chat that the three are being drawn at once.
+2. **While they draw their tops, write the brief** (step 5): the product's name and real navigation labels, the tokens and logo, sample rows, and what each direction is for. Write it to `draw/BRIEF.md` with `ask: <the request word for word>` first, a line `fact: …` per fact, `not: …` for words no direction may show (the admin's own menu, when the person wants it separate), and `<!-- end brief -->` last.
 3. **When the last helper is back,** finish (step 6): each has run the check on its own direction.
 
 ## What good looks like
@@ -61,7 +61,7 @@ When readability and style pull apart, choose in this order: readable and access
 
 ## 1. Read the brief
 
-The frame goes up from the request alone (order of work, step 2). Everything else here is read after it, with a status line saying what.
+The frame goes up from the request alone (order of work, step 2); read the rest after it, with a status line saying what.
 
 1. **The request, word for word.** List every fact it gives (names, prices, hours, items, screens, steps); each one must appear in the design. List every constraint too, such as "on a phone", "one A4 page", "clickable" or "three directions", and every requirement in the person's own words ("clearly separate from the standard organization view"): each direction keeps them all, whatever its idea.
 2. **The brand.** Use the first of these that exists:
@@ -115,11 +115,11 @@ Ask at most one question, and only when a wrong guess would waste the whole buil
 
 ## 5. Checks, once it's visible
 
-**The source checks are `assets/check.js`'s,** run from the folder holding `work` and `draw`: every `fact:` line of the brief in every direction and no `not:` line in any; ids that start with the slug, are unique and sit on no control; links and labels that point somewhere; a handler for every button, tab and select; scripts that parse; nothing wider than 390 px, no fixed grid columns, `nowrap` or scroller of your own; placeholders that fit their field; colours from the tokens; text of 12 px or more; a page under 200 KB. It prints each failure with its file and line, or "all pass". Never write a check script of your own.
+**The source checks are `assets/check.js`'s,** run from the folder holding `work` and `draw`: every `fact:` line of the brief in every direction, no `not:` line in any, and no six words in a row from `ask:`; ids that start with the slug, are unique and sit on no control; links and labels that point somewhere; a handler for every button, tab and select; scripts that parse; nothing wider than 390 px, no fixed grid columns, `nowrap` or scroller of your own; placeholders that fit their field; colours from the tokens; text of 12 px or more; a page under 200 KB. It prints each failure with its file and line, or "all pass". Never write a check script of your own.
 
 **The look is yours,** once per direction on its picture at the finish (order of work, step 6):
 
-1. **Requirements.** It holds every requirement the person stated, in their words.
+1. **Requirements.** It shows every requirement the person stated, without quoting one.
 2. **Brand.** The fonts are the brand's or the stack you named, and the logo is theirs, unchanged. references/brand.md has the full check.
 3. **Contrast.** Text passes AA: 4.5:1, or 3:1 at 24 px and larger, in hover, focus and selected states too. Change the background or border, never fade the text, and show a `:focus-visible` ring.
 4. **Paper, when asked.** It fits the sheet, and nothing needed depends on motion or is hidden.
