@@ -21,7 +21,32 @@ if (args[0] === "-C") {
   args.splice(0, 2);
 }
 const only = args[0];
-const read = (f) => { try { return fs.readFileSync(f, "utf8"); } catch { return null; } };
+// Only files inside the folder, never through a link (lstat sees a link as a link and doesn't follow it).
+const ROOT = fs.realpathSync(".");
+function within(p) {
+  const abs = path.resolve(ROOT, p);
+  if (abs !== ROOT && !abs.startsWith(ROOT + path.sep)) return false;
+  let at = ROOT;
+  for (const step of path.relative(ROOT, abs).split(path.sep).filter(Boolean)) {
+    at = path.join(at, step);
+    let st;
+    try { st = fs.lstatSync(at); } catch { return true; }
+    if (st.isSymbolicLink()) return false;
+  }
+  return true;
+}
+const skipped = new Set();
+const read = (f) => {
+  if (!within(f)) { if (!skipped.has(f)) console.error(`check: skipped ${f}: it is a link or outside ${ROOT}`); skipped.add(f); return null; }
+  try { return fs.readFileSync(f, "utf8"); } catch { return null; }
+};
+const skip = (f) => { if (!skipped.has(f)) console.error(`check: skipped ${f}: it is a link or outside ${ROOT}`); skipped.add(f); };
+const isDir = (d) => { if (!within(d)) { skip(d); return false; } return fs.existsSync(d) && fs.lstatSync(d).isDirectory(); };
+function htmlIn(d) {
+  const all = (isDir(d) ? fs.readdirSync(d, { withFileTypes: true }) : []).filter((e) => e.name.endsWith(".html"));
+  for (const e of all) if (!e.isFile()) skip(`${d}/${e.name}`);
+  return all.filter((e) => e.isFile()).map((e) => e.name).sort();
+}
 const page = read("work/index.html");
 if (page === null) { console.error("check: no work/index.html here (give -C the folder holding work/ and draw/)"); process.exit(2); }
 
@@ -54,8 +79,8 @@ function directions(text) {
 // A direction's sources: its part files, else its one file, else its slice of the page.
 function sources(d) {
   const dir = `draw/${d.slug}`;
-  if (fs.existsSync(dir) && fs.statSync(dir).isDirectory()) {
-    const files = fs.readdirSync(dir).filter((f) => f.endsWith(".html")).sort();
+  if (isDir(dir)) {
+    const files = htmlIn(dir);
     if (files.length) return files.map((f) => ({ file: path.join(dir, f), text: read(path.join(dir, f)) || "", base: 0 }));
   }
   const one = read(`draw/${d.slug}.html`);
@@ -104,8 +129,8 @@ function decls(css) {
 }
 
 // The page plus every part not yet folded in, so a helper can check the moment it has written.
-const parts = fs.existsSync("draw") ? fs.readdirSync("draw").filter((d) => fs.statSync(`draw/${d}`).isDirectory())
-  .flatMap((d) => fs.readdirSync(`draw/${d}`).filter((f) => f.endsWith(".html")).map((f) => read(`draw/${d}/${f}`) || "")) : [];
+const parts = isDir("draw") ? fs.readdirSync("draw").filter((d) => isDir(`draw/${d}`))
+  .flatMap((d) => htmlIn(`draw/${d}`).map((f) => read(`draw/${d}/${f}`) || "")) : [];
 const everything = [page, ...parts].join("\n");
 const scriptsAll = split(everything).filter((b) => b.kind === "script").map((b) => b.body).join("\n");
 const idsAll = new Set([...everything.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]));
