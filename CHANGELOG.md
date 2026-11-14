@@ -11,6 +11,7 @@ Each release is a heading with its tag. The release workflow uses the words unde
 - A save pictures each whole direction at 1440 and 390 px, and fails on layout faults, cut-off content or a bad picture (`assets/check.js`).
 - The direction tabs survive a link with a malformed `#` part and a direction with no name; before, either one hung the page. They also come back after a live push on the canvas, which left them empty, and a direction id like `direction-%41` selects itself.
 - A direction's script builds what it shows (cards, rows, lists, counts) in one function run with `ssDraw(fn)`, which draws it again after every live push. Before, a push left those parts empty until a reload. The save's check pushes the page into itself and fails a direction whose words, parts or their order change.
+- Known gap: on the canvas, a live push still puts a fresh copy of each direction in place of the one on the page, so what its script drew can go missing in an open tab between saves, until Spacesheep's push keeps the directions. A reload or the next save brings it back.
 - Needs Spacesheep's chat forms with `pick` and Tweaks' switches and choices.
 - The folder's hash is `7cb11305ecab`.
 
