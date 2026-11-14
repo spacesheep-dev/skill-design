@@ -293,7 +293,8 @@ document.addEventListener('click', (e) => {
    has loaded, it measures each direction at this width for what a picture can't be trusted to show:
      narrow  words in a column so thin they run under 4 characters a line
      wide    words or a control running past the direction's edge
-     cut     words drawn outside a box that hides or scrolls its overflow
+     cut     words drawn outside a box that hides or scrolls its overflow, past its sides or its top or bottom
+             (up and down, a glyph may overhang its line by a third of the font size: tight display type)
    It outlines each in red and asks for ss-fault/<slug>/<kind>/<element>.png, which doesn't exist: the
    picture's answer lists that request, and fold.js prints it as a fault. First the canvas goes off and
    every direction shows, full width and unscaled, as a person sees it on its own. */
@@ -338,10 +339,14 @@ if (/[?&]ss-check\b/.test(location.search)) addEventListener('load', () => (docu
       const r = el.getBoundingClientRect();
       if (r.width <= 1 || r.height <= 1 || getComputedStyle(el).position === 'fixed') continue; // visually hidden, or pinned
       const spans = words.flatMap(lines), reach = spans.concat(control || !spans.length ? [r] : []);
+      const over = parseFloat(getComputedStyle(el).fontSize) / 3 || 0;
       for (let x = el; x && x !== sec; x = x.parentElement) {
-        if (getComputedStyle(x).overflowX === 'visible') continue;
+        const o = getComputedStyle(x);
+        if (o.overflowX === 'visible' && o.overflowY === 'visible') continue;
         const c = x.getBoundingClientRect();
-        if (spans.some((q) => (q.right - c.right) / k > 2 || (c.left - q.left) / k > 2)) fault('cut', el, el.textContent);
+        const side = o.overflowX !== 'visible' && spans.some((q) => (q.right - c.right) / k > 2 || (c.left - q.left) / k > 2);
+        const end = o.overflowY !== 'visible' && spans.some((q) => (q.bottom - c.bottom) / k > Math.max(2, over) || (c.top - q.top) / k > Math.max(2, over));
+        if (side || end) fault('cut', el, el.textContent);
         break;
       }
       if (reach.some(inside) && reach.some(past)) fault('wide', el, el.textContent);

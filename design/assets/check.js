@@ -238,7 +238,8 @@ if (only && !dirs.length) { console.error(`check: no direction "${only}" on the 
 
 // Colour pairs: each direction's tokens, read from the page and its parts (later rules win), with the
 // starter's defaults for the ones it doesn't set, and every pair the kit puts text on must read: 4.5:1.
-const NAMED = { white: "#ffffff", black: "#000000" };
+// A colour is [r, g, b, alpha], alpha from 0 to 1; null when this check can't read it.
+const NAMED = { white: "#ffffff", black: "#000000", transparent: "#0000" };
 function rgb(v, tok, depth = 0) {
   v = (v || "").trim().toLowerCase();
   if (depth > 8) return null;
@@ -246,16 +247,40 @@ function rgb(v, tok, depth = 0) {
   if (ref) return tok[ref[1]] ? rgb(tok[ref[1]], tok, depth + 1) : ref[2] ? rgb(ref[2], tok, depth + 1) : null;
   if (NAMED[v]) v = NAMED[v];
   let m = v.match(/^#([0-9a-f]{3,8})$/);
-  if (m) { let h = m[1]; if (h.length <= 4) h = [...h].map((c) => c + c).join(""); return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16)); }
-  m = v.match(/^rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)/);
-  if (m) return [+m[1], +m[2], +m[3]];
+  if (m) {
+    let h = m[1];
+    if (h.length === 5 || h.length === 7) return null;
+    if (h.length <= 4) h = [...h].map((c) => c + c).join("");
+    return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16)).concat(h.length === 8 ? parseInt(h.slice(6), 16) / 255 : 1);
+  }
+  m = v.match(/^rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)\s*(?:[,/]\s*([\d.]+)(%?)\s*)?\)$/);
+  if (m) return [+m[1], +m[2], +m[3], m[4] === undefined ? 1 : Math.min(1, m[5] ? m[4] / 100 : +m[4])];
   m = v.match(/^color-mix\(\s*in\s+srgb\s*,\s*(.+?)\s+([\d.]+)%\s*,\s*(.+?)(?:\s+[\d.]+%)?\s*\)$/);
-  if (m) { const a = rgb(m[1], tok, depth + 1), b = rgb(m[3], tok, depth + 1), k = +m[2] / 100; return a && b ? a.map((x, i) => x * k + b[i] * (1 - k)) : null; }
+  if (m) {
+    // CSS mixes with alpha premultiplied: a see-through colour pulls the mix toward the other one.
+    const a = rgb(m[1], tok, depth + 1), b = rgb(m[3], tok, depth + 1), k = +m[2] / 100;
+    if (!a || !b) return null;
+    const al = a[3] * k + b[3] * (1 - k);
+    return al ? [0, 1, 2].map((i) => (a[i] * a[3] * k + b[i] * b[3] * (1 - k)) / al).concat(al) : [0, 0, 0, 0];
+  }
   return null;
 }
-const lum = (c) => { const [r, g, b] = c.map((x) => { x /= 255; return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+// `top` drawn over `under`: what the eye gets where a see-through colour lies on another.
+const over = (top, under) => {
+  const al = top[3] + under[3] * (1 - top[3]);
+  return al ? [0, 1, 2].map((i) => (top[i] * top[3] + under[i] * under[3] * (1 - top[3])) / al).concat(al) : [0, 0, 0, 0];
+};
+const lum = (c) => { const [r, g, b] = c.slice(0, 3).map((x) => { x /= 255; return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
 const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
-const hex = (c) => "#" + c.map((x) => Math.round(x).toString(16).padStart(2, "0")).join("");
+const hex = (c) => "#" + c.slice(0, 3).concat(c[3] < 1 ? [c[3] * 255] : []).map((x) => Math.round(x).toString(16).padStart(2, "0")).join("");
+// The ratio as drawn: the ground on the page (white or black beneath, the worse, if it lets either through),
+// a card or button on the ground, the text on that.
+function drawnRatio(x, y, g, onGround) {
+  return Math.min(...[[255, 255, 255, 1], [0, 0, 0, 1]].map((page) => {
+    const ground = over(g, page), back = onGround ? ground : over(y, ground);
+    return ratio(over(x, back), back);
+  }));
+}
 const PAIRS = [["--brand-ink", "--brand-ground", "text on its ground"], ["--brand-muted", "--brand-ground", "muted text on the ground"],
   ["--brand-on-surface", "--brand-surface", "text on a card or field"], ["--brand-muted", "--brand-surface", "muted text on a card"],
   ["--brand-on-accent", "--brand-accent", "a button's label on the accent"], ["--brand-accent", "--brand-ground", "accent text and links on the ground"]];
@@ -274,9 +299,9 @@ for (const d of dirs) {
   for (const f of facts) if (!shown.includes(norm(f))) fail(d.slug, units[units.length - 1].file, `missing fact: "${f}"`);
   const tok = tokens(d.slug, [page, ...units.map((u) => u.text)]);
   for (const [fg, bg, what] of PAIRS) {
-    const x = rgb(tok[fg], tok), y = rgb(tok[bg], tok);
-    if (!x || !y) continue; // a colour this check can't read (oklch, a gradient): the look checks it
-    const r = ratio(x, y);
+    const x = rgb(tok[fg], tok), y = rgb(tok[bg], tok), g = rgb(tok["--brand-ground"], tok);
+    if (!x || !y || !g) continue; // a colour this check can't read (oklch, a gradient): the look checks it
+    const r = drawnRatio(x, y, g, bg === "--brand-ground");
     if (r < 4.5) fail(d.slug, "tokens", `contrast ${r.toFixed(1)}:1 for ${what} (${fg} ${hex(x)} on ${bg} ${hex(y)}): 4.5 needed; change the token in the direction's rule`);
   }
   for (const f of nots) if (shown.includes(norm(f))) fail(d.slug, (units.find((u) => norm(u.text.replace(/<[^>]+>/g, " ")).includes(norm(f))) || units[0]).file, `shows "${f}", which the brief says no direction may`);
