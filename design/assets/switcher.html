@@ -2,7 +2,7 @@
 <!--
   The direction switcher. Copy the <style>, the <nav> and the <script> into the design,
   and make each direction a <section class="direction" data-ss-frame="desktop" data-ss-section data-ss-id="direction-<slug>"
-  data-ss-thing="direction/<slug>" data-ss-label="<Name>"> with a data-name (shown on its tab) and a data-line (one line under the tabs).
+  data-ss-thing="direction/<slug>" data-ss-label="<Name>"> (its label is its tab) and a data-line (one line under the tabs).
   - A link ending in #direction-<slug> opens that direction.
   - data-default on one section makes it the one the space opens on (after a pick).
   - In a working canvas the tabs stay pinned at screen size and select the direction.
@@ -49,52 +49,69 @@
   <p class="switcher-line" aria-live="polite"></p>
 </nav>
 
-<section class="direction" data-ss-frame="desktop" data-ss-section data-ss-id="direction-harbour-chart" data-ss-x="0" data-ss-y="0" data-ss-thing="direction/harbour-chart" data-ss-label="Harbour Chart" data-name="Harbour Chart" data-line="Calm and plain; leads with the due date.">
+<section class="direction" data-ss-frame="desktop" data-ss-section data-ss-id="direction-harbour-chart" data-ss-x="0" data-ss-y="0" data-ss-thing="direction/harbour-chart" data-ss-label="Harbour Chart" data-line="Calm and plain; leads with the due date.">
   <div class="demo d1"><h1 data-ss-id="chart-headline">Never miss a mooring fee</h1><p data-ss-id="chart-intro">Demo direction one.</p></div>
 </section>
-<section class="direction" data-ss-frame="desktop" data-ss-section data-ss-id="direction-night-watch" data-ss-x="1352" data-ss-y="0" data-ss-thing="direction/night-watch" data-ss-label="Night Watch" data-name="Night Watch" data-line="Dark field and huge type; leads with the promise.">
+<section class="direction" data-ss-frame="desktop" data-ss-section data-ss-id="direction-night-watch" data-ss-x="1352" data-ss-y="0" data-ss-thing="direction/night-watch" data-ss-label="Night Watch" data-line="Dark field and huge type; leads with the promise.">
   <div class="demo d2"><h1 data-ss-id="nightwatch-headline">Your fees, on watch</h1><p data-ss-id="nightwatch-intro">Demo direction two.</p></div>
 </section>
-<section class="direction" data-ss-frame="desktop" data-ss-section data-ss-id="direction-logbook" data-ss-x="2704" data-ss-y="0" data-ss-thing="direction/logbook" data-ss-label="Logbook" data-name="Logbook" data-line="Editorial columns; leads with the price.">
+<section class="direction" data-ss-frame="desktop" data-ss-section data-ss-id="direction-logbook" data-ss-x="2704" data-ss-y="0" data-ss-thing="direction/logbook" data-ss-label="Logbook" data-line="Editorial columns; leads with the price.">
   <div class="demo d3"><h1 data-ss-id="logbook-headline">£6 a month</h1><p data-ss-id="logbook-intro">Demo direction three.</p></div>
 </section>
 
 <script>
 /* switcher: start */
 (() => {
-  const dirs = [...document.querySelectorAll('section.direction')];
-  const tabs = document.querySelector('.switcher-tabs');
-  const line = document.querySelector('.switcher-line');
-  if (!dirs.length || !tabs) return;
-  const buttons = dirs.map((d) => {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.setAttribute('role', 'tab');
-    b.textContent = d.dataset.name || d.dataset.ssId;
-    b.addEventListener('click', () => { history.replaceState(null, '', '#' + d.dataset.ssId); show(d); dispatchEvent(new HashChangeEvent('hashchange')); });
-    tabs.appendChild(b);
-    return b;
-  });
-  function show(d) {
-    dirs.forEach((x, i) => {
-      const on = x === d;
-      x.classList.toggle('on', on);
-      buttons[i].setAttribute('aria-selected', String(on));
-    });
-    line.textContent = d.dataset.line || '';
-  }
+  const tabsNow = () => document.querySelector('.switcher-tabs');
+  const lineNow = () => document.querySelector('.switcher-line');
+  if (!tabsNow()) return;
+  const all = () => [...document.querySelectorAll('section.direction')];
+  const label = (d) => d.dataset.ssLabel || d.dataset.name || d.dataset.ssId || '';
+  const hashOf = (d) => '#' + encodeURIComponent(d.dataset.ssId); // fromHash decodes it
+  let cur = null, drawn = null;
   function fromHash() {
-    const id = decodeURIComponent(location.hash.slice(1));
+    const dirs = all();
+    let id = location.hash.slice(1);
+    try { id = decodeURIComponent(id); } catch {}
     return dirs.find((d) => d.dataset.ssId === id)
       || dirs.find((d) => d.contains(document.getElementById(id) || document.querySelector('[data-ss-id="' + CSS.escape(id) + '"]')))
       || dirs.find((d) => d.hasAttribute('data-default'))
       || dirs[0];
   }
+  function show(d) {
+    if (!d) return;
+    cur = d;
+    const tabs = tabsNow(), line = lineNow();
+    all().forEach((x, i) => {
+      x.classList.toggle('on', x === d);
+      if (tabs && tabs.children[i]) tabs.children[i].setAttribute('aria-selected', String(x === d));
+    });
+    if (line) line.textContent = d.dataset.line || '';
+  }
+  function draw() {
+    try { drawn = tabsNow(); if (drawn) drawn.replaceChildren(...all().map((d) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.setAttribute('role', 'tab');
+      b.textContent = label(d);
+      b.addEventListener('click', () => { history.replaceState(null, '', hashOf(d)); show(d); dispatchEvent(new HashChangeEvent('hashchange')); });
+      return b;
+    }));
+    show(fromHash()); } finally { watch.takeRecords(); } // its own changes mustn't call it again
+  }
+  // A live push redraws the page from its source, where the tabs are empty, and on a canvas page it puts
+  // fresh copies of the tabs and line in place of these: draw them again, into the ones on the page now.
+  const stale = () => {
+    const dirs = all(), tabs = tabsNow(), line = lineNow();
+    return tabs !== drawn || (tabs && (tabs.children.length !== dirs.length || dirs.some((d, i) => tabs.children[i].textContent !== label(d))))
+      || !document.contains(cur) || (line && line.textContent !== (cur.dataset.line || ''));
+  };
+  const watch = new MutationObserver(() => { if (stale()) draw(); });
+  watch.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-ss-label', 'data-name', 'data-line', 'data-ss-id'] });
   addEventListener('hashchange', () => show(fromHash()));
-  const initial = fromHash();
-  show(initial);
-  if (!location.hash && initial.hasAttribute('data-default') && document.querySelector('meta[name="ss-canvas"][content="on"]')) {
-    history.replaceState(null, '', '#' + initial.dataset.ssId);
+  draw();
+  if (cur && !location.hash && cur.hasAttribute('data-default') && document.querySelector('meta[name="ss-canvas"][content="on"]')) {
+    history.replaceState(null, '', hashOf(cur));
   }
 })();
 /* switcher: end */

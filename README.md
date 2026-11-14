@@ -11,10 +11,10 @@ Spacesheep's official Design skill, in the [Agent Skills](https://agentskills.io
    ```
 
 2. Add a heading for the version to `CHANGELOG.md` (`## v1.1.0`), with what changed under it.
-3. Tag and push the version (`git tag v1.1.0 && git push origin v1.1.0`). `release.yml` checks the skill and makes the release. Spacesheep takes it as a new version of the official skill, which waits for approval.
+3. Tag and push the version (`git tag v1.1.0 && git push origin v1.1.0`). `release.yml` checks the skill and makes the release. Spacesheep takes it as the official skill's current version as soon as it lands, and installs follow it.
 
 - **When a change needs the app to change too,** ship the app first, then tag the skill.
-- **Never move a tag.** Spacesheep keeps each tag once, with the commit it pointed at. Tag a new version instead.
+- **Never move a tag.** Spacesheep keeps each tag once, with the commit it pointed at. Tag a new version instead: to take a release back, tag a higher version with the old words.
 - **A tag like `v1.1.0-rc1`** becomes a pre-release, which Spacesheep ignores.
 
 ## History
