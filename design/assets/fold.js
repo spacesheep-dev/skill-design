@@ -106,7 +106,15 @@ const log = (line) => { if (within("draw/fold.log")) fs.appendFileSync("draw/fol
 const swap = (f, text) => { const t = `draw/.${f.replace(/\//g, "_")}.tmp`; if (!within(t) || !within(f)) return refuse(f); fs.writeFileSync(t, text); fs.renameSync(t, f); return true; };
 // A background job (the writer, a save) keeps its pid in draw/<name>.pid while it runs.
 const alive = (pid) => { if (!pid) return false; try { process.kill(pid, 0); return true; } catch (e) { return e.code === "EPERM"; } };
-const running = (name) => { const pid = +(read(`draw/${name}.pid`) || 0); return alive(pid) ? pid : 0; };
+// A pid file that is a link (or outside the folder) can't be trusted: that job counts as running, so
+// nothing starts beside it and stop fails closed.
+const running = (name) => {
+  const f = `draw/${name}.pid`;
+  if (!within(f)) { refuse(f); return -1; }
+  const pid = +(read(f) || 0);
+  return alive(pid) ? pid : 0;
+};
+const tracked = (name) => within(`draw/${name}.pid`) || (refuse(`draw/${name}.pid`), false);
 function gone(name, ms) {
   const until = Date.now() + ms;
   while (running(name) && Date.now() < until) sleep(200);
@@ -262,6 +270,7 @@ if (cmd === "brief") {
 if (cmd === "save" || cmd === "stop") { plain("message", argv[1]); plain("status", argv[2]); }
 if (cmd === "save" && !bg) {
   if (!argv[1]) { console.error('save: give a message, e.g. save "Three directions" "All three are up"'); process.exit(2); }
+  if (!tracked("save")) { console.error("save: draw/save.pid is a link, so the save couldn't be tracked; nothing saved"); process.exit(2); }
   if (running("save")) { console.error(`save: a save is still running (pid ${running("save")}); fold.js wait shows when it ends`); process.exit(1); }
   if (!work() || !write("draw/save.log", "")) process.exit(2);
   const pid = background("draw/save.log");
@@ -272,7 +281,7 @@ if (cmd === "save" && !bg) {
   process.exit(0);
 }
 if (cmd === "save") {
-  write("draw/save.pid", String(process.pid));
+  if (!write("draw/save.pid", String(process.pid))) process.exit(2);
   const say = (l) => console.log(`${new Date().toISOString().slice(11, 19)} ${l}`);
   const end = (l) => { say(l); if (read("draw/save.pid") === String(process.pid)) remove("draw/save.pid"); };
   (async () => {
@@ -299,17 +308,19 @@ if (cmd === "save") {
   return;
 }
 if (cmd === "wait") {
-  if (read("draw/save.log") === null) { console.log("no save has run"); process.exit(0); }
+  // A writer that stopped by itself (refused pushes, idle) is said first, before anything about a save.
+  const note = idle();
+  if (note) console.log(note);
+  if (read("draw/save.log") === null) { console.log("no save has run"); process.exit(note ? 1 : 0); }
   const ended = () => /save done|pictures done|save failed/.test(read("draw/save.log") || "") && !running("save");
   const until = Date.now() + 100000;
   while (!ended() && Date.now() < until) sleep(1000);
   process.stdout.write(read("draw/save.log") || "");
   if (!ended()) console.log("still saving: run wait again");
-  const note = idle();
-  if (note) console.log(note);
-  process.exit(0);
+  process.exit(/save failed/.test(read("draw/save.log") || "") || note.includes("refused") ? 1 : 0);
 }
 if (cmd === "write" && !bg) {
+  if (!tracked("writer")) { console.error("write: draw/writer.pid is a link, so the writer couldn't be tracked or stopped; nothing started"); process.exit(2); }
   if (running("writer")) { console.log(`the writer is already running (pid ${running("writer")})`); process.exit(0); }
   // A new build takes the frame from the page; a writer that stopped while idle keeps its frame.
   if (!here("draw/frame.html") || here("draw/stop")) {
@@ -328,6 +339,7 @@ if (cmd === "stop") {
   if (note) console.log(note);
   sleep(3000); // the last edits fold within 2 s
   write("draw/stop", "");
+  if (!tracked("writer") || !tracked("save")) { console.error("stop: a pid file in draw/ is a link, so stop can't tell whether the writer or a save is still running; nothing saved"); process.exit(1); }
   if (!gone("writer", 30000)) { console.error(`stop: the writer (pid ${running("writer")}) hasn't exited after 30 s; nothing saved: run stop again`); process.exit(1); }
   if (!gone("save", 60000)) { console.error(`stop: a save (pid ${running("save")}) is still running after 60 s; nothing saved: run stop again`); process.exit(1); }
   const pushes = ((read("draw/fold.log") || "").match(/pushed the page/g) || []).length;
@@ -341,7 +353,7 @@ if (cmd === "stop") {
 }
 
 // The writer itself (`write` starts it in the background).
-write("draw/writer.pid", String(process.pid));
+if (!write("draw/writer.pid", String(process.pid))) process.exit(2);
 process.on("exit", () => { if (read("draw/writer.pid") === String(process.pid)) remove("draw/writer.pid"); });
 // The idle clock follows the inputs (the folded parts and frame), whatever the pushes did; five refused
 // pushes in a row stop it too, so nobody draws on into a page that isn't reaching the space.
@@ -356,10 +368,11 @@ for (;;) {
   if (refusals >= 5) { log("the writer stopped: 5 pushes in a row were refused (the lines above say why), so the page isn't reaching the space"); break; }
   const page = fold();
   if (page && page.html !== input) { input = page.html; changed = Date.now(); }
-  if (page && page.html !== shown && !stopped()) {
+  const may = () => !stopped() && refusals < 5;
+  if (page && page.html !== shown && may()) {
     swap("work/index.html", page.html);
     if (tried(push("--html", page.html))) shown = page.html;
   }
-  if (page && page.status && page.status !== said && !stopped() && tried(push("--status", page.status))) said = page.status;
+  if (page && page.status && page.status !== said && may() && tried(push("--status", page.status))) said = page.status;
   sleep(1000);
 }
