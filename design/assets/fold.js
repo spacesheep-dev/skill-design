@@ -19,7 +19,11 @@
 //                                               direction at 1440 and 390 px wide (<slug>-1440.png, and
 //                                               <slug>-390.png cut into columns), the page measuring itself
 //                                               for layout faults as it is drawn; log in draw/save.log
-//   node fold.js -C <folder> wait                wait for that save to end (at most 100 s), print its log
+//   node fold.js -C <folder> wait                wait for that save to end (at most 100 s), print its log;
+//                                               exit 0 only for "save done…" or "pictures done: N pictures,
+//                                               no layout faults". "layout check failed" means fix each
+//                                               fault once, then stop (a fixed fault isn't measured again);
+//                                               "save …", "pictures incomplete" and the rest mean save again
 //   node fold.js -C <folder> stop "<message>"    ask the writer to stop and wait for its own word that it
 //                                               has (else fail), fold the last edits, push them and save
 //   node fold.js -C <folder> read                read the space's current source into work/ again
@@ -350,6 +354,37 @@ if (cmd === "brief") {
   process.exit(0);
 }
 if (cmd === "save" || cmd === "stop") { plain("message", argv[1]); plain("status", argv[2]); }
+const crc32 = require("zlib").crc32 || ((b) => { let c = ~0; for (const x of b) { c ^= x; for (let k = 0; k < 8; k++) c = (c >>> 1) ^ (0xedb88320 & -(c & 1)); } return ~c >>> 0; }); // Node < 22.2
+// Why bytes aren't a whole PNG a person can look at, or null when they are: the signature, every chunk's
+// length and CRC, IHDR first and well formed, image data that inflates to exactly what that size needs with
+// a known filter on every row, and IEND.
+function pngBad(buf) {
+  if (buf.length < 8 || !buf.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) return "not a PNG";
+  let pos = 8, head = null, end = false;
+  const idat = [];
+  while (pos < buf.length && !end) {
+    if (pos + 12 > buf.length) return "cut short";
+    const len = buf.readUInt32BE(pos), kind = buf.toString("latin1", pos + 4, pos + 8);
+    if (pos + 12 + len > buf.length) return "cut short";
+    if (buf.readUInt32BE(pos + 8 + len) !== crc32(buf.subarray(pos + 4, pos + 8 + len))) return `a damaged ${kind} chunk`;
+    const data = buf.subarray(pos + 8, pos + 8 + len);
+    if (!head && kind !== "IHDR") return "a PNG without its header first";
+    if (kind === "IHDR") head = data; else if (kind === "IDAT") idat.push(data); else if (kind === "IEND") end = true;
+    pos += 12 + len;
+  }
+  if (!end) return "a PNG without its end";
+  const w = head.length === 13 ? head.readUInt32BE(0) : 0, h = head.length === 13 ? head.readUInt32BE(4) : 0;
+  const ch = { 0: 1, 2: 3, 3: 1, 4: 2, 6: 4 }[head[9]], depth = head[8];
+  if (!w || !h || !ch || ![1, 2, 4, 8, 16].includes(depth) || head[10] || head[11] || head[12] > 1) return "a PNG with an unreadable header";
+  if (!idat.length) return "a PNG with no image";
+  let raw;
+  try { raw = require("zlib").inflateSync(Buffer.concat(idat)); } catch { return "a PNG whose image won't unpack"; }
+  if (head[12]) return null; // interlaced: the renderer never sends one, and its size is a longer sum
+  const row = Math.ceil((w * ch * depth) / 8) + 1;
+  if (raw.length !== h * row) return "a PNG whose image is the wrong size";
+  for (let y = 0; y < h; y++) if (raw[y * row] > 4) return "a PNG with an unknown row filter";
+  return null;
+}
 // A phone picture is one strip, often 6,000 px tall, which shrinks to a sliver when viewed whole: cut it into
 // columns at most 1,400 px tall, side by side, so it reads near full size. 8-bit RGB or RGBA PNGs only.
 function columns(file, tall = 1400, gap = 24) {
@@ -378,8 +413,8 @@ function columns(file, tall = 1400, gap = 24) {
     out[y * line] = 0;
     for (let i = 0; i < n; i++) if (i * tall + y < h) px.copy(out, y * line + 1 + i * (w + gap) * bpp, (i * tall + y) * row, (i * tall + y + 1) * row);
   }
-  const crc = zlib.crc32 || ((b) => { let c = ~0; for (const x of b) { c ^= x; for (let k = 0; k < 8; k++) c = (c >>> 1) ^ (0xedb88320 & -(c & 1)); } return ~c >>> 0; }); // Node < 22.2
-  const chunk = (kind, data) => { const b = Buffer.alloc(12 + data.length); b.writeUInt32BE(data.length, 0); b.write(kind, 4, "latin1"); data.copy(b, 8); b.writeUInt32BE(crc(b.subarray(4, 8 + data.length)), 8 + data.length); return b; };
+  const crc = crc32;
+  const chunk =(kind, data) => { const b = Buffer.alloc(12 + data.length); b.writeUInt32BE(data.length, 0); b.write(kind, 4, "latin1"); data.copy(b, 8); b.writeUInt32BE(crc(b.subarray(4, 8 + data.length)), 8 + data.length); return b; };
   const head = Buffer.alloc(13); head.writeUInt32BE(W, 0); head.writeUInt32BE(tall, 4); head[8] = 8; head[9] = type;
   fs.writeFileSync(file, Buffer.concat([buf.subarray(0, 8), chunk("IHDR", head), chunk("IDAT", zlib.deflateSync(out)), chunk("IEND", Buffer.alloc(0))]));
 }
@@ -422,12 +457,14 @@ if (cmd === "save") {
     const shot = async (d, w) => {
       const f = `${d}-${w}.png`;
       if (!within(f)) { refuse(f); say(`picture ${f} refused: it is a link`); return false; }
+      remove(f); // an earlier save's picture never stands in for this one
       for (let t = 1; t <= 2; t++) {
         const r = await runAsync(["spaces", "screenshot", space, "--path", "/?ss-check=1", "--width", String(w), "--height", w === 390 ? "844" : "1000", "--section", `direction-${d}`, "--json"]);
         let a = null;
         try { a = JSON.parse(r.out.slice(r.out.indexOf("{"))); } catch {}
-        if (!r.e && a && a.png) {
-          fs.writeFileSync(f, Buffer.from(a.png, "base64"));
+        const png = !r.e && a && typeof a.png === "string" ? Buffer.from(a.png, "base64") : null, bad = png && pngBad(png);
+        if (png && !bad) {
+          fs.writeFileSync(f, png);
           if (w === 390) try { columns(f); } catch (e) { say(`${f} kept as one strip: ${e.message}`); }
           for (const x of a.resource_failures || []) {
             const m = String(x.url || "").match(/\/ss-fault\/([a-z0-9-]+)\/(narrow|wide|cut)\/([^/?]+)\.png\?t=([^&]*)/);
@@ -436,15 +473,22 @@ if (cmd === "save") {
           say(`picture: ${f}`);
           return true;
         }
-        say(`picture ${f} refused (try ${t}): ${(r.err || r.out).trim().split("\n").slice(-1)[0].slice(0, 200)}`);
+        say(`picture ${f} refused (try ${t}): ${bad ? `the answer's picture is ${bad}` : (r.err || r.out).trim().split("\n").slice(-1)[0].slice(0, 200)}`);
         await new Promise((ok) => setTimeout(ok, 5000));
       }
       return false;
     };
+    const files = slugs.flatMap((d) => [`${d}-1440.png`, `${d}-390.png`]);
     const shots = await Promise.all(slugs.flatMap((d) => [shot(d, 1440), shot(d, 390)]));
     for (const l of faults.values()) say(l);
-    if (faults.size) say(`${faults.size} layout fault${faults.size > 1 ? "s" : ""} measured on the saved page: each is a failure to fix, like check.js's`);
-    end(shots.every(Boolean) ? "pictures done" : `pictures done, ${shots.filter((x) => !x).length} missing`);
+    // The last line says what to do, in its first words: a picture missing means save again; a layout fault
+    // means fix it once in its part, then stop. The fix isn't measured again, so a second save can't help.
+    const missing = files.filter((f, i) => !shots[i]);
+    if (!files.length) return end("save done, no pictures: the page has no direction to picture"); // a deck or prototype: saving again can't change it
+    if (missing.length) return end(`pictures incomplete: ${missing.length} of ${files.length} missing (${missing.join(", ")}), each refused above: fix that, then save again`);
+    const n = faults.size;
+    if (n) return end(`layout check failed: ${n} fault${n > 1 ? "s" : ""}, listed above: fix each once in its part, then fold.js stop; don't save again for them`);
+    end(`pictures done: ${files.length} pictures, no layout faults`);
   })();
   return;
 }
@@ -461,8 +505,9 @@ if (cmd === "wait") {
   process.stdout.write(logText("draw/save.log") || "");
   if (e.state === "lapsed") { console.log(`the save (run ${e.id}) never said how it ended; its time ran out at ${at(e.deadline)}: run the save again`); process.exit(1); }
   if (e.state !== "done") { console.log(e.state === "open" ? `still saving: ${e.why}; run wait again` : `can't tell how the save went: ${e.why}`); process.exit(1); }
-  // Success only for a save that did all it says: saved, pushed the page and status (and took pictures).
-  process.exit(/^(save done|pictures done(, \d+ missing)?)$/.test(e.how) && !note.includes("refused") ? 0 : 1);
+  // Success only for a save that did all it says: saved, pushed the page and status (and took every picture,
+  // each a whole PNG, with no layout fault measured).
+  process.exit(/^(save done|save done, no pictures: the page has no direction to picture|pictures done: \d+ pictures, no layout faults)$/.test(e.how) && !note.includes("refused") ? 0 : 1);
 }
 if (cmd === "write" && !bg) {
   const j = launchable("writer", "write");
