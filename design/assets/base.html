@@ -5,8 +5,9 @@
      slug (direction-slug, its blocks slug-part), data-ss-label (its name), data-line and tokens.
   2. Push it: that is the frame. Then assets/fold.js draws each direction in parts, between its
      part:slug markers, in place of its .drawing block. Keep the markers, renamed with the slug.
-  One design, not directions: keep one section, and drop the switcher's nav and script.
-  Keep the metas, the switcher and the ids.
+  One design, not directions: keep one section, and drop the switcher's nav and script (with answers,
+  keep the nav holding only its switcher-answers line).
+  Keep the metas, the switcher and the ids. The person's answers, when you asked: references/questions.md.
 -->
 <html lang="en">
 <head>
@@ -27,6 +28,8 @@
   .switcher-tabs button[aria-selected="true"] { background: #111; color: #fff; border-color: #111; }
   .switcher-tabs button:focus-visible { outline: 3px solid #2563eb; outline-offset: 2px; }
   .switcher-line { margin: 6px 2px 0; font-size: 13px; color: #555; min-height: 1.3em; }
+  .switcher-answers { margin: 2px 2px 0; font-size: 13px; color: #555; }
+  .switcher-answers:empty { display: none; }
   html:not(:has(meta[name="ss-canvas"][content="on"])) .direction:not(.on) { display: none; }
   /* switcher: end */
 
@@ -206,6 +209,7 @@
 <nav data-ss-canvas="pin" class="switcher no-print" aria-label="Design directions" data-ss-react="off">
   <div class="switcher-tabs" role="tablist"></div>
   <p class="switcher-line" aria-live="polite"></p>
+  <p class="switcher-answers"></p>
 </nav>
 
 <style>
