@@ -289,6 +289,65 @@ document.addEventListener('click', (e) => {
   f.toggleAttribute('data-open');
   b.setAttribute('aria-expanded', String(f.hasAttribute('data-open')));
 });
+/* check: only when the address has ?ss-check (the save's pictures), never in a person's view. Once the page
+   has loaded, it measures each direction at this width for what a picture can't be trusted to show:
+     narrow  words in a column so thin they run under 4 characters a line
+     wide    words or a control running past the direction's edge
+     cut     words drawn outside a box that hides or scrolls its overflow
+   It outlines each in red and asks for ss-fault/<slug>/<kind>/<element>.png, which doesn't exist: the
+   picture's answer lists that request, and fold.js prints it as a fault. First the canvas goes off and
+   every direction shows, full width and unscaled, as a person sees it on its own. */
+if (/[?&]ss-check\b/.test(location.search)) {
+  const canvas = document.querySelector('meta[name="ss-canvas"]');
+  if (canvas) canvas.content = 'off';
+  document.head.append(Object.assign(document.createElement('style'), { textContent: 'section.direction { display: block !important; } .switcher { display: none !important; }' }));
+}
+if (/[?&]ss-check\b/.test(location.search)) addEventListener('load', () => (document.fonts ? document.fonts.ready : Promise.resolve()).then(() => {
+  const own = (v) => v && !/^auto-/.test(v) ? v : ''; // the renderer gives unnamed blocks auto- ids
+  const name = (e) => e.tagName.toLowerCase() + (own(e.dataset.ssId) ? `[data-ss-id=${e.dataset.ssId}]` : e.id ? `#${e.id}` : e.classList.length ? `.${[...e.classList].slice(0, 2).join('.')}` : '');
+  const shown = (e) => { for (let x = e; x; x = x.parentElement) { const s = getComputedStyle(x); if (s.display === 'none' || s.visibility === 'hidden') return false; } return true; };
+  const skip = 'script, style, template, svg, [hidden], [aria-hidden=true]';
+  for (const sec of document.querySelectorAll('section.direction')) {
+    const slug = (sec.dataset.ssId || '').replace(/^direction-/, '');
+    const box = sec.getBoundingClientRect();
+    if (!box.width || !shown(sec)) continue;
+    const k = box.width / (sec.offsetWidth || box.width); // a canvas may scale the direction
+    const seen = new Set();
+    const fault = (kind, el, text) => {
+      const key = kind + name(el);
+      if (seen.has(key) || seen.size >= 8) return;
+      seen.add(key);
+      el.style.outline = '3px solid #e00';
+      const i = new Image();
+      i.src = `ss-fault/${slug}/${kind}/${encodeURIComponent(name(el))}.png?t=${encodeURIComponent(text.replace(/\s+/g, ' ').trim().slice(0, 40))}`;
+    };
+    const lines = (n) => { const g = document.createRange(); g.selectNodeContents(n); return [...g.getClientRects()].filter((x) => x.width > 0); };
+    const walk = document.createTreeWalker(sec, NodeFilter.SHOW_TEXT);
+    for (let n; (n = walk.nextNode()); ) {
+      const t = n.textContent.replace(/\s+/g, ' ').trim(), el = n.parentElement;
+      if (t.length < 12 || !el || el.closest(skip) || !shown(el)) continue;
+      const tops = new Set(lines(n).map((x) => Math.round(x.top / k / 4)));
+      if (tops.size >= 4 && t.length / tops.size < 4) fault('narrow', el, t);
+    }
+    const past = (q) => (q.right - box.right) / k > 2 || (box.left - q.left) / k > 2;
+    const inside = (q) => q.right > box.left + 1 && q.left < box.right - 1;
+    for (const el of sec.querySelectorAll('*')) {
+      if (el.closest(skip) || !shown(el)) continue;
+      const words = [...el.childNodes].filter((n) => n.nodeType === 3 && n.textContent.trim()), control = el.matches('a, button, input, select, textarea, label');
+      if (!words.length && !control) continue; // decoration may bleed off an edge
+      const r = el.getBoundingClientRect();
+      if (r.width <= 1 || r.height <= 1 || getComputedStyle(el).position === 'fixed') continue; // visually hidden, or pinned
+      const spans = words.flatMap(lines), reach = spans.concat(control || !spans.length ? [r] : []);
+      for (let x = el; x && x !== sec; x = x.parentElement) {
+        if (getComputedStyle(x).overflowX === 'visible') continue;
+        const c = x.getBoundingClientRect();
+        if (spans.some((q) => (q.right - c.right) / k > 2 || (c.left - q.left) / k > 2)) fault('cut', el, el.textContent);
+        break;
+      }
+      if (reach.some(inside) && reach.some(past)) fault('wide', el, el.textContent);
+    }
+  }
+}));
 </script>
 </body>
 </html>

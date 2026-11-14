@@ -15,8 +15,10 @@
 //   node fold.js -C <folder> brief               wait for draw/BRIEF.md to end with `end brief`, print it
 //   node fold.js -C <folder> save "<message>" "<status>" [pictures]
 //                                               in the background: save a version, push the page again,
-//                                               put the status back, and with `pictures` take one of each
-//                                               direction to <slug>.png (two tries each); log in draw/save.log
+//                                               put the status back, and with `pictures` take each whole
+//                                               direction at 1440 and 390 px wide (<slug>-1440.png, and
+//                                               <slug>-390.png cut into columns), the page measuring itself
+//                                               for layout faults as it is drawn; log in draw/save.log
 //   node fold.js -C <folder> wait                wait for that save to end (at most 100 s), print its log
 //   node fold.js -C <folder> stop "<message>"    ask the writer to stop and wait for its own word that it
 //                                               has (else fail), fold the last edits, push them and save
@@ -213,7 +215,7 @@ const run = (args, opts = {}) => execFileSync(cli[0], [...cli.slice(1), ...args]
 const runAsync = (args) => new Promise((ok) => {
   const t = allowed(90000);
   if (!t) return ok({ e: new Error(lost), out: `not called: ${lost}` });
-  execFile(cli[0], [...cli.slice(1), ...args], { timeout: t, killSignal: "SIGKILL" }, (e, out, err) => ok({ e, out: String(out || "") + String(err || "") }));
+  execFile(cli[0], [...cli.slice(1), ...args], { timeout: t, killSignal: "SIGKILL", maxBuffer: 64 << 20 }, (e, out, err) => ok({ e, out: String(out || ""), err: String(err || "") }));
 });
 const why = (e) => String(e.stderr || e.message).trim().split("\n").slice(-3).join(" ").slice(0, 300);
 
@@ -348,6 +350,39 @@ if (cmd === "brief") {
   process.exit(0);
 }
 if (cmd === "save" || cmd === "stop") { plain("message", argv[1]); plain("status", argv[2]); }
+// A phone picture is one strip, often 6,000 px tall, which shrinks to a sliver when viewed whole: cut it into
+// columns at most 1,400 px tall, side by side, so it reads near full size. 8-bit RGB or RGBA PNGs only.
+function columns(file, tall = 1400, gap = 24) {
+  const zlib = require("zlib"), buf = fs.readFileSync(file), idat = [];
+  let w = 0, h = 0, type = -1, pos = 8;
+  while (pos + 8 <= buf.length) {
+    const len = buf.readUInt32BE(pos), kind = buf.toString("latin1", pos + 4, pos + 8), data = buf.subarray(pos + 8, pos + 8 + len);
+    if (kind === "IHDR") { w = data.readUInt32BE(0); h = data.readUInt32BE(4); type = data[8] === 8 && !data[12] ? data[9] : -1; }
+    else if (kind === "IDAT") idat.push(data);
+    else if (kind === "IEND") break;
+    pos += 12 + len;
+  }
+  const bpp = { 2: 3, 6: 4 }[type];
+  if (!bpp || h <= tall) return;
+  const raw = zlib.inflateSync(Buffer.concat(idat)), row = w * bpp, px = Buffer.alloc(h * row);
+  for (let y = 0; y < h; y++) {
+    const f = raw[y * (row + 1)], src = raw.subarray(y * (row + 1) + 1), at = y * row;
+    for (let x = 0; x < row; x++) {
+      const a = x >= bpp ? px[at + x - bpp] : 0, b = y ? px[at - row + x] : 0, c = y && x >= bpp ? px[at - row + x - bpp] : 0;
+      const p = a + b - c, pa = Math.abs(p - a), pb = Math.abs(p - b), pc = Math.abs(p - c);
+      px[at + x] = src[x] + [0, a, b, (a + b) >> 1, pa <= pb && pa <= pc ? a : pb <= pc ? b : c][f];
+    }
+  }
+  const n = Math.ceil(h / tall), W = n * w + (n - 1) * gap, line = W * bpp + 1, out = Buffer.alloc(tall * line, 0xdd);
+  for (let y = 0; y < tall; y++) {
+    out[y * line] = 0;
+    for (let i = 0; i < n; i++) if (i * tall + y < h) px.copy(out, y * line + 1 + i * (w + gap) * bpp, (i * tall + y) * row, (i * tall + y + 1) * row);
+  }
+  const crc = zlib.crc32 || ((b) => { let c = ~0; for (const x of b) { c ^= x; for (let k = 0; k < 8; k++) c = (c >>> 1) ^ (0xedb88320 & -(c & 1)); } return ~c >>> 0; }); // Node < 22.2
+  const chunk = (kind, data) => { const b = Buffer.alloc(12 + data.length); b.writeUInt32BE(data.length, 0); b.write(kind, 4, "latin1"); data.copy(b, 8); b.writeUInt32BE(crc(b.subarray(4, 8 + data.length)), 8 + data.length); return b; };
+  const head = Buffer.alloc(13); head.writeUInt32BE(W, 0); head.writeUInt32BE(tall, 4); head[8] = 8; head[9] = type;
+  fs.writeFileSync(file, Buffer.concat([buf.subarray(0, 8), chunk("IHDR", head), chunk("IDAT", zlib.deflateSync(out)), chunk("IEND", Buffer.alloc(0))]));
+}
 if (cmd === "save" && !bg) {
   if (!argv[1]) { console.error('save: give a message, e.g. save "Three directions" "All three are up"'); process.exit(2); }
   const j = launchable("save", "save");
@@ -379,17 +414,36 @@ if (cmd === "save") {
     if (lost) return end(`save stopped: ${lost}`);
     if (missed) return end(`save incomplete: saved, but ${missed === 1 ? "a push" : `${missed} pushes`} didn't happen`);
     if (argv[3] !== "pictures") return end("save done");
+    // Each whole direction at 1440 and at 390 px wide, from the page with ?ss-check: the starter's script then
+    // measures the direction as it is drawn, and each layout fault comes back named in the picture's answer.
     const slugs = [...new Set([...(read("work/index.html") || "").matchAll(/data-ss-id="direction-([a-z0-9-]+)"/g)].map((m) => m[1]))];
-    const shots = await Promise.all(slugs.map(async (d) => {
-      if (!within(`${d}.png`)) { refuse(`${d}.png`); say(`picture of ${d} refused: ${d}.png is a link`); return false; }
+    const faults = new Map();
+    const KIND = { narrow: "words run under 4 characters a line", wide: "runs past the direction's edge", cut: "words cut off by the box around them" };
+    const shot = async (d, w) => {
+      const f = `${d}-${w}.png`;
+      if (!within(f)) { refuse(f); say(`picture ${f} refused: it is a link`); return false; }
       for (let t = 1; t <= 2; t++) {
-        const r = await runAsync(["spaces", "screenshot", space, "--width", "1920", "--height", "1080", "--section", `direction-${d}`, "-o", `${d}.png`]);
-        if (!r.e) { say(`picture: ${d}.png`); return true; }
-        say(`picture of ${d} refused (try ${t}): ${r.out.trim().split("\n").slice(-1)[0].slice(0, 200)}`);
+        const r = await runAsync(["spaces", "screenshot", space, "--path", "/?ss-check=1", "--width", String(w), "--height", w === 390 ? "844" : "1000", "--section", `direction-${d}`, "--json"]);
+        let a = null;
+        try { a = JSON.parse(r.out.slice(r.out.indexOf("{"))); } catch {}
+        if (!r.e && a && a.png) {
+          fs.writeFileSync(f, Buffer.from(a.png, "base64"));
+          if (w === 390) try { columns(f); } catch (e) { say(`${f} kept as one strip: ${e.message}`); }
+          for (const x of a.resource_failures || []) {
+            const m = String(x.url || "").match(/\/ss-fault\/([a-z0-9-]+)\/(narrow|wide|cut)\/([^/?]+)\.png\?t=([^&]*)/);
+            if (m && m[1] === d) faults.set(`${w} ${m.slice(1, 4).join(" ")}`, `fault at ${w} px: ${d}: ${decodeURIComponent(m[3])} "${decodeURIComponent(m[4])}": ${KIND[m[2]]}`);
+          }
+          say(`picture: ${f}`);
+          return true;
+        }
+        say(`picture ${f} refused (try ${t}): ${(r.err || r.out).trim().split("\n").slice(-1)[0].slice(0, 200)}`);
         await new Promise((ok) => setTimeout(ok, 5000));
       }
       return false;
-    }));
+    };
+    const shots = await Promise.all(slugs.flatMap((d) => [shot(d, 1440), shot(d, 390)]));
+    for (const l of faults.values()) say(l);
+    if (faults.size) say(`${faults.size} layout fault${faults.size > 1 ? "s" : ""} measured on the saved page: each is a failure to fix, like check.js's`);
     end(shots.every(Boolean) ? "pictures done" : `pictures done, ${shots.filter((x) => !x).length} missing`);
   })();
   return;
