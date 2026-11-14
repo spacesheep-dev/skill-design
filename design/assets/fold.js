@@ -105,32 +105,45 @@ const NEW = fs.readdirSync("draw").length === 0; // a folder fold.js hasn't used
 const log = (line) => { if (within("draw/fold.log")) fs.appendFileSync("draw/fold.log", `${new Date().toISOString()} ${line}\n`); else refuse("draw/fold.log"); };
 // Write whole files only (a temporary copy in draw/, then a rename), so no reader sees half of one.
 const swap = (f, text) => { const t = `draw/.${f.replace(/\//g, "_")}.tmp`; if (!within(t) || !within(f)) return refuse(f); fs.writeFileSync(t, text); fs.renameSync(t, f); return true; };
-// A background job (the writer, a save) is one run, and its record is draw/<job>.run: "<id> <deadline>",
-// a fresh id and the time (ms) by which the run will have made its last call to the CLI. A folder's first
-// `start` writes "none" there (no run yet); after that a record is only ever replaced by the next run's,
-// never removed. The run writes draw/<job>.done ("<id> <how it ended>") as its very last act, after its
-// last call to the CLI has returned. So a job is, by its record alone:
+// A background job (the writer, a save) is one run, and its record is draw/<job>.run:
+// "<id> <deadline> <group>": a fresh id, the time (ms) by which the run makes its last call to the CLI,
+// and its process group. The run is started detached, so it leads a process group of its own, and
+// every CLI call it makes (npx and whatever npx starts too) is in that group: while any of them is
+// there, the group is. A folder's first `start` writes "none" as the record (no run yet); after that a
+// record is only ever replaced by the next run's, never removed. The run writes draw/<job>.done
+// ("<id> <how it ended>") as its last act, after its last CLI call has returned. So a job is:
 //   none     no run was ever started here
-//   done     the run on record said how it ended
-//   open     it hasn't said, and its deadline hasn't passed: it may still be running
-//   lapsed   it never said, but its deadline has passed: it can no longer call the CLI
+//   done     the run on record said how it ended, and its process group is gone
+//   lapsed   it never said, but its deadline has passed and its process group is gone
+//   open     anything else: it hasn't said, or something it started is still there, or that can't be told
 //   unknown  the record is missing, unreadable, malformed or a link: nothing about it can be told
 // `write` and `save` start a run only after none, done or lapsed; `wait` and `stop` succeed only on done
 // (or none). Unknown stays unknown: no command replaces it or reads it as "none". draw/<job>.pid is there
 // for a person to look the process up; nothing here decides on it.
 const LIFE = { writer: 31 * 60 * 1000, save: 10 * 60 * 1000 };
 const RUNID = /^[0-9a-f]{16}$/;
+// Whether any process of a group is there: true, false, or null when there's no group to ask about.
+function there(group) {
+  if (!(group > 1)) return null;
+  try { process.kill(-group, 0); return true; } catch (e) { return e.code !== "ESRCH"; }
+}
 function job(name) {
   const f = `draw/${name}.run`, d = `draw/${name}.done`;
   if (!within(f) || !within(d)) return { state: "unknown", why: `draw/${name}.run or .done is a link` };
   const t = read(f);
   if (t === null) return { state: "unknown", why: `draw/${name}.run is ${fs.existsSync(f) ? "unreadable" : "missing"}` };
   if (t.trim() === "none") return { state: "none" };
-  const m = t.trim().match(/^([0-9a-f]{16}) (\d{13})$/);
+  const m = t.trim().match(/^([0-9a-f]{16}) (\d{13}) (\d+|-)$/);
   if (!m) return { state: "unknown", why: `draw/${name}.run doesn't hold a run` };
-  const id = m[1], deadline = +m[2], done = (read(d) || "").trim();
-  if (done.startsWith(id + " ")) return { state: "done", id, deadline, how: done.slice(id.length + 1) };
-  return { state: Date.now() > deadline + 5000 ? "lapsed" : "open", id, deadline };
+  const id = m[1], deadline = +m[2], group = m[3] === "-" ? 0 : +m[3], done = (read(d) || "").trim();
+  const said = done.startsWith(id + " "), alive = there(group);
+  const how = said ? done.slice(id.length + 1) : undefined;
+  if (alive === false && said) return { state: "done", id, deadline, how };
+  if (alive === false && Date.now() > deadline + 5000) return { state: "lapsed", id, deadline };
+  const why = alive === null ? `its processes can't be checked (no process group on record)`
+    : alive ? (said ? `it said it ended (${how}), but a process it started is still there (process group ${group})` : `it hasn't said it ended, and its process group ${group} is still there`)
+    : `it hasn't said it ended, and its time isn't up until ${at(deadline)}`;
+  return { state: "open", id, deadline, how, why };
 }
 function settle(name, ms) {
   const until = Date.now() + ms;
@@ -144,14 +157,19 @@ const LOOK = (what) => `look for "fold.js ${what}" among the processes (ps -ef)`
 function launchable(name, what) {
   const j = job(name);
   if (j.state === "unknown") { console.error(`${cmd}: ${j.why}, so fold.js can't tell whether a ${name} is still running here; it may be. Nothing started; ${LOOK(what)}`); process.exit(2); }
-  if (j.state === "lapsed") console.log(`the last ${name} (run ${j.id}) never said how it ended; its time ran out at ${at(j.deadline)}, so it can no longer call the CLI`);
+  if (j.state === "lapsed") console.log(`the last ${name} (run ${j.id}) never said how it ended; its time ran out at ${at(j.deadline)} and none of its processes is left`);
   return j;
 }
-// Start a run: its record first (swapped in whole), then the job, which finds its deadline there.
-function begin(name) {
-  const id = require("crypto").randomBytes(8).toString("hex");
+// Start a run: its record first (no group yet, so nothing can count it as ended), then the job, detached,
+// then the record again with the job's process group. The job finds its id and deadline in the record.
+function begin(name, out, first) {
+  const id = require("crypto").randomBytes(8).toString("hex"), deadline = Date.now() + LIFE[name];
   remove(`draw/${name}.done`);
-  if (!swap(`draw/${name}.run`, `${id} ${Date.now() + LIFE[name]}\n`)) process.exit(2);
+  if (!swap(`draw/${name}.run`, `${id} ${deadline} -\n`)) process.exit(2);
+  if (first && !write(out, first(id))) process.exit(2);
+  const pid = background(out, id);
+  if (!swap(`draw/${name}.run`, `${id} ${deadline} ${pid}\n`)) process.exit(2);
+  write(`draw/${name}.pid`, String(pid));
   return id;
 }
 // A log as text: "" when it doesn't exist yet, null when it can't be trusted (a link, outside).
@@ -183,18 +201,19 @@ function allowed(ms) {
 
 // The CLI: one on the PATH, else npx's copy (downloaded from npm the first time), found once, so a
 // push then takes about 0.5 s, not 3. Each lookup has a time limit.
+// At its time limit any call is killed outright (SIGKILL): a CLI that ignores a request to stop can't run on.
 let cli = ["npx", "-y", "spacesheep@latest"];
 for (const find of ["command -v spacesheep", "npx -y -p spacesheep@latest -c 'command -v spacesheep'"]) {
   try {
-    const bin = execSync(find, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], timeout: 120000 }).trim();
+    const bin = execSync(find, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], timeout: 120000, killSignal: "SIGKILL" }).trim();
     if (bin) { cli = [bin]; break; }
   } catch {}
 }
-const run = (args, opts = {}) => execFileSync(cli[0], [...cli.slice(1), ...args], { encoding: "utf8", stdio: ["pipe", "pipe", "pipe"], timeout: 60000, ...opts });
+const run = (args, opts = {}) => execFileSync(cli[0], [...cli.slice(1), ...args], { encoding: "utf8", stdio: ["pipe", "pipe", "pipe"], timeout: 60000, killSignal: "SIGKILL", ...opts });
 const runAsync = (args) => new Promise((ok) => {
   const t = allowed(90000);
   if (!t) return ok({ e: new Error(lost), out: `not called: ${lost}` });
-  execFile(cli[0], [...cli.slice(1), ...args], { timeout: t }, (e, out, err) => ok({ e, out: String(out || "") + String(err || "") }));
+  execFile(cli[0], [...cli.slice(1), ...args], { timeout: t, killSignal: "SIGKILL" }, (e, out, err) => ok({ e, out: String(out || "") + String(err || "") }));
 });
 const why = (e) => String(e.stderr || e.message).trim().split("\n").slice(-3).join(" ").slice(0, 300);
 
@@ -222,7 +241,7 @@ function deploy(message) {
   if (!work()) return { ok: false, lines: ["work/ holds a link"] };
   const t = allowed(60000);
   if (!t) return { ok: false, lines: [`not called: ${lost}`] };
-  const r = spawnSync(cli[0], [...cli.slice(1), "deploy", "work", "--space", space, "-m", message], { encoding: "utf8", timeout: t });
+  const r = spawnSync(cli[0], [...cli.slice(1), "deploy", "work", "--space", space, "-m", message], { encoding: "utf8", timeout: t, killSignal: "SIGKILL" });
   const said = `${r.stdout || ""}\n${r.stderr || ""}`.split("\n").map((l) => l.trim()).filter(Boolean).filter((l) => !/^spacesheep /.test(l));
   return { ok: r.status === 0, lines: said.slice(0, 8) };
 }
@@ -332,12 +351,9 @@ if (cmd === "save" || cmd === "stop") { plain("message", argv[1]); plain("status
 if (cmd === "save" && !bg) {
   if (!argv[1]) { console.error('save: give a message, e.g. save "Three directions" "All three are up"'); process.exit(2); }
   const j = launchable("save", "save");
-  if (j.state === "open") { console.error(`save: a save (run ${j.id}) hasn't said how it ended, so it may still be running; nothing started. fold.js wait shows when it ends (if it was killed, a save can start again after ${at(j.deadline)})`); process.exit(1); }
+  if (j.state === "open") { console.error(`save: the last save (run ${j.id}) may still be running: ${j.why}. Nothing started; fold.js wait shows when it ends`); process.exit(1); }
   if (!work()) process.exit(2);
-  const run = begin("save");
-  if (!write("draw/save.log", `save started (run ${run})\n`)) process.exit(2);
-  const pid = background("draw/save.log", run);
-  write("draw/save.pid", String(pid));
+  const run = begin("save", "draw/save.log", (id) => `save started (run ${id})\n`);
   console.log(`saving in the background (run ${run}): "${argv[1]}"${argv[3] === "pictures" ? ", then pictures" : ""}; fold.js wait shows how it ended`);
   const note = idle();
   if (note) console.log(note);
@@ -356,9 +372,12 @@ if (cmd === "save") {
     const d = deploy(argv[1]);
     if (!d.ok) return end(`save failed: ${d.lines.join(" ").slice(0, 300)}`);
     say(`saved: ${d.lines.filter((l) => /Updated|Created|Merged|⇄/.test(l)).join(" ") || "ok"}`);
-    say(push("--html", read("work/index.html") || "") ? "pushed the page again" : "page push refused (draw/fold.log)");
-    if (argv[2]) say(push("--status", argv[2]) ? `status: ${argv[2]}` : "status push refused (draw/fold.log)");
+    // Every push must happen, or the save didn't do what it says: it ends "incomplete", never "done".
+    let missed = 0;
+    say(push("--html", read("work/index.html") || "") ? "pushed the page again" : (missed++, "page push didn't happen (draw/fold.log)"));
+    if (argv[2]) say(push("--status", argv[2]) ? `status: ${argv[2]}` : (missed++, "status push didn't happen (draw/fold.log)"));
     if (lost) return end(`save stopped: ${lost}`);
+    if (missed) return end(`save incomplete: saved, but ${missed === 1 ? "a push" : `${missed} pushes`} didn't happen`);
     if (argv[3] !== "pictures") return end("save done");
     const slugs = [...new Set([...(read("work/index.html") || "").matchAll(/data-ss-id="direction-([a-z0-9-]+)"/g)].map((m) => m[1]))];
     const shots = await Promise.all(slugs.map(async (d) => {
@@ -379,27 +398,28 @@ if (cmd === "wait") {
   // A writer that stopped by itself (refused pushes, idle) is said first, before anything about a save.
   const note = idle();
   if (note) console.log(note);
+  const w = job("writer");
+  if (w.state === "unknown") { console.log(`can't tell whether a writer is running: ${w.why}; ${LOOK("write")}`); process.exit(1); }
   const j = job("save");
   if (j.state === "unknown") { console.log(`can't tell whether a save is running or how it went: ${j.why}; ${LOOK("save")}`); process.exit(1); }
   if (j.state === "none") { console.log("no save has run"); process.exit(note ? 1 : 0); }
   const e = settle("save", 100000);
   process.stdout.write(logText("draw/save.log") || "");
   if (e.state === "lapsed") { console.log(`the save (run ${e.id}) never said how it ended; its time ran out at ${at(e.deadline)}: run the save again`); process.exit(1); }
-  if (e.state !== "done") { console.log(e.state === "open" ? "still saving (no word from the save yet): run wait again" : `can't tell how the save went: ${e.why}`); process.exit(1); }
-  process.exit(/save failed|ended$/.test(e.how) || note.includes("refused") ? 1 : 0);
+  if (e.state !== "done") { console.log(e.state === "open" ? `still saving: ${e.why}; run wait again` : `can't tell how the save went: ${e.why}`); process.exit(1); }
+  // Success only for a save that did all it says: saved, pushed the page and status (and took pictures).
+  process.exit(/^(save done|pictures done(, \d+ missing)?)$/.test(e.how) && !note.includes("refused") ? 0 : 1);
 }
 if (cmd === "write" && !bg) {
   const j = launchable("writer", "write");
-  if (j.state === "open") { console.log(`a writer (run ${j.id}) is running: it hasn't said it stopped, so nothing started (if it was killed, a writer can start again after ${at(j.deadline)})`); process.exit(0); }
+  if (j.state === "open") { console.log(`a writer (run ${j.id}) may still be running: ${j.why}. Nothing started`); process.exit(0); }
   // A new build takes the frame from the page; a writer that stopped while idle keeps its frame.
   if (!here("draw/frame.html") || here("draw/stop")) {
     const page = read("work/index.html");
     if (page === null || !swap("draw/frame.html", page)) { console.error("write: no work/index.html to take the frame from"); process.exit(2); }
   }
   remove("draw/stop");
-  const run = begin("writer");
-  const pid = background("draw/fold.out", run);
-  write("draw/writer.pid", String(pid));
+  const run = begin("writer", "draw/fold.out");
   console.log(`the writer is running (run ${run}): it folds draw/<slug>/*.html into draw/frame.html and pushes; log in draw/fold.log`);
   process.exit(0);
 }
@@ -417,12 +437,12 @@ if (cmd === "stop") {
   if (w.state === "none") console.log("no writer was started in this folder");
   else {
     const e = settle("writer", 30000);
-    if (e.state !== "done" || e.id !== w.id) fail(`the writer (run ${w.id}) hasn't said it stopped within 30 s; it may still be running (draw/fold.log; ${LOOK("write")})`);
+    if (e.state !== "done" || e.id !== w.id) fail(`the writer (run ${w.id}) isn't confirmed stopped within 30 s: ${e.why || e.state}; it may still be running (draw/fold.log; ${LOOK("write")})`);
     console.log(`the writer (run ${w.id}) confirmed it stopped: ${e.how}`);
   }
   const s = settle("save", 60000);
   if (s.state === "unknown") fail(`${s.why}, so stop can't tell whether a save is still running; it may be (${LOOK("save")})`);
-  if (s.state === "open") fail(`a save (run ${s.id}) hasn't said it finished within 60 s; it may still be running (draw/save.log)`);
+  if (s.state === "open") fail(`a save (run ${s.id}) isn't confirmed finished within 60 s: ${s.why}; it may still be running (draw/save.log)`);
   if (s.state === "lapsed") fail(`the last save (run ${s.id}) never said how it ended; its time ran out at ${at(s.deadline)}: \`fold.js save\`, \`fold.js wait\`, then stop again`);
   const f = foldOnce("stop");
   if (f) console.log(f);
