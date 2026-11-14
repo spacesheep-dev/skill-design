@@ -30,6 +30,19 @@
   html:not(:has(meta[name="ss-canvas"][content="on"])) .direction:not(.on) { display: none; }
   /* switcher: end */
 
+  /* controls: the pane where Spacesheep's workspace doesn't draw them itself */
+  .tweaks { position: fixed; right: 12px; bottom: 12px; z-index: 20; width: min(300px, calc(100vw - 24px));
+    background: #fff; color: #111; border: 1px solid #ccc; border-radius: 12px; box-shadow: 0 2px 0 rgba(0,0,0,.08);
+    font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .tweaks:not(:has(input[data-var])) { display: none; }
+  .tweaks summary { min-height: 44px; display: flex; align-items: center; padding: 0 14px; cursor: pointer; font-weight: 600; }
+  .tweaks-body { padding: 0 14px 14px; display: grid; gap: 10px; }
+  .tweaks label { display: grid; grid-template-columns: 1fr auto; gap: 4px 8px; }
+  .tweaks input { grid-column: 1 / -1; width: 100%; min-height: 32px; margin: 0; }
+  .tweaks input[type="color"] { height: 36px; border: 1px solid #ccc; border-radius: 6px; background: #fff; }
+  .tweaks output { color: #555; font-variant-numeric: tabular-nums; }
+  .tweaks button { min-height: 44px; border: 0; border-radius: 8px; background: #111; color: #fff; font: inherit; cursor: pointer; }
+
   /* shared: what every direction uses */
   :root { --space: 8px; --radius: 6px; --step-0: 16px; --step-1: 20px; --step-2: 25px; --step-3: 31px; --step-4: 39px; --step-5: 49px;
     --ease: cubic-bezier(.2,.7,.2,1); --dur: 240ms; }
@@ -230,6 +243,21 @@
   <!-- part:third --><div class="drawing" data-ss-id="third-drawing"><h2>Third</h2><p>Being drawn…</p><i></i><i></i><i></i></div><!-- /part:third -->
 </section>
 
+<!-- controls: what the person will likely try, at most 6, each a token every direction sets on its own section.
+     Write a <label>Name <input …></label> per control:
+       colour   <input type="color" data-var="--brand-accent">
+       slider   <input type="range" data-var="--density" min="0.8" max="1.25" step="0.05">  (data-unit="px" for px)
+       switch   <input type="range" data-var="--dark" min="0" max="1" step="1" data-kind="switch">
+       choice   <input type="range" data-var="--hero" min="0" max="2" step="1" data-kind="choice" data-options="Split|Centred|Photo">
+     A choice has 2 to 4 options of at most 14 characters. A switch or choice also shows on each direction as
+     data-dark="1", data-hero="2": style its variants with [data-ss-id="direction-x"][data-hero="2"] … -->
+<details class="tweaks no-print" data-ss-react="off">
+  <summary>Tweaks</summary>
+  <div class="tweaks-body">
+    <button type="button" data-tweaks-copy>Copy for the chat</button>
+  </div>
+</details>
+
 <script>
 /* switcher: start */
 (() => {
@@ -281,6 +309,55 @@
   }
 })();
 /* switcher: end */
+/* controls: the inputs in .tweaks are the controls. Spacesheep's workspace reads them and draws its own Tweaks
+   (hiding this pane); a page opened without the workspace shows this pane, whose changes go on the direction
+   on show and stay in this tab. Each switch and choice also shows on every direction as an attribute named
+   for its token, --hero: 2 as data-hero="2", so its variants are plain CSS. That runs on load and whenever a
+   direction's style changes: a Tweaks change, a saved value after a reload, a live push. */
+const ssControls = () => [...document.querySelectorAll('.tweaks input[data-var]')].slice(0, 6);
+const ssStep = (i) => i.dataset.kind === 'switch' || i.dataset.kind === 'choice';
+function ssMirror() {
+  const steps = ssControls().filter(ssStep);
+  if (!steps.length) return;
+  for (const d of [document.documentElement, ...document.querySelectorAll('section.direction')]) {
+    const cs = getComputedStyle(d);
+    for (const i of steps) {
+      const v = cs.getPropertyValue(i.dataset.var).trim(), a = 'data-' + i.dataset.var.slice(2);
+      const n = v === '' ? null : String(Math.round(parseFloat(v)) || 0);
+      if (n === null ? d.hasAttribute(a) : d.getAttribute(a) !== n) n === null ? d.removeAttribute(a) : d.setAttribute(a, n);
+    }
+  }
+}
+(() => {
+  const shown = () => document.querySelector('section.direction.on') || document.documentElement;
+  const said = (i) => {
+    const v = i.type === 'color' ? i.value : String(+i.value), o = i.dataset.options ? i.dataset.options.split('|') : [];
+    return i.dataset.kind === 'switch' ? (+v ? 'on' : 'off') : i.dataset.kind === 'choice' ? (o[+v] || v) : v + (i.type === 'color' ? '' : i.dataset.unit || '');
+  };
+  const name = (i) => (i.closest('label')?.firstChild?.textContent || i.dataset.var).trim();
+  function wire() {
+    for (const i of ssControls()) {
+      if (i.ssWired) continue;
+      i.ssWired = true;
+      const out = i.closest('label')?.querySelector('output') || document.createElement('output');
+      if (!out.isConnected) i.before(out);
+      const show = () => { const t = said(i); if (out.textContent !== t) out.textContent = t; if (ssStep(i)) i.setAttribute('aria-valuetext', t); }; // unchanged text: no mutation to answer
+      i.ssRead = () => { const v = getComputedStyle(shown()).getPropertyValue(i.dataset.var).trim(); if (v) i.value = i.type === 'color' ? v : parseFloat(v); show(); };
+      i.addEventListener('input', () => { shown().style.setProperty(i.dataset.var, i.type === 'color' ? i.value : i.value + (i.dataset.unit || '')); show(); });
+      i.ssRead();
+    }
+  }
+  document.addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-tweaks-copy]');
+    if (!b) return;
+    const d = shown(), who = d.dataset?.ssLabel ? 'for ' + d.dataset.ssLabel : 'for this page';
+    const line = `Keep these ${who}: ` + ssControls().map((i) => `${name(i)} ${said(i)}`).join(', ');
+    try { await navigator.clipboard.writeText(line); b.textContent = 'Copied: paste it in the chat'; } catch { prompt('Copy this into the chat', line); }
+  });
+  const again = () => { wire(); ssMirror(); ssControls().forEach((i) => i.ssRead && i.ssRead()); };
+  new MutationObserver(again).observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class'] });
+  again();
+})();
 /* kit: the filters' fold button on a phone */
 document.addEventListener('click', (e) => {
   const b = e.target.closest('.k-filters-toggle');
@@ -308,49 +385,58 @@ if (/[?&]ss-check\b/.test(location.search)) addEventListener('load', () => (docu
   const name = (e) => e.tagName.toLowerCase() + (own(e.dataset.ssId) ? `[data-ss-id=${e.dataset.ssId}]` : e.id ? `#${e.id}` : e.classList.length ? `.${[...e.classList].slice(0, 2).join('.')}` : '');
   const shown = (e) => { for (let x = e; x; x = x.parentElement) { const s = getComputedStyle(x); if (s.display === 'none' || s.visibility === 'hidden') return false; } return true; };
   const skip = 'script, style, template, svg, [hidden], [aria-hidden=true]';
+  // With controls, each direction is measured with every slider, switch and choice at its lowest, then at its
+  // highest (over any saved value), then as designed, which the picture shows. A fault at an end says which.
+  // (A page whose controls script was taken out is measured as designed only.)
+  const ends = typeof ssControls === 'function' ? ssControls().filter((i) => i.type === 'range') : [];
+  const at = (sec, pick) => { for (const i of ends) pick ? sec.style.setProperty(i.dataset.var, pick(i) + (i.dataset.unit || ''), 'important') : sec.style.removeProperty(i.dataset.var); ssMirror(); };
   for (const sec of document.querySelectorAll('section.direction')) {
     const slug = (sec.dataset.ssId || '').replace(/^direction-/, '');
-    const box = sec.getBoundingClientRect();
-    if (!box.width || !shown(sec)) continue;
-    const k = box.width / (sec.offsetWidth || box.width); // a canvas may scale the direction
+    if (!sec.getBoundingClientRect().width || !shown(sec)) continue;
     const seen = new Set();
-    const fault = (kind, el, text) => {
-      const key = kind + name(el);
+    const fault = (kind, el, text, when) => {
+      const key = kind + name(el) + when;
       if (seen.has(key) || seen.size >= 8) return;
       seen.add(key);
       el.style.outline = '3px solid #e00';
       const i = new Image();
-      i.src = `ss-fault/${slug}/${kind}/${encodeURIComponent(name(el))}.png?t=${encodeURIComponent(text.replace(/\s+/g, ' ').trim().slice(0, 40))}`;
+      i.src = `ss-fault/${slug}/${kind}/${encodeURIComponent(name(el) + when)}.png?t=${encodeURIComponent(text.replace(/\s+/g, ' ').trim().slice(0, 40))}`;
     };
-    const lines = (n) => { const g = document.createRange(); g.selectNodeContents(n); return [...g.getClientRects()].filter((x) => x.width > 0); };
-    const walk = document.createTreeWalker(sec, NodeFilter.SHOW_TEXT);
-    for (let n; (n = walk.nextNode()); ) {
-      const t = n.textContent.replace(/\s+/g, ' ').trim(), el = n.parentElement;
-      if (t.length < 12 || !el || el.closest(skip) || !shown(el)) continue;
-      const tops = new Set(lines(n).map((x) => Math.round(x.top / k / 4)));
-      if (tops.size >= 4 && t.length / tops.size < 4) fault('narrow', el, t);
-    }
-    const past = (q) => (q.right - box.right) / k > 2 || (box.left - q.left) / k > 2;
-    const inside = (q) => q.right > box.left + 1 && q.left < box.right - 1;
-    for (const el of sec.querySelectorAll('*')) {
-      if (el.closest(skip) || !shown(el)) continue;
-      const words = [...el.childNodes].filter((n) => n.nodeType === 3 && n.textContent.trim()), control = el.matches('a, button, input, select, textarea, label');
-      if (!words.length && !control) continue; // decoration may bleed off an edge
-      const r = el.getBoundingClientRect();
-      if (r.width <= 1 || r.height <= 1 || getComputedStyle(el).position === 'fixed') continue; // visually hidden, or pinned
-      const spans = words.flatMap(lines), reach = spans.concat(control || !spans.length ? [r] : []);
-      const over = parseFloat(getComputedStyle(el).fontSize) / 3 || 0;
-      for (let x = el; x && x !== sec; x = x.parentElement) {
-        const o = getComputedStyle(x);
-        if (o.overflowX === 'visible' && o.overflowY === 'visible') continue;
-        const c = x.getBoundingClientRect();
-        const side = o.overflowX !== 'visible' && spans.some((q) => (q.right - c.right) / k > 2 || (c.left - q.left) / k > 2);
-        const end = o.overflowY !== 'visible' && spans.some((q) => (q.bottom - c.bottom) / k > Math.max(2, over) || (c.top - q.top) / k > Math.max(2, over));
-        if (side || end) fault('cut', el, el.textContent);
-        break;
+    const measure = (when) => {
+      const box = sec.getBoundingClientRect();
+      const k = box.width / (sec.offsetWidth || box.width); // a canvas may scale the direction
+      const lines = (n) => { const g = document.createRange(); g.selectNodeContents(n); return [...g.getClientRects()].filter((x) => x.width > 0); };
+      const walk = document.createTreeWalker(sec, NodeFilter.SHOW_TEXT);
+      for (let n; (n = walk.nextNode()); ) {
+        const t = n.textContent.replace(/\s+/g, ' ').trim(), el = n.parentElement;
+        if (t.length < 12 || !el || el.closest(skip) || !shown(el)) continue;
+        const tops = new Set(lines(n).map((x) => Math.round(x.top / k / 4)));
+        if (tops.size >= 4 && t.length / tops.size < 4) fault('narrow', el, t, when);
       }
-      if (reach.some(inside) && reach.some(past)) fault('wide', el, el.textContent);
-    }
+      const past = (q) => (q.right - box.right) / k > 2 || (box.left - q.left) / k > 2;
+      const inside = (q) => q.right > box.left + 1 && q.left < box.right - 1;
+      for (const el of sec.querySelectorAll('*')) {
+        if (el.closest(skip) || !shown(el)) continue;
+        const words = [...el.childNodes].filter((n) => n.nodeType === 3 && n.textContent.trim()), control = el.matches('a, button, input, select, textarea, label');
+        if (!words.length && !control) continue; // decoration may bleed off an edge
+        const r = el.getBoundingClientRect();
+        if (r.width <= 1 || r.height <= 1 || getComputedStyle(el).position === 'fixed') continue; // visually hidden, or pinned
+        const spans = words.flatMap(lines), reach = spans.concat(control || !spans.length ? [r] : []);
+        const over = parseFloat(getComputedStyle(el).fontSize) / 3 || 0;
+        for (let x = el; x && x !== sec; x = x.parentElement) {
+          const o = getComputedStyle(x);
+          if (o.overflowX === 'visible' && o.overflowY === 'visible') continue;
+          const c = x.getBoundingClientRect();
+          const side = o.overflowX !== 'visible' && spans.some((q) => (q.right - c.right) / k > 2 || (c.left - q.left) / k > 2);
+          const end = o.overflowY !== 'visible' && spans.some((q) => (q.bottom - c.bottom) / k > Math.max(2, over) || (c.top - q.top) / k > Math.max(2, over));
+          if (side || end) fault('cut', el, el.textContent, when);
+          break;
+        }
+        if (reach.some(inside) && reach.some(past)) fault('wide', el, el.textContent, when);
+      }
+    };
+    if (ends.length) { at(sec, (i) => i.min); measure(' with every control at its lowest'); at(sec, (i) => i.max); measure(' with every control at its highest'); at(sec, null); }
+    measure('');
   }
 }));
 </script>

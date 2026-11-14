@@ -318,6 +318,39 @@ for (const d of dirs) {
 }
 if (!only && page.length > 200000) fail("page", "work/index.html", `the page is ${Math.round(page.length / 1000)} KB: over 200 KB is slow on a phone`);
 
+// Controls: the inputs in the page's .tweaks pane, which Spacesheep draws as Tweaks. At most 6, each named by its
+// label's first words, each a token the page sets and uses. A switch or choice needs a rule for every value past
+// 0, or that value changes nothing.
+if (!only) {
+  const pane = (page.match(/<details\b[^>]*\bclass="[^"]*\btweaks\b[^"]*"[^>]*>[\s\S]*?<\/details>/) || [""])[0];
+  const css = [page, ...dirs.flatMap((d) => sources(d).map((u) => u.text))].join("\n").replace(/<!--[\s\S]*?-->/g, "");
+  const at = (tag, a) => (tag.match(new RegExp(`\\b${a}="([^"]*)"`)) || [])[1];
+  const inputs = [...pane.matchAll(/(<label\b[^>]*>)?\s*([^<]*?)\s*<input\b([^>]*)>/g)].filter((m) => /\bdata-var=/.test(m[3]));
+  const said = (m, msg) => fail("controls", "work/index.html", `${at(m[3], "data-var") || "a control"}: ${msg}`);
+  if (inputs.length > 6) fail("controls", "work/index.html", `${inputs.length} controls: 6 at most`);
+  const vars = new Set();
+  for (const m of inputs) {
+    const v = at(m[3], "data-var"), type = at(m[3], "type"), kind = at(m[3], "data-kind"), n = (a) => Number(at(m[3], a));
+    if (!/^--[a-z0-9-]{1,40}$/.test(v || "") || vars.has(v)) { said(m, "data-var must be a token name of its own, like --hero"); continue; }
+    vars.add(v);
+    if (!m[1] || !m[2]) said(m, "write it as <label>Its name <input …></label>: Tweaks shows that name");
+    if (type === "color") { /* a colour has no more to it */ }
+    else if (type !== "range") said(m, `type="${type}": a control is type="color" or type="range"`);
+    else if (kind === "switch") { if (n("min") !== 0 || n("max") !== 1 || n("step") !== 1) said(m, 'a switch is min="0" max="1" step="1"'); }
+    else if (kind === "choice") {
+      const o = (at(m[3], "data-options") || "").split("|");
+      if (o.length < 2 || o.length > 4 || o.some((x) => !x.trim() || x.length > 14)) said(m, 'a choice has 2 to 4 options of at most 14 characters, in data-options="A|B|C"');
+      else if (n("min") !== 0 || n("max") !== o.length - 1 || n("step") !== 1) said(m, `a choice of ${o.length} is min="0" max="${o.length - 1}" step="1"`);
+    } else if (kind) said(m, `data-kind="${kind}": a control's kind is switch or choice`);
+    else if (!(n("max") > n("min")) || !(n("step") > 0) || !["", "px", "rem", "em", "%"].includes(at(m[3], "data-unit") || "")) said(m, "a slider needs min below max, a step above 0, and data-unit px, rem, em, % or none");
+    const esc = v.replace(/-/g, "\\-");
+    if (!new RegExp(`${esc}\\s*:`).test(css)) said(m, "nothing sets it: give each direction its own value on its section");
+    if (kind === "switch" || kind === "choice") {
+      for (let k = 1; k <= n("max"); k++) if (!new RegExp(`\\[data-${v.slice(2)}=["']?${k}["']?\\]`).test(css)) said(m, `nothing is styled for [data-${v.slice(2)}="${k}"], so that value changes nothing`);
+    } else if (!new RegExp(`var\\(\\s*${esc}\\s*[,)]`).test(css)) said(m, "nothing uses it, so it changes nothing");
+  }
+}
+
 if (!fails.length) {
   console.log(`all pass: ${dirs.length} direction${dirs.length === 1 ? "" : "s"}, ${facts.length} facts, ${nots.length} not-lines, ${seen.size} anchors`);
   process.exit(0);
