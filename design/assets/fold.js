@@ -26,7 +26,7 @@
 // the next pass, so a part is never folded half-written. A direction keeps its placeholder below its
 // parts until they show 40 characters of text, so a first part of styles alone never blanks it.
 // (Older pages: draw/<slug>.html ending with `<!-- end <slug> -->`, its status in draw/<slug>.status.)
-// It stops on `stop`, or after 30 minutes.
+// It stops on `stop`, after 5 minutes with no change to any part or the frame, or after 30 minutes.
 const fs = require("fs");
 const path = require("path");
 const { execFileSync, execFile, execSync, spawn } = require("child_process");
@@ -183,19 +183,6 @@ if (cmd === "write" && !bg) {
   console.log(`the writer is running (pid ${pid}): it folds draw/<slug>/*.html into draw/frame.html and pushes; log in draw/fold.log`);
   process.exit(0);
 }
-if (cmd === "stop") {
-  sleep(3000); // the last edits fold within 2 s
-  fs.writeFileSync("draw/stop", "");
-  const pid = +(read("draw/writer.pid") || 0);
-  const alive = () => { try { process.kill(pid, 0); return true; } catch { return false; } };
-  for (let i = 0; pid && alive() && i < 50; i++) sleep(200);
-  const pushes = ((read("draw/fold.log") || "").match(/pushed the page/g) || []).length;
-  console.log(`the writer stopped (${pushes} page pushes in draw/fold.log)`);
-  if (!argv[1]) process.exit(0);
-  try { console.log(run(["deploy", "work", "--space", space, "-m", argv[1]]).trim()); }
-  catch (e) { console.error(`save failed: ${why(e)}`); process.exit(1); }
-  process.exit(0);
-}
 
 const good = {};
 // Text a person would see: no styles, scripts, templates, comments or tags.
@@ -226,17 +213,38 @@ function fold() {
   return { html, status: statuses.join(" · ").slice(0, 200) };
 }
 
-let shown = "", said = "";
-const until = Date.now() + 30 * 60 * 1000;
-while (!fs.existsSync("draw/stop") && Date.now() < until) {
+if (cmd === "stop") {
+  // Let the last edits fold, stop the writer, then fold once more here, so an edit made after the
+  // writer stopped (by stop, its idle limit or its cap) is still on the page and in the save.
+  sleep(3000);
+  fs.writeFileSync("draw/stop", "");
+  const pid = +(read("draw/writer.pid") || 0);
+  const alive = () => { try { process.kill(pid, 0); return true; } catch { return false; } };
+  for (let i = 0; pid && alive() && i < 50; i++) sleep(200);
+  const pushes = ((read("draw/fold.log") || "").match(/pushed the page/g) || []).length;
+  console.log(`the writer stopped (${pushes} page pushes in draw/fold.log)`);
   const page = fold();
-  const again = fs.existsSync("draw/pushnow");
-  if (page && (page.html !== shown || again)) {
+  if (page && page.html !== read("work/index.html")) {
     swap("work/index.html", page.html);
-    if (push("--html", page.html)) {
-      shown = page.html;
-      if (again) fs.rmSync("draw/pushnow", { force: true });
-    }
+    console.log(push("--html", page.html) ? "folded and pushed the last edits" : "folded the last edits; the push was refused (draw/fold.log)");
+  }
+  if (!argv[1]) process.exit(0);
+  try { console.log(run(["deploy", "work", "--space", space, "-m", argv[1]]).trim()); }
+  catch (e) { console.error(`save failed: ${why(e)}`); process.exit(1); }
+  process.exit(0);
+}
+
+let shown = "", said = "", changed = Date.now();
+const until = Date.now() + 30 * 60 * 1000, IDLE = 5 * 60 * 1000;
+for (;;) {
+  if (fs.existsSync("draw/stop")) { log("the writer stopped: stop"); break; }
+  if (Date.now() > until) { log("the writer stopped: 30 minutes"); break; }
+  if (Date.now() - changed > IDLE) { log("the writer stopped: no change to any part or the frame for 5 minutes"); break; }
+  const page = fold();
+  if (page && page.html !== shown) {
+    changed = Date.now();
+    swap("work/index.html", page.html);
+    if (push("--html", page.html)) shown = page.html;
   }
   if (page && page.status && page.status !== said && push("--status", page.status)) said = page.status;
   sleep(1000);
