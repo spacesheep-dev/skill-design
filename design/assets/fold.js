@@ -18,8 +18,8 @@
 //                                               put the status back, and with `pictures` take one of each
 //                                               direction to <slug>.png (two tries each); log in draw/save.log
 //   node fold.js -C <folder> wait                wait for that save to end (at most 100 s), print its log
-//   node fold.js -C <folder> stop "<message>"    stop the writer and wait until it has exited, fold the
-//                                               last edits, push them and save a version
+//   node fold.js -C <folder> stop "<message>"    ask the writer to stop and wait for its own word that it
+//                                               has (else fail), fold the last edits, push them and save
 //   node fold.js -C <folder> read                read the space's current source into work/ again
 //
 // The writer folds each direction's parts, draw/<slug>/<NN>.html (each written whole with an agent's
@@ -104,31 +104,47 @@ mkdir("draw");
 const log = (line) => { if (within("draw/fold.log")) fs.appendFileSync("draw/fold.log", `${new Date().toISOString()} ${line}\n`); else refuse("draw/fold.log"); };
 // Write whole files only (a temporary copy in draw/, then a rename), so no reader sees half of one.
 const swap = (f, text) => { const t = `draw/.${f.replace(/\//g, "_")}.tmp`; if (!within(t) || !within(f)) return refuse(f); fs.writeFileSync(t, text); fs.renameSync(t, f); return true; };
-// A background job (the writer, a save) keeps its pid in draw/<name>.pid while it runs.
-const alive = (pid) => { if (!pid) return false; try { process.kill(pid, 0); return true; } catch (e) { return e.code === "EPERM"; } };
-// A pid file that is a link (or outside the folder) can't be trusted: that job counts as running, so
-// nothing starts beside it and stop fails closed.
-const running = (name) => {
-  const f = `draw/${name}.pid`;
-  if (!within(f)) { refuse(f); return -1; }
-  const pid = +(read(f) || 0);
-  return alive(pid) ? pid : 0;
-};
-const tracked = (name) => within(`draw/${name}.pid`) || (refuse(`draw/${name}.pid`), false);
-function gone(name, ms) {
-  const until = Date.now() + ms;
-  while (running(name) && Date.now() < until) sleep(200);
-  return !running(name);
+// A background job (the writer, a save) is one run. Its starter writes draw/<job>.run, a fresh id, before
+// starting it, and the job writes draw/<job>.done ("<id> <how it ended>") as its very last act, after its
+// last call to the CLI has returned. Only that acknowledgement says a job has finished: a missing,
+// unreadable, malformed or foreign one never does. (draw/<job>.pid is there for a person to look it up.)
+const RUNID = /^[0-9a-f]{16}$/;
+function job(name) {
+  const f = `draw/${name}.run`, d = `draw/${name}.done`;
+  if (!within(f) || !within(d)) return { state: "bad", why: `draw/${name}.run or .done is a link` };
+  if (!fs.existsSync(f)) return { state: "none" };
+  const id = (read(f) || "").trim();
+  if (!RUNID.test(id)) return { state: "bad", why: `draw/${name}.run doesn't hold a run id` };
+  const done = (read(d) || "").trim();
+  return done.startsWith(id + " ") ? { state: "done", id, how: done.slice(id.length + 1) } : { state: "open", id };
 }
+function settle(name, ms) {
+  const until = Date.now() + ms;
+  let j = job(name);
+  while (j.state === "open" && Date.now() < until) { sleep(200); j = job(name); }
+  return j;
+}
+// A run that never acknowledged may be replaced only when its recorded process certainly no longer exists;
+// it still never counts as finished for stop.
+function dead(name) {
+  const t = (read(`draw/${name}.pid`) || "").trim();
+  if (!/^\d+$/.test(t)) return false;
+  try { process.kill(+t, 0); return false; } catch (e) { return e.code === "ESRCH"; }
+}
+// A log as text: "" when it doesn't exist yet, null when it can't be trusted (a link, outside).
+const logText = (f) => (!within(f) ? null : fs.existsSync(f) ? read(f) : "");
 const bg = process.env.FOLD_BG === "1";
-// Run this same command again, detached, its output to a log: the writer and the save run on their own.
-function background(out) {
+const THIS_RUN = process.env.FOLD_RUN || "";
+// Run this same command again, detached, as the given run, its output to a log.
+function background(out, run) {
   if (!within(out)) { refuse(out); process.exit(2); }
   const fd = fs.openSync(out, "a");
-  const child = spawn(process.execPath, [__filename, ...argv], { detached: true, stdio: ["ignore", fd, fd], env: { ...process.env, FOLD_BG: "1" } });
+  const child = spawn(process.execPath, [__filename, ...argv], { detached: true, stdio: ["ignore", fd, fd], env: { ...process.env, FOLD_BG: "1", FOLD_RUN: run } });
   child.unref();
   return child.pid;
 }
+let acked = false;
+const ack = (name, how) => { if (acked || !RUNID.test(THIS_RUN)) return; acked = true; swap(`draw/${name}.done`, `${THIS_RUN} ${how}\n`); };
 
 // The CLI: one on the PATH, else npx's copy (downloaded from npm the first time), found once, so a
 // push then takes about 0.5 s, not 3. Each lookup has a time limit.
@@ -214,9 +230,9 @@ function foldOnce(what) {
 }
 // Why the writer stopped, when it stopped by itself (no change for 5 minutes, refused pushes, 30 minutes).
 function idle() {
-  if (running("writer") || here("draw/stop") || !here("draw/frame.html")) return "";
-  const last = ((read("draw/fold.log") || "").match(/the writer stopped: .*/g) || []).pop();
-  return last ? `${last}; \`fold.js write\` starts it again` : "";
+  const j = job("writer");
+  if (j.state !== "done" || j.how === "stop" || !here("draw/frame.html")) return "";
+  return `the writer stopped: ${j.how}; \`fold.js write\` starts it again`;
 }
 
 if (cmd === "start") {
@@ -270,22 +286,29 @@ if (cmd === "brief") {
 if (cmd === "save" || cmd === "stop") { plain("message", argv[1]); plain("status", argv[2]); }
 if (cmd === "save" && !bg) {
   if (!argv[1]) { console.error('save: give a message, e.g. save "Three directions" "All three are up"'); process.exit(2); }
-  if (!tracked("save")) { console.error("save: draw/save.pid is a link, so the save couldn't be tracked; nothing saved"); process.exit(2); }
-  if (running("save")) { console.error(`save: a save is still running (pid ${running("save")}); fold.js wait shows when it ends`); process.exit(1); }
-  if (!work() || !write("draw/save.log", "")) process.exit(2);
-  const pid = background("draw/save.log");
+  const j = job("save");
+  if (j.state === "bad") { console.error(`save: ${j.why}, so a save couldn't be tracked; nothing saved`); process.exit(2); }
+  if (j.state === "open" && !dead("save")) { console.error(`save: a save (run ${j.id}) is still running; fold.js wait shows when it ends`); process.exit(1); }
+  if (j.state === "open") console.log(`the last save (run ${j.id}) ended without confirming: see draw/save.log`);
+  if (!work()) process.exit(2);
+  const run = require("crypto").randomBytes(8).toString("hex");
+  remove("draw/save.done");
+  if (!write("draw/save.run", run) || !write("draw/save.log", `save started (run ${run})\n`)) process.exit(2);
+  const pid = background("draw/save.log", run);
   write("draw/save.pid", String(pid));
-  console.log(`saving in the background (pid ${pid}): "${argv[1]}"${argv[3] === "pictures" ? ", then pictures" : ""}; fold.js wait shows how it ended`);
+  console.log(`saving in the background (run ${run}): "${argv[1]}"${argv[3] === "pictures" ? ", then pictures" : ""}; fold.js wait shows how it ended`);
   const note = idle();
   if (note) console.log(note);
   process.exit(0);
 }
 if (cmd === "save") {
-  if (!write("draw/save.pid", String(process.pid))) process.exit(2);
+  if (job("save").id !== THIS_RUN) process.exit(2); // another save has taken over
+  write("draw/save.pid", String(process.pid));
+  process.on("exit", () => ack("save", "ended"));
   const say = (l) => console.log(`${new Date().toISOString().slice(11, 19)} ${l}`);
-  const end = (l) => { say(l); if (read("draw/save.pid") === String(process.pid)) remove("draw/save.pid"); };
+  const end = (l) => { say(l); ack("save", l); };
   (async () => {
-    if (!running("writer")) { const f = foldOnce("before the save"); if (f) say(f); }
+    if (job("writer").state !== "open") { const f = foldOnce("before the save"); if (f) say(f); }
     const d = deploy(argv[1]);
     if (!d.ok) return end(`save failed: ${d.lines.join(" ").slice(0, 300)}`);
     say(`saved: ${d.lines.filter((l) => /Updated|Created|Merged|⇄/.test(l)).join(" ") || "ok"}`);
@@ -311,39 +334,56 @@ if (cmd === "wait") {
   // A writer that stopped by itself (refused pushes, idle) is said first, before anything about a save.
   const note = idle();
   if (note) console.log(note);
-  if (read("draw/save.log") === null) { console.log("no save has run"); process.exit(note ? 1 : 0); }
-  const ended = () => /save done|pictures done|save failed/.test(read("draw/save.log") || "") && !running("save");
-  const until = Date.now() + 100000;
-  while (!ended() && Date.now() < until) sleep(1000);
-  process.stdout.write(read("draw/save.log") || "");
-  if (!ended()) console.log("still saving: run wait again");
-  process.exit(/save failed/.test(read("draw/save.log") || "") || note.includes("refused") ? 1 : 0);
+  const j = job("save");
+  if (j.state === "bad") { console.log(`can't tell how the save went: ${j.why}`); process.exit(1); }
+  if (j.state === "none") { console.log("no save has run"); process.exit(note ? 1 : 0); }
+  const e = settle("save", 100000);
+  process.stdout.write(logText("draw/save.log") || "");
+  if (e.state !== "done") { console.log("still saving (no word from the save yet): run wait again"); process.exit(1); }
+  process.exit(/save failed|ended$/.test(e.how) || note.includes("refused") ? 1 : 0);
 }
 if (cmd === "write" && !bg) {
-  if (!tracked("writer")) { console.error("write: draw/writer.pid is a link, so the writer couldn't be tracked or stopped; nothing started"); process.exit(2); }
-  if (running("writer")) { console.log(`the writer is already running (pid ${running("writer")})`); process.exit(0); }
+  const j = job("writer");
+  if (j.state === "bad") { console.error(`write: ${j.why}, so a writer couldn't be tracked or stopped; nothing started`); process.exit(2); }
+  if (j.state === "open" && !dead("writer")) { console.log(`a writer (run ${j.id}) is already running`); process.exit(0); }
+  if (j.state === "open") console.log(`the last writer (run ${j.id}) ended without confirming (draw/fold.log)`);
   // A new build takes the frame from the page; a writer that stopped while idle keeps its frame.
   if (!here("draw/frame.html") || here("draw/stop")) {
     const page = read("work/index.html");
     if (page === null || !swap("draw/frame.html", page)) { console.error("write: no work/index.html to take the frame from"); process.exit(2); }
   }
   remove("draw/stop");
-  const pid = background("draw/fold.out");
+  remove("draw/writer.done");
+  const run = require("crypto").randomBytes(8).toString("hex");
+  if (!write("draw/writer.run", run)) process.exit(2);
+  const pid = background("draw/fold.out", run);
   write("draw/writer.pid", String(pid));
-  console.log(`the writer is running (pid ${pid}): it folds draw/<slug>/*.html into draw/frame.html and pushes; log in draw/fold.log`);
+  console.log(`the writer is running (run ${run}): it folds draw/<slug>/*.html into draw/frame.html and pushes; log in draw/fold.log`);
   process.exit(0);
 }
 if (cmd === "stop") {
-  // The writer exits first, so nothing it does can land after this returns; then fold, push and save here.
+  // Success only on the writer's own word: it acknowledges, after its last push, for the run stop asked
+  // to stop. Silence, or anything stop can't read, is a failure; then fold, push and save here.
+  const fail = (l) => { console.error(`stop: ${l}; nothing saved`); process.exit(1); };
   const note = idle();
   if (note) console.log(note);
   sleep(3000); // the last edits fold within 2 s
-  write("draw/stop", "");
-  if (!tracked("writer") || !tracked("save")) { console.error("stop: a pid file in draw/ is a link, so stop can't tell whether the writer or a save is still running; nothing saved"); process.exit(1); }
-  if (!gone("writer", 30000)) { console.error(`stop: the writer (pid ${running("writer")}) hasn't exited after 30 s; nothing saved: run stop again`); process.exit(1); }
-  if (!gone("save", 60000)) { console.error(`stop: a save (pid ${running("save")}) is still running after 60 s; nothing saved: run stop again`); process.exit(1); }
-  const pushes = ((read("draw/fold.log") || "").match(/pushed the page/g) || []).length;
-  console.log(`the writer has exited (${pushes} page pushes in draw/fold.log)`);
+  const w = job("writer");
+  if (w.state === "bad") fail(`${w.why}, so stop can't confirm the writer has stopped; it may still be running (look for "fold.js write" among the processes)`);
+  if (!write("draw/stop", w.id || "")) fail("draw/stop can't be written, so the writer can't be asked to stop");
+  if (w.state === "none") {
+    const l = logText("draw/fold.log");
+    if (l === null || /the writer started/.test(l)) fail("draw/writer.run is missing but a writer was started here; it may still be running (draw/fold.log)");
+    console.log("no writer was started in this folder");
+  } else {
+    const e = settle("writer", 30000);
+    if (e.state !== "done" || e.id !== w.id) fail(`the writer (run ${w.id}) hasn't confirmed it stopped within 30 s; it may still be running (draw/fold.log)`);
+    console.log(`the writer (run ${w.id}) confirmed it stopped: ${e.how}`);
+  }
+  const s = job("save");
+  if (s.state === "bad") fail(`${s.why}, so stop can't confirm a save has finished`);
+  if (s.state === "none") { const l = logText("draw/save.log"); if (l === null || /save started/.test(l)) fail("draw/save.run is missing but a save was started here; it may still be running (draw/save.log)"); }
+  if (s.state === "open" && settle("save", 60000).state !== "done") fail(`a save (run ${s.id}) hasn't confirmed it finished within 60 s; it may still be running (draw/save.log)`);
   const f = foldOnce("stop");
   if (f) console.log(f);
   if (!argv[1]) process.exit(0);
@@ -352,20 +392,23 @@ if (cmd === "stop") {
   process.exit(d.ok ? 0 : 1);
 }
 
-// The writer itself (`write` starts it in the background).
-if (!write("draw/writer.pid", String(process.pid))) process.exit(2);
-process.on("exit", () => { if (read("draw/writer.pid") === String(process.pid)) remove("draw/writer.pid"); });
+// The writer itself (`write` starts it in the background, as one run).
+if (job("writer").id !== THIS_RUN) process.exit(2); // another writer has taken over
+write("draw/writer.pid", String(process.pid));
+log(`the writer started (run ${THIS_RUN})`);
+process.on("exit", () => ack("writer", "ended"));
 // The idle clock follows the inputs (the folded parts and frame), whatever the pushes did; five refused
 // pushes in a row stop it too, so nobody draws on into a page that isn't reaching the space.
-let input = "", shown = "", said = "", changed = Date.now(), refusals = 0;
+let input = "", shown = "", said = "", changed = Date.now(), refusals = 0, how = "";
 const until = Date.now() + 30 * 60 * 1000, IDLE = 5 * 60 * 1000;
 const stopped = () => here("draw/stop");
 const tried = (ok) => { refusals = ok ? 0 : refusals + 1; return ok; };
 for (;;) {
-  if (stopped()) { log("the writer stopped: stop"); break; }
-  if (Date.now() > until) { log("the writer stopped: 30 minutes"); break; }
-  if (Date.now() - changed > IDLE) { log("the writer stopped: no change to any part or the frame for 5 minutes"); break; }
-  if (refusals >= 5) { log("the writer stopped: 5 pushes in a row were refused (the lines above say why), so the page isn't reaching the space"); break; }
+  if (stopped()) how = "stop";
+  else if (Date.now() > until) how = "30 minutes";
+  else if (Date.now() - changed > IDLE) how = "no change to any part or the frame for 5 minutes";
+  else if (refusals >= 5) how = "5 pushes in a row were refused (draw/fold.log says why), so the page isn't reaching the space";
+  if (how) break;
   const page = fold();
   if (page && page.html !== input) { input = page.html; changed = Date.now(); }
   const may = () => !stopped() && refusals < 5;
@@ -376,3 +419,6 @@ for (;;) {
   if (page && page.status && page.status !== said && may() && tried(push("--status", page.status))) said = page.status;
   sleep(1000);
 }
+log(`the writer stopped: ${how}`);
+ack("writer", how); // the last act: no call to the CLI follows
+process.exit(0);
