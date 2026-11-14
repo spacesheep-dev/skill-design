@@ -8,7 +8,8 @@ Only what the request leaves open and what would change the design: the look, wh
 
 - At most 4 questions, each with 2 to 4 choices of 1 to 4 words (the chat takes at most 60 characters a choice, 200 a question).
 - The first choice is your pick, and the others really differ from it. In a chat form, `"pick"` names it and it opens selected: write it word for word as in `options`, or it is dropped and the question opens with nothing chosen. Elsewhere it is labelled in words: "Warm and homely (my pick)".
-- `other: true` where a free answer helps (a must-have, a name), `multi: true` where several fit. Ids are short words: `look`, `leads`.
+- One thing per question. A free answer goes in `other: true` (the form's own Other field), never in a choice's words; a missing name is a question of its own. `multi: true` where several fit. Ids are short words: `look`, `leads`.
+- The answers not picked are your controls' other values (SKILL.md section 3), so ask about what the person would flip later.
 
 ## Where it goes
 

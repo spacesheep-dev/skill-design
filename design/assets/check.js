@@ -348,7 +348,10 @@ if (!only) {
     const esc = v.replace(/-/g, "\\-");
     if (!new RegExp(`${esc}\\s*:`).test(css)) said(m, "nothing sets it: give each direction its own value on its section");
     if (kind === "switch" || kind === "choice") {
-      for (let k = 1; k <= values; k++) if (!new RegExp(`\\[data-${v.slice(2)}=["']?${k}["']?\\]`).test(css)) said(m, `nothing is styled for [data-${v.slice(2)}="${k}"], so that value changes nothing`);
+      // Every value but the one a direction opens on needs a rule; which one that is may differ by direction.
+      const bare = [];
+      for (let k = 0; k <= values; k++) if (!new RegExp(`\\[data-${v.slice(2)}=["']?${k}["']?\\]`).test(css)) bare.push(k);
+      if (values && bare.length > 1) said(m, `nothing is styled for ${bare.map((k) => `[data-${v.slice(2)}="${k}"]`).join(" or ")}: style every value but the one each direction opens on, or those values change nothing`);
     } else if (!new RegExp(`var\\(\\s*${esc}\\s*[,)]`).test(css)) said(m, "nothing uses it, so it changes nothing");
   }
 }
