@@ -357,7 +357,8 @@ if (cmd === "save" || cmd === "stop") { plain("message", argv[1]); plain("status
 const crc32 = require("zlib").crc32 || ((b) => { let c = ~0; for (const x of b) { c ^= x; for (let k = 0; k < 8; k++) c = (c >>> 1) ^ (0xedb88320 & -(c & 1)); } return ~c >>> 0; }); // Node < 22.2
 // Why bytes aren't a whole PNG a person can look at, or null when they are: the signature, every chunk's
 // length and CRC, IHDR first and well formed, image data that inflates to exactly what that size needs with
-// a known filter on every row, and IEND.
+// a known filter on every row, and IEND. Only the one form the renderer sends and this file can read is taken:
+// 8-bit RGB or RGBA, not interlaced. Any other form is refused by name, even a valid one.
 function pngBad(buf) {
   if (buf.length < 8 || !buf.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) return "not a PNG";
   let pos = 8, head = null, end = false;
@@ -374,13 +375,14 @@ function pngBad(buf) {
   }
   if (!end) return "a PNG without its end";
   const w = head.length === 13 ? head.readUInt32BE(0) : 0, h = head.length === 13 ? head.readUInt32BE(4) : 0;
-  const ch = { 0: 1, 2: 3, 3: 1, 4: 2, 6: 4 }[head[9]], depth = head[8];
-  if (!w || !h || !ch || ![1, 2, 4, 8, 16].includes(depth) || head[10] || head[11] || head[12] > 1) return "a PNG with an unreadable header";
+  if (!w || !h || head[10] || head[11] || head[12] > 1) return "a PNG with an unreadable header";
+  const ch = { 2: 3, 6: 4 }[head[9]];
+  if (head[8] !== 8 || !ch) return `a PNG at ${head[8]} bits, colour type ${head[9]}: only 8-bit RGB or RGBA is taken`;
+  if (head[12]) return "an interlaced PNG: only one that isn't is taken";
   if (!idat.length) return "a PNG with no image";
   let raw;
   try { raw = require("zlib").inflateSync(Buffer.concat(idat)); } catch { return "a PNG whose image won't unpack"; }
-  if (head[12]) return null; // interlaced: the renderer never sends one, and its size is a longer sum
-  const row = Math.ceil((w * ch * depth) / 8) + 1;
+  const row = w * ch + 1;
   if (raw.length !== h * row) return "a PNG whose image is the wrong size";
   for (let y = 0; y < h; y++) if (raw[y * row] > 4) return "a PNG with an unknown row filter";
   return null;
