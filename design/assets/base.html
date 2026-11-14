@@ -1,7 +1,8 @@
 <!DOCTYPE html>
 <!--
   The starter page: copy it to index.html.
-  1. Set the title, and for each direction its slug (direction-slug, its blocks slug-part), data-ss-label (its name), data-line and tokens.
+  1. Set the title, and in one edit the block from the directions' tokens to the last section: each direction's
+     slug (direction-slug, its blocks slug-part), data-ss-label (its name), data-line and tokens.
   2. Push it: that is the frame. Then assets/fold.js draws each direction in parts, between its
      part:slug markers, in place of its .drawing block. Keep the markers, renamed with the slug.
   One design, not directions: keep one section, and drop the switcher's nav and script.
@@ -55,14 +56,6 @@
     .stack td:first-child::before { content: none; }
   }
 
-  /* each direction: its own tokens */
-  [data-ss-id="direction-first"]  { --brand-ink: #1d2320; --brand-ground: #f3f5f2; --brand-accent: #1f6f50;
-    --font-display: "Iowan Old Style", Palatino, Georgia, serif; --font-body: "Avenir Next", "Segoe UI", sans-serif; }
-  [data-ss-id="direction-second"] { --brand-ink: #f2efe8; --brand-ground: #15171c; --brand-accent: #ffb703;
-    --font-display: "Avenir Next", Futura, "Gill Sans", sans-serif; --font-body: "Avenir Next", "Segoe UI", sans-serif; }
-  [data-ss-id="direction-third"]  { --brand-ink: #10242e; --brand-ground: #e6eef2; --brand-accent: #c2410c;
-    --font-display: ui-monospace, Menlo, monospace; --font-body: Charter, "Iowan Old Style", Georgia, serif; }
-
   /* being drawn: replaced by the direction itself */
   .drawing { padding: calc(var(--space) * 6) calc(var(--space) * 3); }
   .drawing h2 { margin: 0 0 var(--space); font: 600 var(--step-4)/1.1 var(--font-display); }
@@ -80,6 +73,16 @@
   <div class="switcher-tabs" role="tablist"></div>
   <p class="switcher-line" aria-live="polite"></p>
 </nav>
+
+<style>
+  /* each direction: its own tokens. Set them, and each section's slug, name and line below, in one edit */
+  [data-ss-id="direction-first"]  { --brand-ink: #1d2320; --brand-ground: #f3f5f2; --brand-accent: #1f6f50;
+    --font-display: "Iowan Old Style", Palatino, Georgia, serif; --font-body: "Avenir Next", "Segoe UI", sans-serif; }
+  [data-ss-id="direction-second"] { --brand-ink: #f2efe8; --brand-ground: #15171c; --brand-accent: #ffb703;
+    --font-display: "Avenir Next", Futura, "Gill Sans", sans-serif; --font-body: "Avenir Next", "Segoe UI", sans-serif; }
+  [data-ss-id="direction-third"]  { --brand-ink: #10242e; --brand-ground: #e6eef2; --brand-accent: #c2410c;
+    --font-display: ui-monospace, Menlo, monospace; --font-body: Charter, "Iowan Old Style", Georgia, serif; }
+</style>
 
 <section class="direction" data-ss-frame="desktop" data-ss-section data-ss-id="direction-first" data-ss-thing="direction/first" data-ss-label="First" data-line="One line on what it leads with." data-ss-x="0" data-ss-y="0">
   <!-- part:first --><div class="drawing" data-ss-id="first-drawing"><h2>First</h2><p>Being drawn…</p><i></i><i></i><i></i></div><!-- /part:first -->
