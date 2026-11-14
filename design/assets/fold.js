@@ -29,7 +29,7 @@
 // It stops on `stop`, after 5 minutes with no change to any part or the frame, or after 30 minutes.
 const fs = require("fs");
 const path = require("path");
-const { execFileSync, execFile, execSync, spawn } = require("child_process");
+const { execFileSync, execFile, execSync, spawn, spawnSync } = require("child_process");
 
 const argv = process.argv.slice(2);
 if (argv[0] === "-C") {
@@ -70,6 +70,12 @@ for (const find of ["command -v spacesheep", "npx -y -p spacesheep@latest -c 'co
   } catch {}
 }
 const run = (args, opts = {}) => execFileSync(cli[0], [...cli.slice(1), ...args], { encoding: "utf8", stdio: ["pipe", "pipe", "pipe"], timeout: 60000, ...opts });
+// A save, with everything the CLI says about it (its lines on stderr too: what landed, what merged).
+function deploy(message) {
+  const r = spawnSync(cli[0], [...cli.slice(1), "deploy", "work", "--space", space, "-m", message], { encoding: "utf8", timeout: 60000 });
+  const said = `${r.stdout || ""}\n${r.stderr || ""}`.split("\n").map((l) => l.trim()).filter(Boolean).filter((l) => !/^spacesheep /.test(l));
+  return { ok: r.status === 0, lines: said.slice(0, 8) };
+}
 const runAsync = (args) => new Promise((ok) => execFile(cli[0], [...cli.slice(1), ...args], { timeout: 90000 }, (e, out, err) => ok({ e, out: String(out || "") + String(err || "") })));
 const why = (e) => String(e.stderr || e.message).trim().split("\n").slice(-3).join(" ").slice(0, 300);
 
@@ -146,9 +152,9 @@ if (cmd === "save" && !bg) {
 if (cmd === "save") {
   (async () => {
     const say = (l) => console.log(`${new Date().toISOString().slice(11, 19)} ${l}`);
-    try {
-      say(run(["deploy", "work", "--space", space, "-m", argv[1]]).trim().split("\n").filter((l) => /version|Updated|v\d/i.test(l)).join(" ") || "saved");
-    } catch (e) { say(`save failed: ${why(e)}`); return; }
+    const d = deploy(argv[1]);
+    if (!d.ok) { say(`save failed: ${d.lines.join(" ").slice(0, 300)}`); return; }
+    say(`saved: ${d.lines.filter((l) => /Updated|Created|Merged|⇄/.test(l)).join(" ") || "ok"}`);
     say(push("--html", fs.readFileSync("work/index.html", "utf8")) ? "pushed the page again" : "page push refused (draw/fold.log)");
     if (argv[2]) say(push("--status", argv[2]) ? `status: ${argv[2]}` : "status push refused (draw/fold.log)");
     if (argv[3] !== "pictures") { say("save done"); return; }
@@ -229,9 +235,9 @@ if (cmd === "stop") {
     console.log(push("--html", page.html) ? "folded and pushed the last edits" : "folded the last edits; the push was refused (draw/fold.log)");
   }
   if (!argv[1]) process.exit(0);
-  try { console.log(run(["deploy", "work", "--space", space, "-m", argv[1]]).trim()); }
-  catch (e) { console.error(`save failed: ${why(e)}`); process.exit(1); }
-  process.exit(0);
+  const d = deploy(argv[1]);
+  console.log((d.ok ? "" : "save failed: ") + d.lines.filter((l) => !/^[↑]/.test(l) || !d.ok).join("\n"));
+  process.exit(d.ok ? 0 : 1);
 }
 
 let shown = "", said = "", changed = Date.now();
