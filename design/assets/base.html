@@ -200,6 +200,12 @@
   @keyframes drawing { to { opacity: .28; } }
   @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 </style>
+<script>
+/* draw: a direction's script builds what it shows (cards, rows, lists, counts) in one function and passes it
+   to ssDraw, which runs it now and again after every live push: a push puts each part back as the source has
+   it, so what a script drew there is gone until it draws again. */
+function ssDraw(fn) { fn(); document.addEventListener('ss:live', () => fn()); }
+</script>
 </head>
 <body>
 
@@ -300,6 +306,7 @@ document.addEventListener('click', (e) => {
      wide    words or a control running past the direction's edge
      cut     words drawn outside a box that hides or scrolls its overflow, past its sides or its top or bottom
              (up and down, a glyph may overhang its line by a third of the font size: tight display type)
+     redraw  words, parts or their order a live push changes for good: a script drew them once, not through ssDraw
    It outlines each in red and asks for ss-fault/<slug>/<kind>/<element>.png, which doesn't exist: the
    picture's answer lists that request, and fold.js prints it as a fault. First the canvas goes off and
    every direction shows, full width and unscaled, as a person sees it on its own. */
@@ -357,6 +364,50 @@ if (/[?&]ss-check\b/.test(location.search)) addEventListener('load', () => (docu
       if (reach.some(inside) && reach.some(past)) fault('wide', el, el.textContent);
     }
   }
+  // redraw: then a live push, as it lands on a tab with the page open. Each part a script filled goes back to what
+  // the page's own source holds there, and ss:live fires, as the platform does. A direction whose words or parts
+  // then differ from the fresh load lost them. A part is found in the source by its name, else by the steps down
+  // to it from the nearest named part. Parts holding a script, and form fields' insides, which a push keeps, stay
+  // as they are. The source is the copy this tab just loaded, from the browser's cache, else the server's. A page
+  // whose source can't be read, or holds other directions, isn't measured, and asks for
+  // ss-note/redraw-unmeasured.png with the reason, which fold.js prints as a line of its own.
+  const key = (e) => own(e.dataset.ssId) ? `[data-ss-id="${CSS.escape(e.dataset.ssId)}"]` : e.id ? `#${CSS.escape(e.id)}` : '';
+  const path = (e) => {
+    let p = '';
+    for (let x = e; x; x = x.parentElement) {
+      if (key(x)) return key(x) + p;
+      let i = 1;
+      for (let s = x.previousElementSibling; s; s = s.previousElementSibling) if (s.localName === x.localName) i++;
+      p = ` > ${CSS.escape(x.localName)}:nth-of-type(${i})${p}`;
+    }
+    return '';
+  };
+  const kids = (e) => [...e.childNodes].map((n) => n.nodeType === 1 ? n.tagName + key(n) : n.nodeType === 3 ? n.data.replace(/\s+/g, ' ').trim() : '').filter(Boolean).join('|');
+  const read = (e) => { const c = e.cloneNode(true); c.querySelectorAll('script, style, template').forEach((x) => x.remove()); return `${c.querySelectorAll('*').length} ${c.textContent.replace(/\s+/g, ' ').trim()}`; };
+  const unmeasured = (why) => { new Image().src = `ss-note/redraw-unmeasured.png?t=${encodeURIComponent(String(why).slice(0, 80))}`; };
+  return fetch(location.href, { cache: 'force-cache' }).then((r) => r.ok ? r.text() : Promise.reject(`its source answered ${r.status}`)).then((html) => {
+    const src = new DOMParser().parseFromString(html, 'text/html'), secs = [...document.querySelectorAll('section.direction')], wiped = [];
+    const there = src.querySelectorAll('section.direction').length;
+    if (there !== secs.length) return unmeasured(`its source holds ${there} directions, the page ${secs.length}`);
+    const fresh = secs.map(read);
+    for (const el of document.querySelectorAll('section.direction *')) {
+      if (el.closest('script, style, template, select, textarea') || el.querySelector('script') || wiped.some((w) => w.el.contains(el))) continue;
+      const k = path(el), was = k && src.querySelector(k);
+      if (was && kids(el) !== kids(was)) wiped.push({ el, k, sec: el.closest('section.direction'), was: read(el), text: el.textContent });
+    }
+    for (const w of wiped) w.el.replaceChildren(...[...src.querySelector(w.k).childNodes].map((n) => document.importNode(n, true)));
+    document.dispatchEvent(new CustomEvent('ss:live', { detail: { mode: 'morph', ids: [...document.querySelectorAll('[data-ss-id]')].map((e) => e.dataset.ssId) } }));
+    secs.forEach((sec, i) => {
+      if (read(sec) === fresh[i]) return;
+      const lost = wiped.filter((w) => w.sec === sec && read(sec.querySelector(w.k) || w.el) !== w.was).slice(0, 8);
+      const slug = (sec.dataset.ssId || '').replace(/^direction-/, '');
+      for (const w of lost.length ? lost : [{ el: sec, text: '' }]) {
+        w.el.style.outline = '3px solid #e00';
+        let at = w.el; while (at !== sec && !key(at)) at = at.parentElement; // an unnamed part: say which named part holds it
+        new Image().src = `ss-fault/${slug}/redraw/${encodeURIComponent((at === w.el ? '' : name(at) + ' ') + name(w.el))}.png?t=${encodeURIComponent(w.text.replace(/\s+/g, ' ').trim().slice(0, 40))}`;
+      }
+    });
+  }).catch((e) => unmeasured((e && e.message) || e));
 }));
 </script>
 </body>

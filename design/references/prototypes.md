@@ -41,7 +41,7 @@ Read this before building any prototype ("clickable", "tap through", "mock up th
 
 ## State that really works
 
-Keep state in one small object in an inline script, and draw from it. A rule written in the request is a rule in the code:
+Keep state in one small object in an inline script, and draw from it. Draw in one function run with `ssDraw(render)`: a live push puts each part back as the source has it, and ssDraw draws it again. A rule written in the request is a rule in the code:
 
 - "Up to four passengers on a ticket": a fifth tap on + is refused. The control shows "Up to 4", and the total reads "4 of 4".
 - "Pick a sailing date": a real `<input type="date">` with the date shown in words beside it, or a row of day buttons when asked.

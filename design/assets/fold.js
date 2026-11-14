@@ -454,8 +454,9 @@ if (cmd === "save") {
     // Each whole direction at 1440 and at 390 px wide, from the page with ?ss-check: the starter's script then
     // measures the direction as it is drawn, and each layout fault comes back named in the picture's answer.
     const slugs = [...new Set([...(read("work/index.html") || "").matchAll(/data-ss-id="direction-([a-z0-9-]+)"/g)].map((m) => m[1]))];
-    const faults = new Map();
-    const KIND = { narrow: "words run under 4 characters a line", wide: "runs past the direction's edge", cut: "words cut off by the box around them" };
+    const faults = new Map(), notes = new Set();
+    const KIND = { narrow: "words run under 4 characters a line", wide: "runs past the direction's edge", cut: "words cut off by the box around them",
+      redraw: "a live push puts it back as the source has it, and nothing draws it again: build it in the function the script runs with ssDraw" };
     const shot = async (d, w) => {
       const f = `${d}-${w}.png`;
       if (!within(f)) { refuse(f); say(`picture ${f} refused: it is a link`); return false; }
@@ -469,8 +470,10 @@ if (cmd === "save") {
           fs.writeFileSync(f, png);
           if (w === 390) try { columns(f); } catch (e) { say(`${f} kept as one strip: ${e.message}`); }
           for (const x of a.resource_failures || []) {
-            const m = String(x.url || "").match(/\/ss-fault\/([a-z0-9-]+)\/(narrow|wide|cut)\/([^/?]+)\.png\?t=([^&]*)/);
+            const m = String(x.url || "").match(/\/ss-fault\/([a-z0-9-]+)\/(narrow|wide|cut|redraw)\/([^/?]+)\.png\?t=([^&]*)/);
             if (m && m[1] === d) faults.set(`${w} ${m.slice(1, 4).join(" ")}`, `fault at ${w} px: ${d}: ${decodeURIComponent(m[3])} "${decodeURIComponent(m[4])}": ${KIND[m[2]]}`);
+            const u = String(x.url || "").match(/\/ss-note\/redraw-unmeasured\.png\?t=([^&]*)/);
+            if (u) notes.add(`redraw not measured: ${decodeURIComponent(u[1])}; the pictures still count`);
           }
           say(`picture: ${f}`);
           return true;
@@ -483,6 +486,7 @@ if (cmd === "save") {
     const files = slugs.flatMap((d) => [`${d}-1440.png`, `${d}-390.png`]);
     const shots = await Promise.all(slugs.flatMap((d) => [shot(d, 1440), shot(d, 390)]));
     for (const l of faults.values()) say(l);
+    for (const l of notes) say(l); // not a fault: the save passes or fails on the rest
     // The last line says what to do, in its first words: a picture missing means save again; a layout fault
     // means fix it once in its part, then stop. The fix isn't measured again, so a second save can't help.
     const missing = files.filter((f, i) => !shots[i]);
