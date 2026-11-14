@@ -43,6 +43,10 @@ if (!COMMANDS.includes(cmd)) {
   process.exit(2);
 }
 const read = (f) => { try { return fs.readFileSync(f, "utf8"); } catch { return null; } };
+// What it passes to the CLI: a space id is a UUID, and no link, message or status starts with "-",
+// so none can be read as one of the CLI's own flags.
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const plain = (what, v) => { if (typeof v === "string" && v.startsWith("-")) { console.error(`fold.js: a ${what} can't start with "-"`); process.exit(2); } return v; };
 const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 fs.mkdirSync("draw", { recursive: true });
 const log = (line) => fs.appendFileSync("draw/fold.log", `${new Date().toISOString()} ${line}\n`);
@@ -71,7 +75,7 @@ const why = (e) => String(e.stderr || e.message).trim().split("\n").slice(-3).jo
 
 // The one space: from start on, its id is in draw/space.
 let space = (read("draw/space") || "").trim();
-if (cmd !== "start" && !space) { console.error(`${cmd}: no space yet; run start first, in this folder`); process.exit(2); }
+if (cmd !== "start" && !UUID.test(space)) { console.error(`${cmd}: no space yet (draw/space holds no id); run start first, in this folder`); process.exit(2); }
 
 // The page goes through stdin, as JSON to the push_live tool: no argument limit (Linux refuses one over 128 KB).
 function push(flag, value) {
@@ -92,20 +96,20 @@ if (cmd === "start") {
   if (argv[1] === "--new") {
     fs.mkdirSync("work", { recursive: true });
     fs.copyFileSync(path.join(__dirname, "base.html"), "work/index.html");
-    const out = run(["deploy", "work", "--title", argv[2] || "Design", "--json"]);
+    const out = run(["deploy", "work", "--title", plain("title", argv[2]) || "Design", "--json"]);
     const j = JSON.parse(out.slice(out.indexOf("{")));
     space = (j.space || {}).id;
-    if (!space) { console.error("start: the new space's id isn't in the answer"); process.exit(1); }
+    if (!UUID.test(space || "")) { console.error("start: the new space's id isn't in the answer"); process.exit(1); }
     fs.writeFileSync("draw/space", space);
     console.log(`made a new space from the starter: ${(j.space || {}).url || space}\nspace: ${space}`);
     process.exit(0);
   }
-  const link = argv[1];
+  const link = plain("link", argv[1]);
   if (!link) { console.error("start: give the space's link, or --new \"<title>\""); process.exit(2); }
   try { run(["live", "push", "--space", link, "--status", "Reading your brief"]); console.log("status: Reading your brief"); }
   catch (e) { console.error(`status refused: ${why(e)}`); }
   space = ((run(["spaces", "get", link]).match(/^ *id: (.*)$/m) || [])[1] || "").trim();
-  if (!space) { console.error(`start: no id in the answer to spaces get ${link}`); process.exit(1); }
+  if (!UUID.test(space)) { console.error(`start: no id in the answer to spaces get ${link}`); process.exit(1); }
   fs.writeFileSync("draw/space", space);
   process.stdout.write(run(["read", space, "-o", "work"]));
   if (!isDesign(read("work/index.html"))) {
@@ -131,6 +135,7 @@ if (cmd === "brief") {
   console.log(/end brief/.test(b || "") ? b : "no brief yet: run brief again");
   process.exit(0);
 }
+if (cmd === "save" || cmd === "stop") { plain("message", argv[1]); plain("status", argv[2]); }
 if (cmd === "save" && !bg) {
   if (!argv[1]) { console.error('save: give a message, e.g. save "Three directions" "All three are up"'); process.exit(2); }
   fs.writeFileSync("draw/save.log", "");
