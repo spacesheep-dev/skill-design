@@ -7,7 +7,8 @@ Each release is a heading with its tag. The release workflow uses the words unde
 - The helpers start in the same message as the frame, so the first direction's top goes up sooner. Before, they started only after the frame was pushed and saved, 1:20 later in a measured run.
 - A helper's prompt is a few lines: the direction, the facts and the answers. Its standing rules moved to `references/helper.md`, which it reads.
 - A save puts the status back straight after the version, then pushes the page again. Before, the page went first, so the work card could say "Done" for a few seconds mid-run.
-- The folder's hash is `5ad155c9ad05`.
+- A page open in a tab behind another one no longer stops the build. Such a tab can't confirm a push within 2 s, and the writer counted that as a refused push: five in a row stopped it, and a save ended "incomplete". Now that answer counts as sent. Any other refusal still counts.
+- The folder's hash is `70230b36fafd`.
 
 ## v1.2.0
 
