@@ -334,19 +334,21 @@ if (!only) {
     if (!/^--[a-z0-9-]{1,40}$/.test(v || "") || vars.has(v)) { said(m, "data-var must be a token name of its own, like --hero"); continue; }
     vars.add(v);
     if (!m[1] || !m[2]) said(m, "write it as <label>Its name <input …></label>: Tweaks shows that name");
+    let values = 0; // a well-formed switch or choice: its values past 0, each to be styled (3 at most)
     if (type === "color") { /* a colour has no more to it */ }
     else if (type !== "range") said(m, `type="${type}": a control is type="color" or type="range"`);
-    else if (kind === "switch") { if (n("min") !== 0 || n("max") !== 1 || n("step") !== 1) said(m, 'a switch is min="0" max="1" step="1"'); }
+    else if (kind === "switch") { if (n("min") !== 0 || n("max") !== 1 || n("step") !== 1) said(m, 'a switch is min="0" max="1" step="1"'); else values = 1; }
     else if (kind === "choice") {
       const o = (at(m[3], "data-options") || "").split("|");
       if (o.length < 2 || o.length > 4 || o.some((x) => !x.trim() || x.length > 14)) said(m, 'a choice has 2 to 4 options of at most 14 characters, in data-options="A|B|C"');
       else if (n("min") !== 0 || n("max") !== o.length - 1 || n("step") !== 1) said(m, `a choice of ${o.length} is min="0" max="${o.length - 1}" step="1"`);
+      else values = o.length - 1;
     } else if (kind) said(m, `data-kind="${kind}": a control's kind is switch or choice`);
     else if (!(n("max") > n("min")) || !(n("step") > 0) || !["", "px", "rem", "em", "%"].includes(at(m[3], "data-unit") || "")) said(m, "a slider needs min below max, a step above 0, and data-unit px, rem, em, % or none");
     const esc = v.replace(/-/g, "\\-");
     if (!new RegExp(`${esc}\\s*:`).test(css)) said(m, "nothing sets it: give each direction its own value on its section");
     if (kind === "switch" || kind === "choice") {
-      for (let k = 1; k <= n("max"); k++) if (!new RegExp(`\\[data-${v.slice(2)}=["']?${k}["']?\\]`).test(css)) said(m, `nothing is styled for [data-${v.slice(2)}="${k}"], so that value changes nothing`);
+      for (let k = 1; k <= values; k++) if (!new RegExp(`\\[data-${v.slice(2)}=["']?${k}["']?\\]`).test(css)) said(m, `nothing is styled for [data-${v.slice(2)}="${k}"], so that value changes nothing`);
     } else if (!new RegExp(`var\\(\\s*${esc}\\s*[,)]`).test(css)) said(m, "nothing uses it, so it changes nothing");
   }
 }

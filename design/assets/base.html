@@ -393,7 +393,18 @@ if (/[?&]ss-check\b/.test(location.search)) addEventListener('load', () => (docu
   // highest (over any saved value), then as designed, which the picture shows. A fault at an end says which.
   // (A page whose controls script was taken out is measured as designed only.)
   const ends = typeof ssControls === 'function' ? ssControls().filter((i) => i.type === 'range') : [];
-  const at = (sec, pick) => { for (const i of ends) pick ? sec.style.setProperty(i.dataset.var, pick(i) + (i.dataset.unit || ''), 'important') : sec.style.removeProperty(i.dataset.var); ssMirror(); };
+  // Each end goes on the section's own style, over anything saved; then each control's own inline value
+  // and priority (or none) go back as they were, so the check leaves the page as it found it.
+  const at = (sec, own, pick) => {
+    for (const i of ends) {
+      const v = i.dataset.var;
+      if (!own.has(v)) own.set(v, [sec.style.getPropertyValue(v), sec.style.getPropertyPriority(v)]);
+      if (pick) sec.style.setProperty(v, pick(i) + (i.dataset.unit || ''), 'important');
+      else if (own.get(v)[0]) sec.style.setProperty(v, own.get(v)[0], own.get(v)[1]);
+      else sec.style.removeProperty(v);
+    }
+    ssMirror();
+  };
   for (const sec of document.querySelectorAll('section.direction')) {
     const slug = (sec.dataset.ssId || '').replace(/^direction-/, '');
     if (!sec.getBoundingClientRect().width || !shown(sec)) continue;
@@ -439,7 +450,7 @@ if (/[?&]ss-check\b/.test(location.search)) addEventListener('load', () => (docu
         if (reach.some(inside) && reach.some(past)) fault('wide', el, el.textContent, when);
       }
     };
-    if (ends.length) { at(sec, (i) => i.min); measure(' with every control at its lowest'); at(sec, (i) => i.max); measure(' with every control at its highest'); at(sec, null); }
+    if (ends.length) { const own = new Map(); at(sec, own, (i) => i.min); measure(' with every control at its lowest'); at(sec, own, (i) => i.max); measure(' with every control at its highest'); at(sec, own, null); }
     measure('');
   }
 }));
