@@ -9,8 +9,9 @@ Each release is a heading with its tag. The release workflow uses the words unde
 - A new or vague brief gets a few questions first, as one chat form whose `pick` is the skill's own (`references/questions.md`). A run told not to wait, or one nobody can answer, builds on its best guesses.
 - Up to six controls sit beside the design, drawn by Spacesheep's Tweaks. At least two are a switch or choice taken from the questions' other answers. They replace `assets/tweaks.html`.
 - A save pictures each whole direction at 1440 and 390 px, and fails on layout faults, cut-off content or a bad picture (`assets/check.js`).
+- The direction tabs survive a link with a malformed `#` part and a direction with no name; before, either one hung the page.
 - Needs Spacesheep's chat forms with `pick` and Tweaks' switches and choices.
-- The folder's hash is `d732283669b1`.
+- The folder's hash is `f8f71f27a2d0`.
 
 ## v1.1.0
 
