@@ -79,9 +79,11 @@
   :where(.k-hero) :where(p) { margin: 0 0 var(--s4); font-size: var(--step-1); }
   .k-actions { display: flex; flex-wrap: wrap; gap: var(--s2); align-items: center; }
 
-  /* cards: a grid whose last row always fills, so no cell is left empty and no card sits alone */
-  .k-cards, .cards { --k-cols: 3; display: flex; flex-wrap: wrap; gap: var(--s3); margin: 0; padding: 0; list-style: none; }
-  .k-cards > *, .cards > * { flex: 1 1 calc((100% - (var(--k-cols) - 1) * var(--s3)) / var(--k-cols)); }
+  /* cards: every card the same width; a short last row sits centred, and only a card that would be
+     alone on it takes the whole row (the column count is picked so that is rare) */
+  .k-cards, .cards { --k-cols: 3; display: flex; flex-wrap: wrap; justify-content: center; gap: var(--s3); margin: 0; padding: 0; list-style: none; }
+  .k-cards > *, .cards > * { flex: 0 1 calc((100% - (var(--k-cols) - 1) * var(--s3)) / var(--k-cols)); }
+  :is(.k-cards, .cards) > :last-child:nth-child(3n+1):not(:nth-child(4), :nth-child(7), :nth-child(10), :nth-child(13)) { flex-grow: 1; }
   :is(.k-cards, .cards):has(> :nth-child(2):last-child) { --k-cols: 2; }
   :is(.k-cards, .cards):has(> :nth-child(4):last-child, > :nth-child(7):last-child, > :nth-child(8):last-child,
     > :nth-child(10):last-child, > :nth-child(11):last-child, > :nth-child(12):last-child) { --k-cols: 4; }
@@ -115,8 +117,10 @@
   .k-stats { --k-cols: 4; display: grid; grid-template-columns: repeat(var(--k-cols), minmax(0, 1fr)); gap: var(--s3); margin: 0; padding: 0; list-style: none; }
   .k-stats:has(> :nth-child(3):last-child) { --k-cols: 3; } .k-stats:has(> :nth-child(2):last-child) { --k-cols: 2; }
   @media (max-width: 40rem) { .k-stats { --k-cols: 2; } .k-stats:has(> :nth-child(3):last-child) > :last-child { grid-column: 1 / -1; } }
-  :where(.k-stat) :where(b, strong) { display: block; font: var(--display-weight) var(--step-3)/1.1 var(--font-display); font-variant-numeric: tabular-nums; }
-  :where(.k-stat) :where(span) { color: var(--brand-muted); font-size: var(--step--1); }
+  /* density sets the size and the room: a tight direction's figures are small and close, a roomy one's large and open */
+  :where(.k-stat) { display: grid; gap: var(--s1); padding-top: var(--s3); border-top: var(--rule) solid var(--line); }
+  :where(.k-stat) :where(b, strong) { display: block; font: var(--display-weight) clamp(var(--step-2), calc(var(--step-3) + (var(--density) - 1) * 32px), var(--step-5))/1.05 var(--font-display); font-variant-numeric: tabular-nums; }
+  :where(.k-stat) :where(span) { color: var(--brand-muted); font-size: var(--step--1); text-transform: var(--label-case); letter-spacing: var(--label-track); }
 
   /* chips and tags: wrap, never clip */
   .k-chips { display: flex; flex-wrap: wrap; gap: var(--s1); margin: 0; padding: 0; list-style: none; }
@@ -162,9 +166,11 @@
 
   /* steps: where you are, how much is left, a step that can wait */
   .k-steps { display: flex; flex-wrap: wrap; gap: var(--s2); margin: 0; padding: 0; list-style: none; counter-reset: k-step; }
-  .k-steps > li { flex: 1 1 8rem; display: flex; align-items: center; gap: var(--s2); }
-  :where(.k-steps > li) { counter-increment: k-step; padding-top: var(--s2); border-top: 3px solid var(--line); color: var(--brand-muted); }
-  :where(.k-steps > li)::before { content: counter(k-step); display: inline-grid; place-items: center; flex: 0 0 auto; width: 28px; height: 28px; border-radius: 50%;
+  .k-steps > li { flex: 1 1 calc(8rem * var(--density)); display: flex; align-items: center; gap: var(--s2); }
+  /* density sets the label size, the marker and the room above it, as on the stat row */
+  :where(.k-steps > li) { counter-increment: k-step; padding-top: var(--s3); border-top: calc(2px + var(--rule)) solid var(--line); color: var(--brand-muted);
+    font-size: clamp(var(--step--1), calc(var(--step-0) + (var(--density) - 1) * 12px), var(--step-1)); line-height: 1.3; }
+  :where(.k-steps > li)::before { content: counter(k-step); display: inline-grid; place-items: center; flex: 0 0 auto; width: calc(12px + 16px * var(--density)); aspect-ratio: 1; border-radius: 50%;
     border: var(--rule) solid currentColor; font: 600 var(--step--1)/1 var(--font-body); }
   :where(.k-steps > li[data-state="done"]) { color: var(--brand-ink); border-top-color: var(--brand-accent); }
   :where(.k-steps > li[data-state="done"])::before { content: "✓"; background: var(--brand-accent); border-color: var(--brand-accent); color: var(--brand-on-accent); }
