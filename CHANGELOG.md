@@ -12,7 +12,7 @@ Each release is a heading with its tag. The release workflow uses the words unde
 - The direction tabs survive a link with a malformed `#` part and a direction with no name; before, either one hung the page. They also come back after a live push on the canvas, which left them empty, and a direction id like `direction-%41` selects itself.
 - A direction's script builds what it shows (cards, rows, lists, counts) in one function run with `ssDraw(fn)`, which draws it again after every live push. Before, a push left those parts empty until a reload. The save's check pushes the page into itself and fails a direction whose words, parts or their order change.
 - Needs Spacesheep's chat forms with `pick` and Tweaks' switches and choices.
-- The folder's hash is `64df694819db`.
+- The folder's hash is `7cb11305ecab`.
 
 ## v1.1.0
 

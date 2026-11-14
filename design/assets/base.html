@@ -469,8 +469,9 @@ if (/[?&]ss-check\b/.test(location.search)) addEventListener('load', () => (docu
   // the page's own source holds there, and ss:live fires, as the platform does. A direction whose words or parts
   // then differ from the fresh load lost them. A part is found in the source by its name, else by the steps down
   // to it from the nearest named part. Parts holding a script, and form fields' insides, which a push keeps, stay
-  // as they are; a page whose source can't be read isn't measured. The source is the copy this tab just loaded,
-  // from the browser's cache, else the server's.
+  // as they are. The source is the copy this tab just loaded, from the browser's cache, else the server's. A page
+  // whose source can't be read, or holds other directions, isn't measured, and asks for
+  // ss-note/redraw-unmeasured.png with the reason, which fold.js prints as a line of its own.
   const key = (e) => own(e.dataset.ssId) ? `[data-ss-id="${CSS.escape(e.dataset.ssId)}"]` : e.id ? `#${CSS.escape(e.id)}` : '';
   const path = (e) => {
     let p = '';
@@ -484,8 +485,11 @@ if (/[?&]ss-check\b/.test(location.search)) addEventListener('load', () => (docu
   };
   const kids = (e) => [...e.childNodes].map((n) => n.nodeType === 1 ? n.tagName + key(n) : n.nodeType === 3 ? n.data.replace(/\s+/g, ' ').trim() : '').filter(Boolean).join('|');
   const read = (e) => { const c = e.cloneNode(true); c.querySelectorAll('script, style, template').forEach((x) => x.remove()); return `${c.querySelectorAll('*').length} ${c.textContent.replace(/\s+/g, ' ').trim()}`; };
-  return fetch(location.href, { cache: 'force-cache' }).then((r) => r.ok ? r.text() : Promise.reject(r.status)).then((html) => {
+  const unmeasured = (why) => { new Image().src = `ss-note/redraw-unmeasured.png?t=${encodeURIComponent(String(why).slice(0, 80))}`; };
+  return fetch(location.href, { cache: 'force-cache' }).then((r) => r.ok ? r.text() : Promise.reject(`its source answered ${r.status}`)).then((html) => {
     const src = new DOMParser().parseFromString(html, 'text/html'), secs = [...document.querySelectorAll('section.direction')], wiped = [];
+    const there = src.querySelectorAll('section.direction').length;
+    if (there !== secs.length) return unmeasured(`its source holds ${there} directions, the page ${secs.length}`);
     const fresh = secs.map(read);
     for (const el of document.querySelectorAll('section.direction *')) {
       if (el.closest('script, style, template, select, textarea') || el.querySelector('script') || wiped.some((w) => w.el.contains(el))) continue;
@@ -504,7 +508,7 @@ if (/[?&]ss-check\b/.test(location.search)) addEventListener('load', () => (docu
         new Image().src = `ss-fault/${slug}/redraw/${encodeURIComponent((at === w.el ? '' : name(at) + ' ') + name(w.el))}.png?t=${encodeURIComponent(w.text.replace(/\s+/g, ' ').trim().slice(0, 40))}`;
       }
     });
-  }).catch((e) => console.warn('ss-check redraw: not measured', e));
+  }).catch((e) => unmeasured((e && e.message) || e));
 }));
 </script>
 </body>
