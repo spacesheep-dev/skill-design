@@ -237,10 +237,12 @@
   const line = document.querySelector('.switcher-line');
   if (!tabs) return;
   const all = () => [...document.querySelectorAll('section.direction')];
-  const label = (d) => d.dataset.ssLabel || d.dataset.name || d.dataset.ssId;
+  const label = (d) => d.dataset.ssLabel || d.dataset.name || d.dataset.ssId || '';
   let cur = null;
   function fromHash() {
-    const dirs = all(), id = decodeURIComponent(location.hash.slice(1));
+    const dirs = all();
+    let id = location.hash.slice(1);
+    try { id = decodeURIComponent(id); } catch {}
     return dirs.find((d) => d.dataset.ssId === id)
       || dirs.find((d) => d.contains(document.getElementById(id) || document.querySelector('[data-ss-id="' + CSS.escape(id) + '"]')))
       || dirs.find((d) => d.hasAttribute('data-default'))
@@ -256,7 +258,7 @@
     line.textContent = d.dataset.line || '';
   }
   function draw() {
-    tabs.replaceChildren(...all().map((d) => {
+    try { tabs.replaceChildren(...all().map((d) => {
       const b = document.createElement('button');
       b.type = 'button';
       b.setAttribute('role', 'tab');
@@ -264,7 +266,7 @@
       b.addEventListener('click', () => { history.replaceState(null, '', '#' + d.dataset.ssId); show(d); dispatchEvent(new HashChangeEvent('hashchange')); });
       return b;
     }));
-    show(fromHash());
+    show(fromHash()); } finally { watch.takeRecords(); } // its own changes mustn't call it again
   }
   // A live push redraws the page from its source, where the tabs are empty: draw them again.
   const stale = () => {
@@ -272,8 +274,8 @@
     return tabs.children.length !== dirs.length || dirs.some((d, i) => tabs.children[i].textContent !== label(d))
       || !document.contains(cur) || line.textContent !== (cur.dataset.line || '');
   };
-  new MutationObserver(() => { if (stale()) draw(); })
-    .observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-ss-label', 'data-name', 'data-line', 'data-ss-id'] });
+  const watch = new MutationObserver(() => { if (stale()) draw(); });
+  watch.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-ss-label', 'data-name', 'data-line', 'data-ss-id'] });
   addEventListener('hashchange', () => show(fromHash()));
   draw();
   if (cur && !location.hash && cur.hasAttribute('data-default') && document.querySelector('meta[name="ss-canvas"][content="on"]')) {
