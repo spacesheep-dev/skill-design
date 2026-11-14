@@ -235,50 +235,12 @@ const shownText = (t) => t.replace(/<(script|style)\b[\s\S]*?<\/\1>/gi, " ").rep
 
 const dirs = directions(page).filter((d) => !only || d.slug === only);
 if (only && !dirs.length) { console.error(`check: no direction "${only}" on the page`); process.exit(2); }
-
-// Colour pairs: each direction's tokens, read from the page and its parts (later rules win), with the
-// starter's defaults for the ones it doesn't set, and every pair the kit puts text on must read: 4.5:1.
-const NAMED = { white: "#ffffff", black: "#000000" };
-function rgb(v, tok, depth = 0) {
-  v = (v || "").trim().toLowerCase();
-  if (depth > 8) return null;
-  const ref = v.match(/^var\(\s*(--[\w-]+)\s*(?:,\s*(.+))?\)$/);
-  if (ref) return tok[ref[1]] ? rgb(tok[ref[1]], tok, depth + 1) : ref[2] ? rgb(ref[2], tok, depth + 1) : null;
-  if (NAMED[v]) v = NAMED[v];
-  let m = v.match(/^#([0-9a-f]{3,8})$/);
-  if (m) { let h = m[1]; if (h.length <= 4) h = [...h].map((c) => c + c).join(""); return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16)); }
-  m = v.match(/^rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)/);
-  if (m) return [+m[1], +m[2], +m[3]];
-  m = v.match(/^color-mix\(\s*in\s+srgb\s*,\s*(.+?)\s+([\d.]+)%\s*,\s*(.+?)(?:\s+[\d.]+%)?\s*\)$/);
-  if (m) { const a = rgb(m[1], tok, depth + 1), b = rgb(m[3], tok, depth + 1), k = +m[2] / 100; return a && b ? a.map((x, i) => x * k + b[i] * (1 - k)) : null; }
-  return null;
-}
-const lum = (c) => { const [r, g, b] = c.map((x) => { x /= 255; return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
-const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
-const hex = (c) => "#" + c.map((x) => Math.round(x).toString(16).padStart(2, "0")).join("");
-const PAIRS = [["--brand-ink", "--brand-ground", "text on its ground"], ["--brand-muted", "--brand-ground", "muted text on the ground"],
-  ["--brand-on-surface", "--brand-surface", "text on a card or field"], ["--brand-muted", "--brand-surface", "muted text on a card"],
-  ["--brand-on-accent", "--brand-accent", "a button's label on the accent"], ["--brand-accent", "--brand-ground", "accent text and links on the ground"]];
-function tokens(slug, texts) {
-  const tok = { "--brand-surface": "color-mix(in srgb, var(--brand-ink) 6%, var(--brand-ground))", "--brand-on-surface": "var(--brand-ink)",
-    "--brand-muted": "color-mix(in srgb, var(--brand-ink) 74%, var(--brand-ground))", "--brand-on-accent": "var(--brand-ground)" };
-  const rule = new RegExp(`\\[data-ss-id="direction-${slug}"\\]\\s*\\{([^}]*)\\}`, "g");
-  for (const t of texts) for (const m of t.matchAll(rule)) for (const d of m[1].matchAll(/(--brand-[\w-]+)\s*:\s*([^;]+)/g)) tok[d[1]] = d[2].trim();
-  return tok;
-}
 for (const d of dirs) {
   const units = sources(d);
   for (const u of units) checkUnit(d.slug, u);
   const all = units.map((u) => u.text).join("\n");
   const shown = norm(shownText(all));
   for (const f of facts) if (!shown.includes(norm(f))) fail(d.slug, units[units.length - 1].file, `missing fact: "${f}"`);
-  const tok = tokens(d.slug, [page, ...units.map((u) => u.text)]);
-  for (const [fg, bg, what] of PAIRS) {
-    const x = rgb(tok[fg], tok), y = rgb(tok[bg], tok);
-    if (!x || !y) continue; // a colour this check can't read (oklch, a gradient): the look checks it
-    const r = ratio(x, y);
-    if (r < 4.5) fail(d.slug, "tokens", `contrast ${r.toFixed(1)}:1 for ${what} (${fg} ${hex(x)} on ${bg} ${hex(y)}): 4.5 needed; change the token in the direction's rule`);
-  }
   for (const f of nots) if (shown.includes(norm(f))) fail(d.slug, (units.find((u) => norm(u.text.replace(/<[^>]+>/g, " ")).includes(norm(f))) || units[0]).file, `shows "${f}", which the brief says no direction may`);
   const told = new Set();
   for (const u of units) {

@@ -21,20 +21,17 @@ With a brand given, all three directions use the brand's colours, fonts and logo
 
 ## A way to get three
 
-Take each direction from a different source, then give each its own skeleton:
+1. **Safe:** the clearest version of what the request describes. A visitor finds every fact in seconds.
+2. **Bold:** the same facts with one strong idea pushed hard, such as a huge type headline, a dark field, or one striking number.
+3. **Unexpected:** a different structure, such as a price table as the hero, a single card, a story told in steps, or an editorial layout.
 
-1. **The subject:** what the thing does for the person, made visible (a ledger for comparing, steps for a setup, a feed for what's new).
-2. **The brand found in the product:** its own colours, type and habits, pushed further than the product dares.
-3. **A deliberate departure from both:** a structure neither of the others uses, such as one card at a time, a single dense table, a story told in steps, or an editorial front page.
-
-A skeleton is the page's arrangement: one column, a lead item over a list, a grid, a table, steps, a split screen. Before you write the three lines, check that no two share a skeleton, and rewrite one that does: colour and type alone make one direction.
+Then check each against the axes table and change whatever two of them share.
 
 ## Naming
 
 - 1 to 3 words that name the idea: "Harbour Chart", "Night Watch", "Logbook", "Paper Lantern".
 - Never "Option A", "Version 2", "Modern" or "Clean": those name nothing.
-- One line under each name gives its skeleton and what it leads with: "A ledger of every bill, due date first; for owners who only open it when one comes." A card grid in new colours is no idea.
-- Name a direction for its idea, never for the product's own name or metaphor: a page called Orbit gets no star charts.
+- One line under each name says who it's for or what it leads with: "Lead with the due date; for owners who only open it when a bill comes."
 
 ## Every direction is complete
 
