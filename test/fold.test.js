@@ -293,3 +293,29 @@ test("focus gives a page from before the meta its focus beside the ss-canvas met
   for (const f of [["work", "index.html"], ["draw", "frame.html"]])
     assert.equal(fs.readFileSync(path.join(folder, ...f), "utf8"), old.replace('<meta name="ss-canvas" content="on">', '<meta name="ss-canvas" content="on">\n<meta name="ss-canvas-focus" content="direction-second">'), f.join("/"));
 });
+
+test("a revision's first status goes up before anything is read: read's words (Reading the page unless given), and start's when given", () => {
+  const { root, folder, fold, calls } = setup();
+  const design = BASE.replace("<title>", "<title>Street party · ");
+  fs.writeFileSync(path.join(root, "page.html"), design);
+  const env = { FAKE_PAGE: path.join(root, "page.html") };
+  const r = fold(["start", "https://stage.test/s", "Making Big Day's 18 red"], env);
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.match(r.stdout, /^status: Making Big Day's 18 red$/m);
+  let log = calls();
+  const said = log.findIndex((a) => a[0] === "live" && a.includes("Making Big Day's 18 red"));
+  assert.ok(said >= 0 && said < log.findIndex((a) => a[0] === "read"), "start's status came before its read");
+  assert.ok(!log.some((a) => a.includes("Reading your brief")), "no brief status on a revision given its own words");
+  for (const [args, words] of [[["read", "Making the 18 red"], "Making the 18 red"], [["read"], "Reading the page"]]) {
+    const n = calls().length;
+    const s = fold(args, env);
+    assert.equal(s.status, 0, s.stdout + s.stderr);
+    assert.match(s.stdout, new RegExp(`^status: ${words}$`, "m"));
+    log = calls().slice(n);
+    const at = log.findIndex((a) => a[0] === "live" && a.includes("--status") && a.includes(words));
+    assert.ok(at >= 0, `${words}: pushed`);
+    assert.ok(at < log.findIndex((a) => a[0] === "read"), `${words}: before the read`);
+  }
+  assert.equal(fs.readFileSync(path.join(folder, "draw", "card"), "utf8").trim(), "up", "the work card is up until a save");
+  assert.equal(fold(["read", "-x"], env).status, 2, "a status can't start with -");
+});
