@@ -30,7 +30,7 @@
 //   node fold.js -C <folder> stop "<message>"    ask the writer to stop and wait for its own word that it
 //                                               has (else fail), fold the last edits, push them and save;
 //                                               `stop` alone saves nothing and takes the work card down
-//   node fold.js -C <folder> read ["<status>"]   a status on the space ("Reading the page" unless given),
+//   node fold.js -C <folder> read ["<status>"]   a status on the space ("Reading your design" unless given),
 //                                               then its current source read into work/ again: a
 //                                               revision's first status, before anything changes
 //   node fold.js -C <folder> focus <all|slug>    what the canvas shows: every direction, or the one named
@@ -273,13 +273,37 @@ function push(flag, value) {
   }
 }
 // A save, with everything the CLI says about it (its lines on stderr too: what landed, what merged).
+// A deploy still running at its time limit is stopped, and the space's history says what happened: a
+// version with this save's message, made since the save began, means it landed and only the answer was
+// late, so it counts as saved. A save that ends any other way without a word says how it ended.
+const SAVE_MS = Number(process.env.FOLD_SAVE_MS) || 60000; // a test's shorter limit; 60 s otherwise
 function deploy(message) {
   if (!work()) return { ok: false, lines: ["work/ holds a link"] };
-  const t = allowed(60000);
+  const t = allowed(SAVE_MS);
   if (!t) return { ok: false, lines: [`not called: ${lost}`] };
+  const began = Date.now();
   const r = spawnSync(cli[0], [...cli.slice(1), "deploy", "work", "--space", space, "-m", message], { encoding: "utf8", timeout: t, killSignal: "SIGKILL" });
   const said = `${r.stdout || ""}\n${r.stderr || ""}`.split("\n").map((l) => l.trim()).filter(Boolean).filter((l) => !/^spacesheep /.test(l));
+  if (r.error && r.error.code === "ETIMEDOUT") {
+    const s = `${Math.round(t / 1000)} s`, v = landed(message, began);
+    if (v.version) return { ok: true, lines: [`Saved as version ${v.version}. The server answered late: fold.js stopped the CLI at ${s}, after the version was made.`] };
+    const again = "save again: if it landed after all, that save makes no second version";
+    return { ok: false, lines: [v.why ? `no answer from the server in ${s}, and the space's history can't be read (${v.why}); ${again}` : `no answer from the server in ${s}, and the space has no version "${message}" from this save; ${again}`] };
+  }
+  if (r.status !== 0 && !said.filter((l) => !/^[↑=]/.test(l)).length) said.unshift(`the CLI ended (${r.error ? why(r.error) : r.signal || `exit ${r.status}`}) without saying why`);
   return { ok: r.status === 0, lines: said.slice(0, 8) };
+}
+// This save's version, if the space has one: its message, made at most 30 s before the save began (the
+// server's clock may be behind this one). Its number when the whole history came in one page, else its id.
+function landed(message, began) {
+  const t = allowed(15000);
+  if (!t) return { why: lost };
+  try {
+    const j = JSON.parse(run(["versions", "list", "--space-id", space, "--limit", "200", "--json"], { timeout: t }));
+    const all = j.versions || [], i = all.findIndex((v) => (v.label || "").trim() === message.trim() && Date.parse(v.created_at) >= began - 30000);
+    if (i < 0) return {};
+    return { version: j.page && j.page.next ? all[i].id : String(all.length - i) };
+  } catch (e) { return { why: why(e) }; }
 }
 // The last line of a save that made no version. A refusal on purpose says "Nothing was published" (the
 // platform) or "Nothing was deployed" (the CLI): its words are kept up to there, and its advice is dropped.
@@ -449,7 +473,7 @@ if (cmd === "start") {
 // A revision's first word to the person: the status goes up before the read, so the page says something
 // changes before anything does (a refused push is said and the read goes on).
 if (cmd === "read") {
-  const words = (plain("status", argv[1]) || "Reading the page").slice(0, 200);
+  const words = (plain("status", argv[1]) || "Reading your design").slice(0, 200);
   console.log(push("--status", words) ? `status: ${words}` : "status not pushed (draw/fold.log); reading all the same");
   if (!work()) process.exit(2);
   process.stdout.write(run(["read", space, "-o", "work"]));
@@ -592,7 +616,7 @@ if (cmd === "save") {
     const d = deploy(argv[1]);
     if (!d.ok) return end(unsaved(d));
     card("down");
-    say(`saved: ${d.lines.filter((l) => /Updated|Created|Merged|⇄/.test(l)).join(" ") || "ok"}`);
+    say(`saved: ${d.lines.filter((l) => /Updated|Created|Merged|⇄|^Saved as version/.test(l)).join(" ") || "ok"}`);
     // Every push must happen, or the save didn't do what it says: it ends "incomplete", never "done".
     // The status first: a deploy takes the page's work card down as done, so mid-run it goes straight back up.
     let missed = 0;
