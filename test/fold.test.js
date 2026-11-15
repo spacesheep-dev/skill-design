@@ -200,12 +200,13 @@ function startOn(page) {
   return { r, work: fs.readFileSync(path.join(folder, "work", "index.html"), "utf8"), starter: fs.existsSync(path.join(folder, "draw", "starter")) };
 }
 
-test("start on a blank page lays down the starter: sheep.new's page, the same with the platform's own marks, and start --new's first version", () => {
+test("start on a known empty page lays down the starter: an empty file, sheep.new's page whatever its title, and start --new's first version", () => {
   const { root, fold } = setup();
-  assert.equal(fold(["start", "--new", "Lift notice"]).status, 0);
+  assert.equal(fold(["start", "--new", "Lift <notice>"]).status, 0);
   const pages = {
+    "an empty file": "",
     "sheep.new": PLATFORM_BLANK,
-    "platform marks": PLATFORM_BLANK.replace('<body data-ss-id="body"></body>', '<body data-ss-id="body">\n<!-- a note -->\n<style data-ss-id="ss-style">p{color:red}</style>\n<div class="ss-mark"></div>\n</body>'),
+    "sheep.new, another title": PLATFORM_BLANK.replace("<title>Untitled</title>", "<title>Summer party &amp; street fair</title>"),
     "start --new": fs.readFileSync(path.join(root, "first.html"), "utf8"),
   };
   for (const [name, page] of Object.entries(pages)) {
@@ -216,18 +217,23 @@ test("start on a blank page lays down the starter: sheep.new's page, the same wi
   }
 });
 
-test("start on a page that holds anything visible keeps it: a design, words with no data-ss-id, words, a picture or a script on sheep.new's page, words or a picture from CSS", () => {
+test("start keeps every other page, however empty it looks: a design, words, a picture, a script, CSS that draws, any mark added to sheep.new's page", () => {
+  const body = (inner, attrs = "") => PLATFORM_BLANK.replace('<body data-ss-id="body"></body>', `<body data-ss-id="body"${attrs}>${inner}</body>`);
   const pages = {
     design: '<!DOCTYPE html><title>Poster</title><section class="direction" data-ss-section data-ss-id="direction-bunting"><h1 data-ss-id="bunting-title">Summer Street Party</h1></section>',
     "no data-ss-id": "<!DOCTYPE html><title>Notice</title><p>The lift is out of service.</p>",
-    "words on sheep.new's page": PLATFORM_BLANK.replace('<body data-ss-id="body"></body>', '<body data-ss-id="body"><p>Poster for the street party, 18 July</p></body>'),
-    "an image": PLATFORM_BLANK.replace('<body data-ss-id="body"></body>', '<body data-ss-id="body"><img src="photo.jpg" alt=""></body>'),
-    "drawn by a script": PLATFORM_BLANK.replace('<body data-ss-id="body"></body>', '<body data-ss-id="body"><script>document.body.append("Open daily")</script></body>'),
+    "words on sheep.new's page": body("<p>Poster for the street party, 18 July</p>"),
+    "an image": body('<img src="photo.jpg" alt="">'),
+    "drawn by a script": body('<script>document.body.append("Open daily")</script>'),
     "a script in the head": PLATFORM_BLANK.replace("</head>", '<script>addEventListener("load", () => document.body.append("Open daily"))</script>\n</head>'),
     "words from CSS": PLATFORM_BLANK.replace("</style>", '  body::before { content: "Open daily" }\n</style>'),
-    "a picture from CSS": PLATFORM_BLANK.replace('<body data-ss-id="body">', '<body data-ss-id="body" style="background: url(photo.jpg) center / cover">'),
+    "a picture from CSS": body("", ' style="background: url(photo.jpg) center / cover"'),
+    "a picture from CSS, unquoted": body("", " style=background:url(poster.png)"),
+    "a picture from an attribute": body("", ' background="poster.png"'),
     "an outside stylesheet": PLATFORM_BLANK.replace("</head>", '<link rel="stylesheet" href="https://example.com/poster.css">\n</head>'),
-    "words in a .ss- mark": PLATFORM_BLANK.replace('<body data-ss-id="body"></body>', '<body data-ss-id="body"><p class="ss-note">Keep me</p></body>'),
+    "words in a .ss- mark": body('<p class="ss-note">Keep me</p>'),
+    "an empty .ss- mark that draws": body('<div class="ss-poster" style="width:200px;height:200px;background:red"></div>'),
+    "the platform's own marks": body('\n<style data-ss-id="ss-style">p{color:red}</style>\n<div class="ss-mark"></div>\n'),
     "words after </body>": PLATFORM_BLANK.replace("</html>", "<p>Open daily</p>\n</html>"),
   };
   for (const [name, page] of Object.entries(pages)) {
@@ -236,4 +242,16 @@ test("start on a page that holds anything visible keeps it: a design, words with
     assert.ok(!starter, `${name}: no draw/starter`);
     assert.doesNotMatch(r.stdout, /starter/, name);
   }
+});
+
+// fold.js keeps a copy of Spacesheep's new page. Run with SPACESHEEP_SRC=<the spacesheep repo> to check the copy
+// against the platform's starterHtml: if they drift, start reads a new page as a design, the agent lays the
+// starter by hand, and this test says so.
+test("fold.js's copy of Spacesheep's new page matches starterHtml", { skip: !process.env.SPACESHEEP_SRC && "set SPACESHEEP_SRC to the spacesheep repo" }, () => {
+  const src = fs.readFileSync(path.join(process.env.SPACESHEEP_SRC, "packages", "app", "src", "index.ts"), "utf8");
+  const theirs = /function starterHtml\(title: string\): string \{\n  return `([\s\S]*?)`;\n\}/.exec(src);
+  assert.ok(theirs, "starterHtml not found in packages/app/src/index.ts");
+  const ours = /const platformBlank = \(title\) => `([\s\S]*?)`;/.exec(fs.readFileSync(FOLD, "utf8"));
+  assert.equal(ours[1], theirs[1].replace("${escapeHtml(title)}", "${title}"));
+  assert.equal(PLATFORM_BLANK, theirs[1].replace("${escapeHtml(title)}", "Untitled"));
 });
