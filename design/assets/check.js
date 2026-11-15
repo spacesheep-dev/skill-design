@@ -336,6 +336,16 @@ for (const d of dirs) {
 }
 if (!only && page.length > 200000) fail("page", "work/index.html", `the page is ${Math.round(page.length / 1000)} KB: over 200 KB is slow on a phone`);
 
+// The Decisions log is the record, read from the source and never shown. The canvas draws any block outside a
+// direction as a frame of its own, at the top left of the first frame when it has no place, so the log is
+// pinned off the canvas (data-ss-canvas="pin") and kept out of sight (style="display:none").
+if (!only) {
+  for (const m of page.replace(/<!--[\s\S]*?-->/g, (c) => c.replace(/[^\n]/g, " ")).matchAll(/<[a-z][a-z0-9-]*\b[^>]*\bdata-ss-id=["']decisions["'][^>]*>/gi)) {
+    if (!/\bdata-ss-canvas=["']pin["']/.test(m[0]) || !/\bstyle=["'][^"']*\bdisplay\s*:\s*none\b/i.test(m[0]))
+      fail("page", `work/index.html:${lineAt(page, m.index)}`, 'the Decisions log would show in the design: open it as <details class="no-print" data-ss-id="decisions" data-ss-canvas="pin" style="display:none">');
+  }
+}
+
 // Controls: the inputs in the page's .tweaks pane, which Spacesheep draws as Tweaks. At most 6, each named by its
 // label's first words, each a token the page sets and uses. A switch or choice needs a rule for every value past
 // 0, or that value changes nothing.
