@@ -123,3 +123,49 @@ test("stop with a message saves, and that save takes the work card down: no empt
   assert.ok(log.at(-1)[0] === "deploy" && log.at(-1).includes("Three poster looks"), `last call: ${JSON.stringify(log.at(-1))}`);
   assert.ok(!sent().some((b) => b.status === ""), "no empty status");
 });
+
+test("start says the next step, and push names the starter's placeholders after their sections without touching the rest", () => {
+  const { folder, fold, sent } = setup();
+  const r = fold(["start", "--new", "Poster"]);
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /^next: .*leave every <!-- part:… --> placeholder as it is.*fold\.js save "Frame" "Drawing three directions", fold\.js write.*draw\/<slug>\/01\.html/m);
+  const page = path.join(folder, "work", "index.html");
+  // Step 2's Edits: the opening tags only. The placeholders keep the starter's names.
+  const edited = BASE.replace('data-ss-id="direction-first" data-ss-thing="direction/first" data-ss-label="First"', 'data-ss-id="direction-night-watch" data-ss-thing="direction/night-watch" data-ss-label="Night &amp; Watch"');
+  fs.writeFileSync(page, edited);
+  assert.equal(fold(["push"]).status, 0);
+  const named = fs.readFileSync(page, "utf8");
+  // Only the first placeholder changes: its marker, its id and its heading. The one in "second" keeps its names.
+  const expected = edited.replace('<!-- part:first --><div class="drawing" data-ss-id="first-drawing"><h2>First</h2>', '<!-- part:night-watch --><div class="drawing" data-ss-id="night-watch-drawing"><h2>Night &amp; Watch</h2>').replace("<!-- /part:first -->", "<!-- /part:night-watch -->");
+  assert.notEqual(expected, edited);
+  assert.equal(named, expected);
+  assert.equal(sent().at(-1).html, named, "the named page is the one pushed");
+});
+
+test("a new build saved with no part marker left gets a status naming its directions, and the log says why", () => {
+  const { folder, fold, calls } = setup();
+  assert.equal(fold(["start", "--new", "Poster"]).status, 0);
+  fs.writeFileSync(path.join(folder, "work", "index.html"), '<!DOCTYPE html><title>Poster</title>' +
+    ['sunny-bunting" data-ss-label="Sunny Bunting', 'stacked-type" data-ss-label="Stacked Type', 'long-table" data-ss-label="Long Table']
+      .map((a) => `<section class="direction" data-ss-id="direction-${a}"><h1>Summer Street Party</h1></section>`).join(""));
+  assert.equal(fold(["save", "Three poster looks", "Checking details"]).status, 0);
+  const w = fold(["wait"]);
+  assert.equal(w.status, 0, w.stdout + w.stderr);
+  assert.match(w.stdout, /no part's status reached the person: the directions were drawn in work\/index\.html, not as parts/);
+  assert.ok(calls().some((a) => a[0] === "live" && a.includes("Sunny Bunting, Stacked Type and Long Table are up. Checking details")), "the status names the three");
+});
+
+test("a page drawn as parts, or a revision of a space that held a design, keeps the save's own status", () => {
+  for (const revision of [false, true]) {
+    const { folder, fold, calls } = setup();
+    assert.equal(fold(["start", "--new", "Poster"]).status, 0);
+    const marker = revision ? "" : "<!-- part:bunting --><p>Drawn</p><!-- /part:bunting -->";
+    if (revision) fs.rmSync(path.join(folder, "draw", "starter")); // as start <link> does on a space with a design
+    fs.writeFileSync(path.join(folder, "work", "index.html"), `<!DOCTYPE html><title>Poster</title><section class="direction" data-ss-id="direction-bunting" data-ss-label="Bunting">${marker}</section>`);
+    assert.equal(fold(["save", "Three directions", "Checking details"]).status, 0);
+    const w = fold(["wait"]);
+    assert.equal(w.status, 0, w.stdout + w.stderr);
+    assert.doesNotMatch(w.stdout, /no part's status/);
+    assert.ok(calls().some((a) => a[0] === "live" && a.at(-1) === "Checking details"), `revision ${revision}: the save's own status`);
+  }
+});
