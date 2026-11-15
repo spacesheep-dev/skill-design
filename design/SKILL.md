@@ -75,7 +75,7 @@ Ask at most one question, and only when a wrong guess would waste the whole buil
 - **Make one design** when the brand and content are fixed and the person asked for one thing ("make a one-pager in our brand"), and for a prototype, a deck or a component sheet unless they ask for options.
 - **All the directions sit in one space,** in one row on the canvas, with the pinned switcher: `assets/base.html` has both. Each direction is a `<section class="direction" data-ss-section data-ss-id="direction-<slug>" data-ss-thing="direction/<slug>">`. The `data-ss-thing` keeps comments on a direction while another shows. A link ending in `#direction-<slug>` opens that direction, and in a chat reply a button opens one with `{"emit": {"name": "show-direction", "data": {"id": "direction-<slug>"}}}`.
 - **Name each direction by its idea** in 1 to 3 words ("Harbour Chart", "Night Watch", "Logbook"), never "Option A". Its line says what it is for ("Calm and plain, for owners who check once a month").
-- **When the person picks one** ("the third, but bolder"), change only that direction, and make it the one the space opens on (`data-default`). Remove the others only when they say to ("go with it", "drop the others"), and record the pick under Decisions (section 6).
+- **When the person picks one** ("the third, but bolder"), change only that direction, make it the one the space opens on (`data-default`), and point the canvas at it (`fold.js focus <slug>`). Remove the others only when they say to ("go with it", "drop the others"), and record the pick under Decisions (section 6).
 
 ## 3. Build it so it works
 
@@ -135,6 +135,7 @@ Reply in at most five short lines:
 - **Read the current source first** (`fold.js read`). The person may have changed words in Edit mode since your last version. Keep their edits.
 - **Show it, then save it.** Push a status, make the smallest change on the block's `data-ss-id`, push the page (`fold.js push`), then save it (the save). Replace the whole document only for a redesign.
 - **"Keep the layout" means nothing moves.** Change only token values, words or the one property named. A mood word ("calmer", "bolder") moves the matching tokens: hue and neutrals for colour, size and weight for type. Check contrast again.
+- **The canvas follows the work.** The starter opens on every direction (`<meta name="ss-canvas-focus" content="all">`). When the person picks a direction or asks for a change to one, run `fold.js focus <slug>` before you push the change, so the canvas opens that direction large. When they ask for alternatives again, or a new direction is added beside it, run `fold.js focus all`. A person's own choice in their tab holds until the focus changes again.
 - **Several asks:** make and push them one at a time, then save once.
 - **Close the loop.** On a turn started from a comment, your reply is posted under it and you can't resolve it: say what changed in one line. On a chat turn, resolve each comment your change answered.
 - **Every change is a version,** so history reads as a changelog. "Undo that" restores the earlier values in a new version.
