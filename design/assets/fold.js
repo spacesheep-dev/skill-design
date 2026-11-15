@@ -32,7 +32,9 @@
 //                                               `stop` alone saves nothing and takes the work card down
 //   node fold.js -C <folder> read ["<status>"]   a status on the space ("Reading your design" unless given),
 //                                               then its current source read into work/ again: a
-//                                               revision's first status, before anything changes
+//                                               revision's first status, before anything changes; the
+//                                               last build's frame and parts go to draw/old/, so a save
+//                                               sends work/ as edited
 //   node fold.js -C <folder> focus <all|slug>    what the canvas shows: every direction, or the one named
 //                                               (its <meta name="ss-canvas-focus">), then push the page
 //
@@ -128,6 +130,14 @@ const NEW = fs.readdirSync("draw").length === 0; // a folder fold.js hasn't used
 const log = (line) => { if (within("draw/fold.log")) fs.appendFileSync("draw/fold.log", `${new Date().toISOString()} ${line}\n`); else refuse("draw/fold.log"); };
 // Write whole files only (a temporary copy in draw/, then a rename), so no reader sees half of one.
 const swap = (f, text) => { const t = `draw/.${f.replace(/\//g, "_")}.tmp`; if (!within(t) || !within(f)) return refuse(f); fs.writeFileSync(t, text); fs.renameSync(t, f); return true; };
+// draw/work.sha is the page fold.js last put in work/index.html (a fold, the starter, a read), so a fold never
+// undoes an edit made there since. setWork writes and records; rework (a renamed placeholder, a focus) keeps
+// an edit made by hand marked as one.
+const digest = (s) => require("crypto").createHash("sha256").update(s).digest("hex");
+const ours = (html) => write("draw/work.sha", `${digest(html)}\n`);
+const isOurs = (html) => html !== null && (read("draw/work.sha") || "").trim() === digest(html);
+const setWork = (html) => swap("work/index.html", html) && ours(html);
+const rework = (html) => { const clean = isOurs(read("work/index.html")); return swap("work/index.html", html) && (!clean || ours(html)); };
 // A background job (the writer, a save) is one run, and its record is draw/<job>.run:
 // "<id> <deadline> <group>": a fresh id, the time (ms) by which the run makes its last call to the CLI,
 // and its process group. The run is started detached, so it leads a process group of its own, and
@@ -406,12 +416,34 @@ function fold() {
   return { html, status: statuses.join(" · ").slice(0, 200), waiting };
 }
 // Fold once here, when no writer is running (after stop, or after its idle limit), so no edit is left out.
+// Never over an edit made in work/index.html since fold.js last wrote it: that is refused, and nothing is saved.
 function foldOnce(what) {
   let page = fold();
   for (let i = 0; page && page.waiting && i < 10; i++) { sleep(400); page = fold(); } // a part still being written
-  if (page && page.html !== read("work/index.html") && swap("work/index.html", page.html))
-    return push("--html", page.html) ? `${what}: folded and pushed the last edits` : `${what}: folded the last edits; the push was refused (draw/fold.log)`;
-  return "";
+  const now = read("work/index.html");
+  if (!page || page.html === now) return {};
+  if (now !== null && here("draw/work.sha") && !isOurs(now))
+    return { refused: "work/index.html was changed after fold.js last wrote it, and folding draw/ (the frame and its parts) over it would undo that change. Make the change in draw/frame.html, or in the part it belongs to (draw/<slug>/NN.html), then save again" };
+  if (!setWork(page.html)) return {};
+  return { line: push("--html", page.html) ? `${what}: folded and pushed the last edits` : `${what}: folded the last edits; the push was refused (draw/fold.log)` };
+}
+// A revision starts from the page as the space has it. The last build's frame and parts are put aside, in
+// draw/old/<time>/ (moved, not deleted), so no fold puts them back over the page just read, and a later
+// write takes its frame from that page.
+function retire() {
+  const frame = read("draw/frame.html");
+  if (frame === null) return "";
+  const slugs = new Set([...`${frame}${read("work/index.html") || ""}`.matchAll(/<!-- part:([a-z0-9-]+) -->/g)].map((m) => m[1]));
+  const to = `draw/old/${new Date().toISOString().replace(/[:.]/g, "-")}`;
+  mkdir(to);
+  const moved = [];
+  for (const f of ["draw/frame.html", ...[...slugs].flatMap((d) => [`draw/${d}`, `draw/${d}.html`, `draw/${d}.status`])]) {
+    if (!here(f) || isLink(f)) continue;
+    fs.renameSync(f, `${to}/${path.basename(f)}`);
+    moved.push(f.slice(5));
+  }
+  log(`a revision: the last build (${moved.join(", ")}) put aside in ${to}`);
+  return `the last build's frame and parts are put aside in ${to}: edit work/index.html, and a save sends it as it is`;
 }
 // The starter's placeholders keep its names (part:first, part:second, part:third) until fold.js renames each
 // with the slug of the section holding it, and its heading with that section's name. So step 2's Edits stop
@@ -423,7 +455,7 @@ function nameParts() {
     open + body.replace(/<!-- part:(first|second|third) -->([\s\S]*?)<!-- \/part:\1 -->/, (p, old, inner) => old === slug ? p : `<!-- part:${slug} -->${inner
       .replace(`data-ss-id="${old}-drawing"`, `data-ss-id="${slug}-drawing"`)
       .replace(/<h2>[^<]*<\/h2>/, (h) => { const l = open.match(/data-ss-label="([^"]*)"/); return l ? `<h2>${l[1]}</h2>` : h; })}<!-- /part:${slug} -->`));
-  if (named !== page) swap("work/index.html", named);
+  if (named !== page) rework(named);
 }
 // A new build drawn straight into work/index.html, not as parts: no part marker is left, so no part's status
 // reached the person. "A, B and C are up", or "" when it was drawn as parts.
@@ -449,13 +481,13 @@ if (cmd === "start") {
     if ((read("draw/space") || "").trim()) { console.error("start: this folder already has a space; use another folder for a new one"); process.exit(2); }
     mkdir("work");
     const base = fs.readFileSync(path.join(__dirname, "base.html"), "utf8"), title = plain("title", argv[2]) || "Design";
-    if (!work() || !swap("work/index.html", firstPage(title, base))) process.exit(2);
+    if (!work() || !setWork(firstPage(title, base))) process.exit(2);
     const out = run(["deploy", "work", "--title", title, "--json"]);
     const j = JSON.parse(out.slice(out.indexOf("{")));
     space = (j.space || {}).id;
     if (!UUID.test(space || "")) { console.error("start: the new space's id isn't in the answer"); process.exit(1); }
     keep(space);
-    if (!swap("work/index.html", base) || !write("draw/starter", "1\n")) process.exit(2);
+    if (!setWork(base) || !write("draw/starter", "1\n")) process.exit(2);
     try { run(["live", "push", "--space", space, "--status", "Reading your brief"]); card("up"); console.log("status: Reading your brief"); }
     catch (e) { console.error(`status refused: ${why(e)}`); }
     console.log(`made a new space; the starter is in work/index.html: ${(j.space || {}).url || space}\nspace: ${space}\n${NEXT}`);
@@ -470,8 +502,11 @@ if (cmd === "start") {
   catch (e) { console.error(`status refused: ${why(e)}`); }
   if (!work()) process.exit(2);
   process.stdout.write(run(["read", space, "-o", "work"]));
+  ours(read("work/index.html") || "");
+  const aside = retire();
+  if (aside) console.log(aside);
   if (!isDesign(read("work/index.html"))) {
-    if (!swap("work/index.html", fs.readFileSync(path.join(__dirname, "base.html"), "utf8")) || !write("draw/starter", "1\n")) process.exit(2);
+    if (!setWork(fs.readFileSync(path.join(__dirname, "base.html"), "utf8")) || !write("draw/starter", "1\n")) process.exit(2);
     console.log(`work/index.html held no design: the starter is in its place\n${NEXT}`);
   } else remove("draw/starter"); // a revision: section 7, not a new build
   console.log(`space: ${space}`);
@@ -484,6 +519,9 @@ if (cmd === "read") {
   console.log(push("--status", words) ? `status: ${words}` : "status not pushed (draw/fold.log); reading all the same");
   if (!work()) process.exit(2);
   process.stdout.write(run(["read", space, "-o", "work"]));
+  ours(read("work/index.html") || "");
+  const aside = retire();
+  if (aside) console.log(aside);
   process.exit(0);
 }
 // The canvas's focus: <meta name="ss-canvas-focus" content="all"> shows every direction, content="direction-<slug>"
@@ -509,7 +547,7 @@ if (cmd === "focus") {
     if (p === null) continue;
     const set = withFocus(p, value);
     if (set === null) { console.error(`focus: ${f} has no <head> to put the focus in`); process.exit(2); }
-    if (set !== p && !swap(f, set)) process.exit(2);
+    if (set !== p && !(f === "work/index.html" ? rework(set) : swap(f, set))) process.exit(2);
   }
   if (job("writer").state === "open") { console.log(`focus: ${value}; the writer pushes it`); process.exit(0); }
   const ok = push("--html", read("work/index.html"));
@@ -619,19 +657,27 @@ if (cmd === "save") {
   const say = (l) => console.log(`${new Date().toISOString().slice(11, 19)} ${l}`);
   const end = (l) => { say(l); ack("save", l); };
   (async () => {
-    if (job("writer").state !== "open") { const f = foldOnce("before the save"); if (f) say(f); }
+    if (job("writer").state !== "open") {
+      const f = foldOnce("before the save");
+      if (f.refused) return end(`save failed: ${f.refused}`);
+      if (f.line) say(f.line);
+    }
+    const sent = read("work/index.html") || "";
     const d = deploy(argv[1]);
     if (!d.ok) return end(unsaved(d));
     card("down");
     say(`saved: ${d.lines.filter((l) => /Updated|Created|Merged|⇄|^Saved as version/.test(l)).join(" ") || "ok"}`);
     // Every push must happen, or the save didn't do what it says: it ends "incomplete", never "done".
     // The status first: a deploy takes the page's work card down as done, so mid-run it goes straight back up.
+    // The page goes again only if it changed during the upload (a writer's push): the same page again would
+    // only mark the saved version live.
     let missed = 0;
     const one = drawnInOneGo(read("work/index.html"));
     if (one) say("no part's status reached the person: the directions were drawn in work/index.html, not as parts (SKILL.md, order of work, steps 2 to 4), so this status names them");
     const status = one ? `${one}${argv[2] ? `. ${argv[2]}` : ""}`.slice(0, 200) : argv[2];
     if (status) say(push("--status", status) ? `status: ${status}` : (missed++, "status push didn't happen (draw/fold.log)"));
-    say(push("--html", read("work/index.html") || "") ? "pushed the page again" : (missed++, "page push didn't happen (draw/fold.log)"));
+    const now = read("work/index.html") || "";
+    if (now !== sent) say(push("--html", now) ? "pushed the page again: it changed during the save" : (missed++, "page push didn't happen (draw/fold.log)"));
     if (lost) return end(`save stopped: ${lost}`);
     if (missed) return end(`save incomplete: saved, but ${missed === 1 ? "a push" : `${missed} pushes`} didn't happen`);
     if (argv[3] !== "pictures") return end("save done");
@@ -738,7 +784,8 @@ if (cmd === "stop") {
   if (s.state === "open") fail(`a save (run ${s.id}) isn't confirmed finished within 60 s: ${s.why}; it may still be running (draw/save.log)`);
   if (s.state === "lapsed") fail(`the last save (run ${s.id}) never said how it ended; its time ran out at ${at(s.deadline)}: \`fold.js save\`, \`fold.js wait\`, then stop again`);
   const f = foldOnce("stop");
-  if (f) console.log(f);
+  if (f.refused) fail(f.refused);
+  if (f.line) console.log(f.line);
   if (!argv[1]) {
     // Nothing to save: the last save is the design. The status it put back for the look at its pictures would
     // keep every open tab, and every tab opened later, saying the page is being worked on. Take the card down.
@@ -780,7 +827,7 @@ for (;;) {
   // The status first: after a save the person's work card waits 3 s for one, and a page push can take longer.
   if (page && page.status && page.status !== said && may() && tried(push("--status", page.status))) said = page.status;
   if (page && page.html !== shown && may()) {
-    swap("work/index.html", page.html);
+    setWork(page.html);
     if (tried(push("--html", page.html))) shown = page.html;
   }
   sleep(1000);
