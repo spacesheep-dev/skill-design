@@ -2,6 +2,13 @@
 
 Each release is a heading with its tag. The release workflow uses the words under it as the release's notes.
 
+## v1.2.4
+
+- `fold.js stop` with no message takes the work card down. Before, it exited before calling the CLI, so a run that finished with nothing to fix left open tabs saying "spacesheep is working on this page" for minutes. It now waits for the save and the writer to settle, then sends an empty status. A refused clear fails the step, and a second `stop` sends nothing.
+- The directions are drawn only as parts, each with its own status. The skill keeps each section's placeholder in `work/index.html` and never draws a direction there, so the person sees the build move. A run that drew straight into the page sent two statuses in 85 seconds. The same poster ask, run again on staging from this version, kept the placeholders and sent five statuses in 1:28, never more than 33 seconds apart.
+- Checked with a stand-in CLI in the tests: start, a background save, wait, then `stop` with no writer and no message sends `{space, status:""}`. Then by hand on staging, the same steps with a tab open on the page: the card came down when the empty status went out.
+- The folder's hash is `bd8487db239c`.
+
 ## v1.2.3
 
 - On Spacesheep's canvas, the starter's Tweaks pane stays pinned to the screen's bottom corner, like the direction tabs, instead of being laid out over the first direction. Before, it covered the first direction's heading in the page, its screenshot, a shared link and its gallery card.
