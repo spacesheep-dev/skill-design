@@ -536,3 +536,19 @@ console.log(JSON.stringify({ file: { path: file, text: all.slice(at, end).join("
   // fold.js and base.html are each more than one page at the store's size, so one call would cut them.
   for (const file of ["assets/fold.js", "assets/base.html"]) assert.ok(fs.statSync(path.join(SKILL, file)).size > 36000, file);
 });
+
+test("SKILL.md puts up a status naming the fetch before the first file is fetched", () => {
+  // The fetch is the run's longest quiet stretch before fold.js's first status: the line says so on the page first.
+  const line = fs.readFileSync(path.join(__dirname, "..", "design", "SKILL.md"), "utf8").split("\n").find((l) => l.startsWith("**Getting this skill:**"));
+  const cmd = line.match(/`(npx -y spacesheep@latest live push [^`]+)`/)[1];
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "fetch-status-test-")), bin = path.join(root, "bin");
+  fs.mkdirSync(bin);
+  fs.writeFileSync(path.join(bin, "npx"), `#!/usr/bin/env node
+require("fs").appendFileSync(require("path").join(process.env.FAKE_DIR, "calls.log"), JSON.stringify(process.argv.slice(2)) + "\\n");
+`, { mode: 0o755 });
+  const link = "https://spacesheep.dev/@someone/poster";
+  const r = spawnSync("sh", ["-c", cmd.replace("<link>", link)], { env: { ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH}`, FAKE_DIR: root }, encoding: "utf8" });
+  assert.equal(r.status, 0, r.stderr);
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(root, "calls.log"), "utf8")), ["-y", "spacesheep@latest", "live", "push", "--space", link, "--status", "Fetching the Design skill"]);
+  assert.ok(line.indexOf(cmd) < line.indexOf("Read a reference only"), "said in the fetch's own paragraph");
+});
