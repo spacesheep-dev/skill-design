@@ -356,7 +356,7 @@ if (!only) {
   for (const m of bare.matchAll(/<[a-z][a-z0-9-]*((?:[^>"']|"[^"]*"|'[^']*')*)>/gi)) {
     const a = attrs(m[1]);
     if ((a["data-ss-id"] || "").trim().toLowerCase() !== "decisions") continue;
-    if ((a["data-ss-canvas"] || "").trim().toLowerCase() !== "pin" || shownDisplay(a.style || "") !== "none")
+    if (a["data-ss-canvas"] !== "pin" || shownDisplay(a.style || "") !== "none")
       fail("page", `work/index.html:${lineAt(page, m.index)}`, 'the Decisions log would show in the design: open it as <details class="no-print" data-ss-id="decisions" data-ss-canvas="pin" style="display:none">');
   }
 }

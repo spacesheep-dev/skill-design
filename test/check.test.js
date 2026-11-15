@@ -90,6 +90,7 @@ test("a Decisions log the canvas would draw over the first frame is flagged, wit
     '<details data-ss-id="decisions" data-ss-canvas="pin" style="display:none;display:block"><summary>Decisions</summary></details>',
     '<details data-ss-id="decisions" data-ss-canvas="pin" style="display:block !important; display:none"><summary>Decisions</summary></details>',
     '<details title="a > b" data-ss-id=decisions data-ss-canvas=pin><summary>Decisions</summary></details>',
+    '<details data-ss-id="decisions" data-ss-canvas="PIN" style="display:none"><summary>Decisions</summary></details>', // the canvas matches "pin" exactly
   ]) {
     const lines = decisions(log);
     assert.equal(lines.length, 1, `${log}: ${lines.join(" | ") || "not flagged"}`);
