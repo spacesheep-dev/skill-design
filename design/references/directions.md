@@ -52,5 +52,5 @@ Then check each against the axes table and change whatever two of them share.
 ## After the pick
 
 - A pick with a change ("the third, but bolder"): change only the third, make it the one the space opens on, and leave the others untouched.
-- "Go with the third": remove the other directions and the switcher in one new version, and record the pick in Decisions. Older versions still hold the others.
+- "Go with the third": remove the other directions and the switcher in one new version, point the canvas at the one left (`fold.js focus <slug>`), and record the pick in Decisions. Older versions still hold the others.
 - "Mix them" ("the layout of one with the colours of three"): add it as a new direction named for what it combines, and keep the originals until they choose.
