@@ -15,7 +15,7 @@ const CLI = `#!/usr/bin/env node
 const fs = require("fs"), path = require("path");
 const a = process.argv.slice(2), dir = process.env.FAKE_DIR;
 fs.appendFileSync(path.join(dir, "calls.log"), JSON.stringify(a) + "\\n");
-if (a[0] === "call") { fs.appendFileSync(path.join(dir, "stdin.log"), JSON.stringify(JSON.parse(fs.readFileSync(0, "utf8"))) + "\n"); process.exit(0); }
+if (a[0] === "call") { fs.appendFileSync(path.join(dir, "stdin.log"), JSON.stringify(JSON.parse(fs.readFileSync(0, "utf8"))) + "\\n"); process.exit(0); }
 if (a[0] === "deploy" && a.includes("--json")) {
   fs.writeFileSync(path.join(dir, "first.html"), fs.readFileSync("work/index.html"));
   console.log(JSON.stringify({ space: { id: "${SPACE}", url: "https://stage.test/s" } }));
