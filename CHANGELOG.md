@@ -2,6 +2,13 @@
 
 Each release is a heading with its tag. The release workflow uses the words under it as the release's notes.
 
+## v1.2.13
+
+- SKILL.md's command for fetching one of the skill's files now writes the whole file. The store sends about 40,000 characters a call, with `next_offset` saying where the next page starts (0 once the file has ended). The old command read one answer and wrote its text, so `assets/fold.js` (57,910 bytes) came out at 36,683 and `assets/base.html` (39,357 bytes) at 37,266. In one recorded run the first `fold.js` was cut, failed to run, and fetching the rest by hand took about 1.5 minutes. The new command asks with `--offset` from each answer until the file ends; checked against the store, both files come out byte for byte.
+- SKILL.md arrives in pages too: `--view full` stops at about 29,300 characters of these words. The same line now says to fetch `SKILL.md` with that command when `--view full` shows a `next_offset` above 0.
+- One new test runs the fetch command from SKILL.md against a stand-in CLI that serves 20,000-character pages, and checks fold.js, base.html and SKILL.md come out whole, one call a page. It fails on v1.2.12 (fold.js is cut).
+- The folder's hash is `13af36f6b20c`.
+
 ## v1.2.12
 
 - A revision's save sends the page as the session edited it. `fold.js read`, and `start <link>`, put the last build's frame and parts aside in `draw/_old/<time>/` (moved, not deleted), so nothing is left to fold over the page just read. Only a part's own files move (its folder of parts, or an older page's `<slug>.html` and `<slug>.status`), so a part named `space` or `old` leaves fold.js's files where they are. In one recorded run ("Make the Programme poster start at 3pm") the save folded the first build back over the edit and published the old 2pm times as a version of its own.
