@@ -305,20 +305,23 @@ ${(base.match(/<meta name="ss-(?:chat|workspace)"[^>]*>/g) || []).join("\n")}
 </html>
 `;
 // A blank page gets the starter; anything else is a design, and start never puts the starter over it. Blank
-// is a body with no words and no element once comments, styles, links, templates, the platform's own
-// .ss-* marks and the first version's line are set aside. The platform's new page (sheep.new, a space
-// made empty) is <html data-ss-id="root"> with <body data-ss-id="body"></body>, so a data-ss-id says
-// nothing. A script counts (a page can be drawn by one). When unsure it reads a design: the worst that
-// does is a starter laid by hand, never a page lost.
+// is known empty scaffolding: Spacesheep's new page as it is stored (sheep.new, a space made empty:
+// <html data-ss-id="root">, <body data-ss-id="body"></body>, so a data-ss-id says nothing) and start --new's
+// first version. So: no script and no outside stylesheet anywhere, no CSS that writes words or loads a picture
+// (in a <style> or a style attribute), and nothing left in the whole document, words or elements, once its
+// title, metas, styles, templates, empty .ss-* marks and the first version's one line are set aside. When
+// unsure it reads a design: the worst that does is a starter laid by hand, never a page lost.
 function isBlank(h) {
   const html = (h || "").replace(/<!--[\s\S]*?-->/g, "");
-  const body = (/<body\b[^>]*>([\s\S]*?)(?:<\/body>|$)/i.exec(html) || [])[1]
-    ?? html.replace(/<head\b[\s\S]*?<\/head>|<title\b[\s\S]*?<\/title>|<(?:meta|base)\b[^>]*>|<\/?(?:!doctype|html|head)\b[^>]*>/gi, "");
-  const left = body
-    .replace(/<(style|template)\b[\s\S]*?<\/\1\s*>|<link\b[^>]*>/gi, "")
-    .replace(/<([a-z][a-z0-9-]*)\b[^>]*\sclass="ss-[^"]*"[^>]*>(?:[^<]*<\/\1\s*>)?/gi, "")
+  const css = [...html.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style\s*>|\sstyle\s*=\s*("[^"]*"|'[^']*')/gi)].map((m) => m[1] || m[2]).join("\n");
+  if (/<script\b|<link\b[^>]*\bstylesheet\b/i.test(html)) return false;
+  if (/\bcontent\s*:|@import|\b(?:url|image|image-set|-webkit-image-set|cross-fade|element)\s*\(/i.test(css)) return false;
+  const left = html
+    .replace(/<(style|title|template)\b[\s\S]*?<\/\1\s*>/gi, "")
+    .replace(/<(?:meta|base|link)\b[^>]*>|<\/?(?:!doctype|html|head|body)\b[^>]*>/gi, "")
+    .replace(/<([a-z][a-z0-9-]*)\b[^>]*\sclass="ss-[^"]*"[^>]*>\s*<\/\1\s*>/gi, "")
     .replace(new RegExp(`<p>[^<]*${DRAWING.replace(/\./g, "\\.")}</p>`), "");
-  return !/<[a-z]/i.test(left) && !/\S/.test(left.replace(/<\/[a-z][^>]*>/gi, ""));
+  return !/<[a-z]/i.test(left) && !/\S/.test(left);
 }
 const isDesign = (h) => !isBlank(h);
 // One space per folder: start never points a folder at a second space.

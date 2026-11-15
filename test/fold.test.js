@@ -216,13 +216,19 @@ test("start on a blank page lays down the starter: sheep.new's page, the same wi
   }
 });
 
-test("start on a page that holds anything visible keeps it: a design, a page with no data-ss-id, words on sheep.new's page, a page drawn by a script", () => {
+test("start on a page that holds anything visible keeps it: a design, words with no data-ss-id, words, a picture or a script on sheep.new's page, words or a picture from CSS", () => {
   const pages = {
     design: '<!DOCTYPE html><title>Poster</title><section class="direction" data-ss-section data-ss-id="direction-bunting"><h1 data-ss-id="bunting-title">Summer Street Party</h1></section>',
     "no data-ss-id": "<!DOCTYPE html><title>Notice</title><p>The lift is out of service.</p>",
     "words on sheep.new's page": PLATFORM_BLANK.replace('<body data-ss-id="body"></body>', '<body data-ss-id="body"><p>Poster for the street party, 18 July</p></body>'),
     "an image": PLATFORM_BLANK.replace('<body data-ss-id="body"></body>', '<body data-ss-id="body"><img src="photo.jpg" alt=""></body>'),
     "drawn by a script": PLATFORM_BLANK.replace('<body data-ss-id="body"></body>', '<body data-ss-id="body"><script>document.body.append("Open daily")</script></body>'),
+    "a script in the head": PLATFORM_BLANK.replace("</head>", '<script>addEventListener("load", () => document.body.append("Open daily"))</script>\n</head>'),
+    "words from CSS": PLATFORM_BLANK.replace("</style>", '  body::before { content: "Open daily" }\n</style>'),
+    "a picture from CSS": PLATFORM_BLANK.replace('<body data-ss-id="body">', '<body data-ss-id="body" style="background: url(photo.jpg) center / cover">'),
+    "an outside stylesheet": PLATFORM_BLANK.replace("</head>", '<link rel="stylesheet" href="https://example.com/poster.css">\n</head>'),
+    "words in a .ss- mark": PLATFORM_BLANK.replace('<body data-ss-id="body"></body>', '<body data-ss-id="body"><p class="ss-note">Keep me</p></body>'),
+    "words after </body>": PLATFORM_BLANK.replace("</html>", "<p>Open daily</p>\n</html>"),
   };
   for (const [name, page] of Object.entries(pages)) {
     const { r, work, starter } = startOn(page);
