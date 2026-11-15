@@ -14,7 +14,7 @@ At the very end of the space, add `<details class="no-print" data-ss-id="for-dev
 4. **Screens and flows** (prototypes): each screen's id, what leads to it, and the rules it enforces ("at most 4 passengers").
 5. **Behaviour.** Anything scripted: what it does, its limits, what's stored and where.
 6. **Copy that is a placeholder,** listed, so nothing guessed ships as fact.
-7. **Decisions.** A link to the Decisions log above, or the key lines copied in.
+7. **Decisions.** The key lines of the space's Decisions log, copied in: the log is in the source, never shown on the page.
 
 Name the repeated parts in the HTML with `data-component="button-primary"`, so the list and the code use the same names. (`data-ss-thing` is for keeping comments on parts that redraw, not for this.)
 
