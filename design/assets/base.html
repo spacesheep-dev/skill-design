@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <!--
   The starter page: copy it to index.html.
-  1. Set the title, and in one edit the block from the directions' tokens to the last section: each direction's
+  1. Set the title, the directions' tokens and each section's opening tag, one Edit each: each direction's
      slug (direction-slug, its blocks slug-part), data-ss-label (its name), data-line and tokens.
   2. Push it: that is the frame. Then assets/fold.js draws each direction in parts, between its
-     part:slug markers, in place of its .drawing block. Keep the markers, renamed with the slug.
+     part:slug markers, in place of its .drawing block. Leave the markers: fold.js names them after the slug.
   One design, not directions: keep one section, and drop the switcher's nav and script.
   Keep the metas, the switcher and the ids.
 -->
@@ -82,7 +82,7 @@ function ssDraw(fn) { fn(); document.addEventListener('ss:live', () => fn()); }
 </nav>
 
 <style>
-  /* each direction: its own tokens. Set them, and each section's slug, name and line below, in one edit */
+  /* each direction: its own tokens. Set them here, and each section's slug, name and line on its opening tag */
   [data-ss-id="direction-first"]  { --brand-ink: #1d2320; --brand-ground: #f3f5f2; --brand-accent: #1f6f50;
     --font-display: "Iowan Old Style", Palatino, Georgia, serif; --font-body: "Avenir Next", "Segoe UI", sans-serif; }
   [data-ss-id="direction-second"] { --brand-ink: #f2efe8; --brand-ground: #15171c; --brand-accent: #ffb703;

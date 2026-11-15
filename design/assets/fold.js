@@ -45,6 +45,8 @@
 // the next pass, so a part is never folded half-written. A direction keeps its placeholder below its
 // parts until they show 40 characters of text, so a first part of styles alone never blanks it.
 // (Older pages: draw/<slug>.html ending with `<!-- end <slug> -->`, its status in draw/<slug>.status.)
+// `push`, `save` and `write` name the starter's markers (part:first…) after the slug of the section holding
+// them. A new build saved with no marker left was drawn in work/index.html: its status names the directions.
 // It stops on `stop`, after 5 minutes with no change to any part or the frame (so a session that
 // closes leaves it running at most 5 minutes), or after 30 minutes; `write` starts it again.
 const fs = require("fs");
@@ -346,6 +348,26 @@ function foldOnce(what) {
     return push("--html", page.html) ? `${what}: folded and pushed the last edits` : `${what}: folded the last edits; the push was refused (draw/fold.log)`;
   return "";
 }
+// The starter's placeholders keep its names (part:first, part:second, part:third) until fold.js renames each
+// with the slug of the section holding it, and its heading with that section's name. So step 2's Edits stop
+// at the sections' opening tags and never reach a placeholder. Not while a writer owns work/index.html.
+function nameParts() {
+  const page = read("work/index.html");
+  if (!page || job("writer").state === "open") return;
+  const named = page.replace(/(<section\b[^>]*data-ss-id="direction-([a-z0-9-]+)"[^>]*>)([\s\S]*?)(?=<\/section>)/g, (m, open, slug, body) =>
+    open + body.replace(/<!-- part:(first|second|third) -->([\s\S]*?)<!-- \/part:\1 -->/, (p, old, inner) => old === slug ? p : `<!-- part:${slug} -->${inner
+      .replace(`data-ss-id="${old}-drawing"`, `data-ss-id="${slug}-drawing"`)
+      .replace(/<h2>[^<]*<\/h2>/, (h) => { const l = open.match(/data-ss-label="([^"]*)"/); return l ? `<h2>${l[1]}</h2>` : h; })}<!-- /part:${slug} -->`));
+  if (named !== page) swap("work/index.html", named);
+}
+// A new build drawn straight into work/index.html, not as parts: no part marker is left, so no part's status
+// reached the person. "A, B and C are up", or "" when it was drawn as parts.
+function drawnInOneGo(page) {
+  if (!here("draw/starter") || !page || /<!-- part:[a-z0-9-]+ -->/.test(page)) return "";
+  const names = [...page.matchAll(/<section\b[^>]*data-ss-id="direction-[a-z0-9-]+"[^>]*>/g)]
+    .map((m) => ((m[0].match(/data-ss-label="([^"]*)"/) || [])[1] || "").replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&")).filter(Boolean);
+  return names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names.at(-1)} are up` : names.length ? `${names[0]} is up` : "";
+}
 // Why the writer stopped, when it stopped by itself (no change for 5 minutes, refused pushes, 30 minutes).
 function idle() {
   const j = job("writer");
@@ -353,6 +375,8 @@ function idle() {
   return `the writer stopped: ${j.how}; \`fold.js write\` starts it again`;
 }
 
+// Said when the starter is in work/, just before the agent draws: how each direction reaches the person.
+const NEXT = 'next: Edit the title, the directions\' tokens and each section\'s opening tag (slug, name, line) in work/index.html, one Edit each, and leave every <!-- part:… --> placeholder as it is (fold.js names it after its section). Then fold.js push, fold.js save "Frame" "Drawing three directions", fold.js write, and each direction as draw/<slug>/01.html, 02.html…, its first line its status. A direction drawn in work/index.html shows no status.';
 if (cmd === "start") {
   // Only a folder's first start may say that no writer or save has run in it.
   if (NEW) for (const name of ["writer", "save"]) if (!swap(`draw/${name}.run`, "none\n")) process.exit(2);
@@ -366,10 +390,10 @@ if (cmd === "start") {
     space = (j.space || {}).id;
     if (!UUID.test(space || "")) { console.error("start: the new space's id isn't in the answer"); process.exit(1); }
     keep(space);
-    if (!swap("work/index.html", base)) process.exit(2);
+    if (!swap("work/index.html", base) || !write("draw/starter", "1\n")) process.exit(2);
     try { run(["live", "push", "--space", space, "--status", "Reading your brief"]); card("up"); console.log("status: Reading your brief"); }
     catch (e) { console.error(`status refused: ${why(e)}`); }
-    console.log(`made a new space; the starter is in work/index.html: ${(j.space || {}).url || space}\nspace: ${space}`);
+    console.log(`made a new space; the starter is in work/index.html: ${(j.space || {}).url || space}\nspace: ${space}\n${NEXT}`);
     process.exit(0);
   }
   const link = plain("link", argv[1]);
@@ -382,9 +406,9 @@ if (cmd === "start") {
   if (!work()) process.exit(2);
   process.stdout.write(run(["read", space, "-o", "work"]));
   if (!isDesign(read("work/index.html"))) {
-    if (!swap("work/index.html", fs.readFileSync(path.join(__dirname, "base.html"), "utf8"))) process.exit(2);
-    console.log("work/index.html held no design: the starter is in its place");
-  }
+    if (!swap("work/index.html", fs.readFileSync(path.join(__dirname, "base.html"), "utf8")) || !write("draw/starter", "1\n")) process.exit(2);
+    console.log(`work/index.html held no design: the starter is in its place\n${NEXT}`);
+  } else remove("draw/starter"); // a revision: section 7, not a new build
   console.log(`space: ${space}`);
   process.exit(0);
 }
@@ -394,6 +418,7 @@ if (cmd === "read") {
   process.exit(0);
 }
 if (cmd === "push") {
+  nameParts();
   const page = read("work/index.html");
   if (page === null) { console.error("push: no work/index.html"); process.exit(2); }
   const ok = push("--html", page);
@@ -479,6 +504,7 @@ if (cmd === "save" && !bg) {
   const j = launchable("save", "save");
   if (j.state === "open") { console.error(`save: the last save (run ${j.id}) may still be running: ${j.why}. Nothing started; fold.js wait shows when it ends`); process.exit(1); }
   if (!work()) process.exit(2);
+  nameParts();
   const run = begin("save", "draw/save.log", (id) => `save started (run ${id})\n`);
   console.log(`saving in the background (run ${run}): "${argv[1]}"${argv[3] === "pictures" ? ", then pictures" : ""}; fold.js wait shows how it ended`);
   const note = idle();
@@ -502,7 +528,10 @@ if (cmd === "save") {
     // Every push must happen, or the save didn't do what it says: it ends "incomplete", never "done".
     // The status first: a deploy takes the page's work card down as done, so mid-run it goes straight back up.
     let missed = 0;
-    if (argv[2]) say(push("--status", argv[2]) ? `status: ${argv[2]}` : (missed++, "status push didn't happen (draw/fold.log)"));
+    const one = drawnInOneGo(read("work/index.html"));
+    if (one) say("no part's status reached the person: the directions were drawn in work/index.html, not as parts (SKILL.md, order of work, steps 2 to 4), so this status names them");
+    const status = one ? `${one}${argv[2] ? `. ${argv[2]}` : ""}`.slice(0, 200) : argv[2];
+    if (status) say(push("--status", status) ? `status: ${status}` : (missed++, "status push didn't happen (draw/fold.log)"));
     say(push("--html", read("work/index.html") || "") ? "pushed the page again" : (missed++, "page push didn't happen (draw/fold.log)"));
     if (lost) return end(`save stopped: ${lost}`);
     if (missed) return end(`save incomplete: saved, but ${missed === 1 ? "a push" : `${missed} pushes`} didn't happen`);
@@ -579,6 +608,7 @@ if (cmd === "write" && !bg) {
   if (j.state === "open") { console.log(`a writer (run ${j.id}) may still be running: ${j.why}. Nothing started`); process.exit(0); }
   // A new build takes the frame from the page; a writer that stopped while idle keeps its frame.
   if (!here("draw/frame.html") || here("draw/stop")) {
+    nameParts();
     const page = read("work/index.html");
     if (page === null || !swap("draw/frame.html", page)) { console.error("write: no work/index.html to take the frame from"); process.exit(2); }
   }
