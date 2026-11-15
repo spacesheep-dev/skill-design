@@ -2,6 +2,14 @@
 
 Each release is a heading with its tag. The release workflow uses the words under it as the release's notes.
 
+## v1.2.8
+
+- The canvas can follow the work. The starter carries `<meta name="ss-canvas-focus" content="all">`, and `fold.js focus <all|slug>` points it at every direction or at one (`direction-<slug>`). It sets the meta in `work/index.html` and in the writer's frame, then pushes the page; with a writer running, the writer pushes it. A slug that isn't one of the page's directions is refused, and nothing is changed or pushed. A page from before this version gets the meta beside its `ss-canvas` meta.
+- The skill sets the focus as the work moves. While the person chooses, it shows every direction. When they pick one or ask for a change to one, it focuses that direction. When they ask for alternatives again, or a new direction is added beside it, it shows all again. "Go with the third" focuses the one left. The client copy drops the meta.
+- Spacesheep's canvas opens the focused frame, or all of them, at load and whenever the meta changes, and a person's own pick in their tab holds until it changes again. Until the canvas reads the meta, nothing changes on screen.
+- Three new tests: `focus` changes only the meta and pushes that page, and `all` puts it back; an unknown slug is refused with nothing pushed; a page without the meta gets it in `work/` and in the frame.
+- The folder's hash is `9cf31cbb1d88`.
+
 ## v1.2.7
 
 - `fold.js start <link>` lays down the starter on Spacesheep's own new page (sheep.new, or a space made with no page). That page is `<html data-ss-id="root">` with an empty `<body data-ss-id="body">`, and start used to count any `data-ss-id` as a design, so it skipped the starter there and the agent had to add it by hand. Blank now means the page's source is one of the few known to be empty, whatever its title: an empty file, Spacesheep's new page as it is stored, or `start --new`'s first version. Every other page is a design and is kept, so start never lays the starter over a page with anything on it. If the platform changes its new page, start reads it as a design and the starter is laid by hand, as before; a test that compares fold.js's copy with the platform's (`SPACESHEEP_SRC=<the spacesheep repo>`) catches that.

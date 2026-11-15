@@ -30,6 +30,8 @@
 //                                               has (else fail), fold the last edits, push them and save;
 //                                               `stop` alone saves nothing and takes the work card down
 //   node fold.js -C <folder> read                read the space's current source into work/ again
+//   node fold.js -C <folder> focus <all|slug>    what the canvas shows: every direction, or the one named
+//                                               (its <meta name="ss-canvas-focus">), then push the page
 //
 // A save the platform refuses on purpose (a page cut to a fraction of the version before it, files left
 // out, a clash with edits made on the page) ends "save refused": nothing was saved, and saving again can't
@@ -59,7 +61,7 @@ if (argv[0] === "-C") {
   argv.splice(0, 2);
 }
 const cmd = argv[0];
-const COMMANDS = ["start", "push", "write", "brief", "save", "wait", "stop", "read"];
+const COMMANDS = ["start", "push", "write", "brief", "save", "wait", "stop", "read", "focus"];
 if (!COMMANDS.includes(cmd)) {
   console.error(`usage: node fold.js -C <folder> ${COMMANDS.join("|")} …  (the header of ${__filename} says what each does)`);
   process.exit(2);
@@ -445,6 +447,36 @@ if (cmd === "read") {
   if (!work()) process.exit(2);
   process.stdout.write(run(["read", space, "-o", "work"]));
   process.exit(0);
+}
+// The canvas's focus: <meta name="ss-canvas-focus" content="all"> shows every direction, content="direction-<slug>"
+// opens that one. Spacesheep's canvas reads it at load and on every live change; a person's own pick in a tab
+// holds until it changes again. `focus` sets it in work/index.html and in the writer's frame (a page without the
+// meta gets it after the ss-canvas meta, else before </head>), then pushes the page, or leaves that to a running
+// writer, which pushes the frame when it changes.
+function withFocus(page, value) {
+  const tag = `<meta name="ss-canvas-focus" content="${value}">`, at = /<meta name="ss-canvas-focus"[^>]*>/;
+  if (at.test(page)) return page.replace(at, tag);
+  if (/<meta name="ss-canvas"[^>]*>/.test(page)) return page.replace(/<meta name="ss-canvas"[^>]*>/, (m) => `${m}\n${tag}`);
+  return /<\/head>/i.test(page) ? page.replace(/<\/head>/i, `${tag}\n</head>`) : null;
+}
+if (cmd === "focus") {
+  const want = plain("focus", argv[1]) || "", page = read("work/index.html");
+  if (page === null) { console.error("focus: no work/index.html"); process.exit(2); }
+  const slugs = [...new Set([...page.matchAll(/<section\b[^>]*data-ss-id="direction-([a-z0-9-]+)"/g)].map((m) => m[1]))];
+  const slug = want.replace(/^direction-/, "");
+  if (want !== "all" && !slugs.includes(slug)) { console.error(`focus: give all or a direction on the page (${slugs.join(", ") || "it has none"})`); process.exit(2); }
+  const value = want === "all" ? "all" : `direction-${slug}`;
+  for (const f of ["work/index.html", "draw/frame.html"]) {
+    const p = read(f);
+    if (p === null) continue;
+    const set = withFocus(p, value);
+    if (set === null) { console.error(`focus: ${f} has no <head> to put the focus in`); process.exit(2); }
+    if (set !== p && !swap(f, set)) process.exit(2);
+  }
+  if (job("writer").state === "open") { console.log(`focus: ${value}; the writer pushes it`); process.exit(0); }
+  const ok = push("--html", read("work/index.html"));
+  console.log(ok ? `focus: ${value}, pushed` : "focus set, but the push was refused: see draw/fold.log");
+  process.exit(ok ? 0 : 1);
 }
 if (cmd === "push") {
   nameParts();

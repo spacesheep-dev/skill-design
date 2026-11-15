@@ -255,3 +255,41 @@ test("fold.js's copy of Spacesheep's new page matches starterHtml", { skip: !pro
   assert.equal(ours[1], theirs[1].replace("${escapeHtml(title)}", "${title}"));
   assert.equal(PLATFORM_BLANK, theirs[1].replace("${escapeHtml(title)}", "Untitled"));
 });
+
+test("focus sets the canvas's focus meta, and nothing else, then pushes the page; all puts it back", () => {
+  const { folder, fold, sent } = setup();
+  assert.equal(fold(["start", "--new", "Poster"]).status, 0);
+  const page = path.join(folder, "work", "index.html");
+  const edited = BASE.replace('data-ss-id="direction-first" data-ss-thing="direction/first"', 'data-ss-id="direction-night-watch" data-ss-thing="direction/night-watch"');
+  fs.writeFileSync(page, edited);
+  assert.match(edited, /<meta name="ss-canvas-focus" content="all">/);
+  const r = fold(["focus", "night-watch"]);
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.match(r.stdout, /^focus: direction-night-watch, pushed$/m);
+  const focused = edited.replace('<meta name="ss-canvas-focus" content="all">', '<meta name="ss-canvas-focus" content="direction-night-watch">');
+  assert.equal(fs.readFileSync(page, "utf8"), focused);
+  assert.equal(sent().at(-1).html, focused, "the focused page is the one pushed");
+  assert.equal(fold(["focus", "all"]).status, 0);
+  assert.equal(fs.readFileSync(page, "utf8"), edited);
+});
+
+test("focus refuses a direction the page doesn't have, and changes and pushes nothing", () => {
+  const { folder, fold, sent } = setup();
+  assert.equal(fold(["start", "--new", "Poster"]).status, 0);
+  const before = sent().length;
+  const r = fold(["focus", "night-watch"]);
+  assert.equal(r.status, 2);
+  assert.match(r.stderr, /focus: give all or a direction on the page \(first, second, third\)/);
+  assert.equal(fs.readFileSync(path.join(folder, "work", "index.html"), "utf8"), BASE);
+  assert.equal(sent().length, before, "nothing pushed");
+});
+
+test("focus gives a page from before the meta its focus beside the ss-canvas meta, in the writer's frame too", () => {
+  const { folder, fold } = setup();
+  assert.equal(fold(["start", "--new", "Poster"]).status, 0);
+  const old = BASE.replace('<meta name="ss-canvas-focus" content="all">\n', "");
+  for (const f of [["work", "index.html"], ["draw", "frame.html"]]) fs.writeFileSync(path.join(folder, ...f), old);
+  assert.equal(fold(["focus", "second"]).status, 0);
+  for (const f of [["work", "index.html"], ["draw", "frame.html"]])
+    assert.equal(fs.readFileSync(path.join(folder, ...f), "utf8"), old.replace('<meta name="ss-canvas" content="on">', '<meta name="ss-canvas" content="on">\n<meta name="ss-canvas-focus" content="direction-second">'), f.join("/"));
+});
