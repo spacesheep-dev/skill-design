@@ -15,7 +15,7 @@ const CLI = `#!/usr/bin/env node
 const fs = require("fs"), path = require("path");
 const a = process.argv.slice(2), dir = process.env.FAKE_DIR;
 fs.appendFileSync(path.join(dir, "calls.log"), JSON.stringify(a) + "\\n");
-if (a[0] === "call") { fs.readFileSync(0); process.exit(0); }
+if (a[0] === "call") { fs.appendFileSync(path.join(dir, "stdin.log"), JSON.stringify(JSON.parse(fs.readFileSync(0, "utf8"))) + "\n"); process.exit(0); }
 if (a[0] === "deploy" && a.includes("--json")) {
   fs.writeFileSync(path.join(dir, "first.html"), fs.readFileSync("work/index.html"));
   console.log(JSON.stringify({ space: { id: "${SPACE}", url: "https://stage.test/s" } }));
@@ -41,7 +41,9 @@ function setup() {
   const env = { ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH}`, FAKE_DIR: root };
   const fold = (args, more = {}) => spawnSync(process.execPath, [FOLD, "-C", folder, ...args], { env: { ...env, ...more }, encoding: "utf8", timeout: 120000 });
   const calls = () => fs.readFileSync(path.join(root, "calls.log"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
-  return { root, folder, fold, calls };
+  // What each push_live call carried: the page, or an empty status (the work card down).
+  const sent = () => { try { return fs.readFileSync(path.join(root, "stdin.log"), "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l)); } catch { return []; } };
+  return { root, folder, fold, calls, sent };
 }
 
 test("a new space's first version is a page under 2 KB, and the starter waits in work/", () => {
@@ -89,4 +91,35 @@ test("the writer sends a part's status before the page", () => {
   assert.ok(status >= 0, "the part's status was pushed");
   assert.ok(page >= 0, "the page was pushed");
   assert.ok(status < page, `status was call ${status}, page call ${page}`);
+});
+
+test("stop alone after a save takes the work card down with an empty status, and stop again sends nothing", () => {
+  const { fold, calls, sent } = setup();
+  assert.equal(fold(["start", "--new", "Poster"]).status, 0);
+  assert.equal(fold(["save", "Three poster looks", "Checking details"]).status, 0);
+  const w = fold(["wait"]);
+  assert.equal(w.status, 0, w.stdout + w.stderr);
+  const s = fold(["stop"]);
+  assert.equal(s.status, 0, s.stdout + s.stderr);
+  assert.match(s.stdout, /took the work card down/);
+  const log = calls();
+  const status = log.findIndex((a) => a[0] === "live" && a.includes("Checking details"));
+  assert.ok(status > log.findIndex((a) => a[0] === "deploy" && a.includes("Three poster looks")), "the save's status came after its deploy");
+  assert.deepEqual(sent().at(-1), { space: SPACE, status: "" });
+  assert.deepEqual(log.at(-1), ["call", "push_live", "-"], "the empty status is the last call");
+  const n = calls().length;
+  assert.equal(fold(["stop"]).status, 0);
+  assert.equal(calls().length, n, "a second stop sends nothing");
+});
+
+test("stop with a message saves, and that save takes the work card down: no empty status", () => {
+  const { fold, calls, sent } = setup();
+  assert.equal(fold(["start", "--new", "Poster"]).status, 0);
+  assert.equal(fold(["save", "Frame", "Drawing three directions"]).status, 0);
+  assert.equal(fold(["wait"]).status, 0);
+  const s = fold(["stop", "Three poster looks"]);
+  assert.equal(s.status, 0, s.stdout + s.stderr);
+  const log = calls();
+  assert.ok(log.at(-1)[0] === "deploy" && log.at(-1).includes("Three poster looks"), `last call: ${JSON.stringify(log.at(-1))}`);
+  assert.ok(!sent().some((b) => b.status === ""), "no empty status");
 });

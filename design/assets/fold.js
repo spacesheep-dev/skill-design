@@ -27,7 +27,8 @@
 //                                               "save refused" means tell the person why and stop (below);
 //                                               "save …", "pictures incomplete" and the rest mean save again
 //   node fold.js -C <folder> stop "<message>"    ask the writer to stop and wait for its own word that it
-//                                               has (else fail), fold the last edits, push them and save
+//                                               has (else fail), fold the last edits, push them and save;
+//                                               `stop` alone saves nothing and takes the work card down
 //   node fold.js -C <folder> read                read the space's current source into work/ again
 //
 // A save the platform refuses on purpose (a page cut to a fraction of the version before it, files left
@@ -236,21 +237,28 @@ const why = (e) => String(e.stderr || e.message).trim().split("\n").slice(-3).jo
 let space = (read("draw/space") || "").trim();
 if (cmd !== "start" && !UUID.test(space)) { console.error(`${cmd}: no space yet (draw/space holds no id); run start first, in this folder`); process.exit(2); }
 
+// The work card on open tabs: a status puts it up, and a save or an empty status takes it down. draw/card keeps
+// which came last, across commands, so `stop` knows whether a card is still up.
+const card = (state) => swap("draw/card", state);
 // The page goes through stdin, as JSON to the push_live tool: no argument limit (Linux refuses one over 128 KB).
+// So does an empty status, which takes the work card down: the CLI's --status wants words.
 function push(flag, value) {
-  const html = flag === "--html";
+  const html = flag === "--html", json = html || !value;
+  const what = html ? `pushed the page (${value.length} bytes)` : value ? `pushed the status: ${value}` : "took the work card down (an empty status)";
   const t = allowed(20000);
   if (!t) { log(`${html ? "page" : "status"} not pushed: ${lost}`); return false; }
   try {
-    run(html ? ["call", "push_live", "-"] : ["live", "push", "--space", space, flag, value],
-      { input: html ? JSON.stringify({ space, html: value }) : "", stdio: ["pipe", "ignore", "pipe"], timeout: t });
-    log(html ? `pushed the page (${value.length} bytes)` : `pushed the status: ${value}`);
+    run(json ? ["call", "push_live", "-"] : ["live", "push", "--space", space, flag, value],
+      { input: json ? JSON.stringify(html ? { space, html: value } : { space, status: "" }) : "", stdio: ["pipe", "ignore", "pipe"], timeout: t });
+    log(what);
+    if (!html) card(value ? "up" : "down");
     return true;
   } catch (e) {
     // A tab behind another one doesn't answer in time, so the platform says no tab confirmed the push
     // within 2 s. It was sent all the same: not a refusal, so the build and its saves carry on.
     if (/no tab confirmed/i.test(`${e.stderr || ""} ${e.message}`)) {
-      log(`${html ? `pushed the page (${value.length} bytes)` : `pushed the status: ${value}`}, but no tab confirmed it (a tab behind another can't): carrying on`);
+      log(`${what}, but no tab confirmed it (a tab behind another can't): carrying on`);
+      if (!html) card(value ? "up" : "down");
       return true;
     }
     log(`${html ? "page" : "status"} push refused: ${why(e)}`);
@@ -359,7 +367,7 @@ if (cmd === "start") {
     if (!UUID.test(space || "")) { console.error("start: the new space's id isn't in the answer"); process.exit(1); }
     keep(space);
     if (!swap("work/index.html", base)) process.exit(2);
-    try { run(["live", "push", "--space", space, "--status", "Reading your brief"]); console.log("status: Reading your brief"); }
+    try { run(["live", "push", "--space", space, "--status", "Reading your brief"]); card("up"); console.log("status: Reading your brief"); }
     catch (e) { console.error(`status refused: ${why(e)}`); }
     console.log(`made a new space; the starter is in work/index.html: ${(j.space || {}).url || space}\nspace: ${space}`);
     process.exit(0);
@@ -369,7 +377,7 @@ if (cmd === "start") {
   space = ((run(["spaces", "get", link]).match(/^ *id: (.*)$/m) || [])[1] || "").trim();
   if (!UUID.test(space)) { console.error(`start: no id in the answer to spaces get ${link}`); process.exit(1); }
   keep(space);
-  try { run(["live", "push", "--space", space, "--status", "Reading your brief"]); console.log("status: Reading your brief"); }
+  try { run(["live", "push", "--space", space, "--status", "Reading your brief"]); card("up"); console.log("status: Reading your brief"); }
   catch (e) { console.error(`status refused: ${why(e)}`); }
   if (!work()) process.exit(2);
   process.stdout.write(run(["read", space, "-o", "work"]));
@@ -489,6 +497,7 @@ if (cmd === "save") {
     if (job("writer").state !== "open") { const f = foldOnce("before the save"); if (f) say(f); }
     const d = deploy(argv[1]);
     if (!d.ok) return end(unsaved(d));
+    card("down");
     say(`saved: ${d.lines.filter((l) => /Updated|Created|Merged|⇄/.test(l)).join(" ") || "ok"}`);
     // Every push must happen, or the save didn't do what it says: it ends "incomplete", never "done".
     // The status first: a deploy takes the page's work card down as done, so mid-run it goes straight back up.
@@ -601,8 +610,16 @@ if (cmd === "stop") {
   if (s.state === "lapsed") fail(`the last save (run ${s.id}) never said how it ended; its time ran out at ${at(s.deadline)}: \`fold.js save\`, \`fold.js wait\`, then stop again`);
   const f = foldOnce("stop");
   if (f) console.log(f);
-  if (!argv[1]) process.exit(0);
+  if (!argv[1]) {
+    // Nothing to save: the last save is the design. The status it put back for the look at its pictures would
+    // keep every open tab, and every tab opened later, saying the page is being worked on. Take the card down.
+    if ((read("draw/card") || "").trim() === "down") process.exit(0);
+    if (!push("--status", "")) fail("the push that takes the work card down was refused (draw/fold.log), so open tabs still say the page is being worked on: the page isn't reaching the space");
+    console.log("took the work card down: open tabs no longer say the page is being worked on");
+    process.exit(0);
+  }
   const d = deploy(argv[1]);
+  if (d.ok) card("down");
   console.log(d.ok ? d.lines.filter((l) => !/^[↑]/.test(l)).join("\n") : unsaved(d));
   process.exit(d.ok ? 0 : 1);
 }
