@@ -238,6 +238,12 @@ function push(flag, value) {
     log(html ? `pushed the page (${value.length} bytes)` : `pushed the status: ${value}`);
     return true;
   } catch (e) {
+    // A tab behind another one doesn't answer in time, so the platform says no tab confirmed the push
+    // within 2 s. It was sent all the same: not a refusal, so the build and its saves carry on.
+    if (/no tab confirmed/i.test(`${e.stderr || ""} ${e.message}`)) {
+      log(`${html ? `pushed the page (${value.length} bytes)` : `pushed the status: ${value}`}, but no tab confirmed it (a tab behind another can't): carrying on`);
+      return true;
+    }
     log(`${html ? "page" : "status"} push refused: ${why(e)}`);
     return false;
   }
@@ -566,7 +572,8 @@ write("draw/writer.pid", String(process.pid));
 log(`the writer started (run ${THIS_RUN})`);
 process.on("exit", () => ack("writer", "ended"));
 // The idle clock follows the inputs (the folded parts and frame), whatever the pushes did; five refused
-// pushes in a row stop it too, so nobody draws on into a page that isn't reaching the space.
+// pushes in a row stop it too, so nobody draws on into a page that isn't reaching the space. A push no tab
+// confirmed isn't refused: a person who switches to another tab mustn't stop the build.
 let input = "", shown = "", said = "", changed = Date.now(), refusals = 0, how = "";
 const until = DEADLINE - 60 * 1000, IDLE = 5 * 60 * 1000; // 30 minutes after `write`
 const stopped = () => here("draw/stop");
