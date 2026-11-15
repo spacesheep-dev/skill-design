@@ -9,7 +9,8 @@
 //
 //   node fold.js -C <folder> start <link>        a status on the space, its source read into work/ (the
 //                                               starter instead, if it holds no design), its id kept
-//   node fold.js -C <folder> start --new "<title>"   the starter in work/, saved as a new space
+//   node fold.js -C <folder> start --new "<title>"   a new space whose first version is a short page saying
+//                                               it is being drawn, then the starter in work/ (below)
 //   node fold.js -C <folder> push                push work/index.html to the space once
 //   node fold.js -C <folder> write               start the page's only writer in the background (below)
 //   node fold.js -C <folder> brief               wait for draw/BRIEF.md to end with `end brief`, print it
@@ -23,10 +24,18 @@
 //                                               exit 0 only for "save done…" or "pictures done: N pictures,
 //                                               no layout faults". "layout check failed" means fix each
 //                                               fault once, then stop (a fixed fault isn't measured again);
+//                                               "save refused" means tell the person why and stop (below);
 //                                               "save …", "pictures incomplete" and the rest mean save again
 //   node fold.js -C <folder> stop "<message>"    ask the writer to stop and wait for its own word that it
 //                                               has (else fail), fold the last edits, push them and save
 //   node fold.js -C <folder> read                read the space's current source into work/ again
+//
+// A save the platform refuses on purpose (a page cut to a fraction of the version before it, files left
+// out, a clash with edits made on the page) ends "save refused": nothing was saved, and saving again can't
+// help. The refusal's own advice (drop_files, staged_sha) is for other tools and is left out: publishing
+// another way would skip the pictures and the layout check. A new space starts from a page under 2 KB, not
+// the 38 KB starter, because the platform measures a cut only against a page of 2 KB or more: a small
+// design (a notice, a sign) is then never refused for being smaller than the starter it replaced.
 //
 // The writer folds each direction's parts, draw/<slug>/<NN>.html (each written whole with an agent's
 // Write tool, its first line `<!-- status: Night Watch: prices -->`), in name order, into
@@ -257,6 +266,33 @@ function deploy(message) {
   const said = `${r.stdout || ""}\n${r.stderr || ""}`.split("\n").map((l) => l.trim()).filter(Boolean).filter((l) => !/^spacesheep /.test(l));
   return { ok: r.status === 0, lines: said.slice(0, 8) };
 }
+// The last line of a save that made no version. A refusal on purpose says "Nothing was published" (the
+// platform) or "Nothing was deployed" (the CLI): its words are kept up to there, and its advice is dropped.
+const STOP = "Publish no other way (no create_version, deploy or upload): that skips the pictures and the layout check. Tell the person in one line why, and stop";
+function unsaved(d) {
+  const text = d.lines.filter((l) => !/^[↑=]/.test(l)).join(" ");
+  const m = text.match(/Nothing was (?:published|deployed)[^.]*\./);
+  if (!m) return `save failed: ${text.slice(0, 300)}`;
+  const words = text.slice(0, m.index + m[0].length);
+  return `save refused: ${words.slice(words.lastIndexOf("✗") + 1).trim().slice(-400)} ${STOP}`;
+}
+// A new space's first version: the title, the starter's chat and workspace metas, and one line. No
+// data-ss-id and no direction, so `start <link>` on it later puts the starter in work/, as for any blank page.
+const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+const firstPage = (title, base) => `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${esc(title)}</title>
+${(base.match(/<meta name="ss-(?:chat|workspace)"[^>]*>/g) || []).join("\n")}
+<style>body { margin: 0; padding: 32px 20px; font: 18px/1.5 system-ui, sans-serif; }</style>
+</head>
+<body>
+<p>${esc(title)} is being drawn. It fills in here in a moment.</p>
+</body>
+</html>
+`;
 const isDesign = (h) => /<section\b[^>]*class="[^"]*\bdirection\b|data-ss-id="[a-z0-9-]+"/.test(h || "");
 // One space per folder: start never points a folder at a second space.
 function keep(id) {
@@ -315,13 +351,17 @@ if (cmd === "start") {
   if (argv[1] === "--new") {
     if ((read("draw/space") || "").trim()) { console.error("start: this folder already has a space; use another folder for a new one"); process.exit(2); }
     mkdir("work");
-    if (!work() || !swap("work/index.html", fs.readFileSync(path.join(__dirname, "base.html"), "utf8"))) process.exit(2);
-    const out = run(["deploy", "work", "--title", plain("title", argv[2]) || "Design", "--json"]);
+    const base = fs.readFileSync(path.join(__dirname, "base.html"), "utf8"), title = plain("title", argv[2]) || "Design";
+    if (!work() || !swap("work/index.html", firstPage(title, base))) process.exit(2);
+    const out = run(["deploy", "work", "--title", title, "--json"]);
     const j = JSON.parse(out.slice(out.indexOf("{")));
     space = (j.space || {}).id;
     if (!UUID.test(space || "")) { console.error("start: the new space's id isn't in the answer"); process.exit(1); }
     keep(space);
-    console.log(`made a new space from the starter: ${(j.space || {}).url || space}\nspace: ${space}`);
+    if (!swap("work/index.html", base)) process.exit(2);
+    try { run(["live", "push", "--space", space, "--status", "Reading your brief"]); console.log("status: Reading your brief"); }
+    catch (e) { console.error(`status refused: ${why(e)}`); }
+    console.log(`made a new space; the starter is in work/index.html: ${(j.space || {}).url || space}\nspace: ${space}`);
     process.exit(0);
   }
   const link = plain("link", argv[1]);
@@ -448,7 +488,7 @@ if (cmd === "save") {
   (async () => {
     if (job("writer").state !== "open") { const f = foldOnce("before the save"); if (f) say(f); }
     const d = deploy(argv[1]);
-    if (!d.ok) return end(`save failed: ${d.lines.join(" ").slice(0, 300)}`);
+    if (!d.ok) return end(unsaved(d));
     say(`saved: ${d.lines.filter((l) => /Updated|Created|Merged|⇄/.test(l)).join(" ") || "ok"}`);
     // Every push must happen, or the save didn't do what it says: it ends "incomplete", never "done".
     // The status first: a deploy takes the page's work card down as done, so mid-run it goes straight back up.
@@ -460,8 +500,11 @@ if (cmd === "save") {
     if (argv[3] !== "pictures") return end("save done");
     // Each whole direction at 1440 and at 390 px wide, from the page with ?ss-check: the starter's script then
     // measures the direction as it is drawn, and each layout fault comes back named in the picture's answer.
-    const slugs = [...new Set([...(read("work/index.html") || "").matchAll(/data-ss-id="direction-([a-z0-9-]+)"/g)].map((m) => m[1]))];
+    const saved = read("work/index.html") || "";
+    const slugs = [...new Set([...saved.matchAll(/data-ss-id="direction-([a-z0-9-]+)"/g)].map((m) => m[1]))];
     const faults = new Map(), notes = new Set();
+    // A page without the starter's script (written whole, or a person's own page) has nothing to measure it.
+    if (slugs.length && !saved.includes("ss-fault/")) notes.add("layout not measured: the page doesn't carry the starter's check script, so no fault can be reported; look at each picture closely");
     const KIND = { narrow: "words run under 4 characters a line", wide: "runs past the direction's edge", cut: "words cut off by the box around them",
       redraw: "a live push puts it back as the source has it, and nothing draws it again: build it in the function the script runs with ssDraw" };
     const shot = async (d, w) => {
@@ -560,7 +603,7 @@ if (cmd === "stop") {
   if (f) console.log(f);
   if (!argv[1]) process.exit(0);
   const d = deploy(argv[1]);
-  console.log((d.ok ? "" : "save failed: ") + d.lines.filter((l) => !/^[↑]/.test(l) || !d.ok).join("\n"));
+  console.log(d.ok ? d.lines.filter((l) => !/^[↑]/.test(l)).join("\n") : unsaved(d));
   process.exit(d.ok ? 0 : 1);
 }
 
@@ -588,11 +631,12 @@ for (;;) {
   const page = fold();
   if (page && page.html !== input) { input = page.html; changed = Date.now(); }
   const may = () => !stopped() && refusals < 5;
+  // The status first: after a save the person's work card waits 3 s for one, and a page push can take longer.
+  if (page && page.status && page.status !== said && may() && tried(push("--status", page.status))) said = page.status;
   if (page && page.html !== shown && may()) {
     swap("work/index.html", page.html);
     if (tried(push("--html", page.html))) shown = page.html;
   }
-  if (page && page.status && page.status !== said && may() && tried(push("--status", page.status))) said = page.status;
   sleep(1000);
 }
 log(`the writer stopped: ${how}`);

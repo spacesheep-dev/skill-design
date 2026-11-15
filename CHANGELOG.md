@@ -2,6 +2,16 @@
 
 Each release is a heading with its tag. The release workflow uses the words under it as the release's notes.
 
+## v1.2.2
+
+- A new space's first version is a short page saying the design is being drawn, not the 38 KB starter, which stays in the folder. Before, a small design such as a notice was refused for cutting the page to a fraction of the starter, and the agent then published another way, skipping the pictures and the layout check.
+- A save the platform refuses on purpose ends `save refused: <why>`. Nothing was saved and saving again can't help, so the agent tells the person why in one line and stops. The refusal's own advice to publish another way is left out, and the skill says never to make a version except through `fold.js save` or `stop`.
+- A notice gets three directions, like a flyer or a poster: "one page" or "one A4 sheet" is its size, not how many designs. One design keeps the starter too, with one section, so its layout check still runs.
+- A page without the starter's check script says its layout wasn't measured, rather than passing with no faults.
+- The writer sends a part's status before the page, because the work card waits 3 seconds for a status after a save and a page push can take longer. On staging, every save had its status within 2.63 seconds.
+- Run again on staging with the notice ask that was refused: five versions, all through `fold.js save` and `stop`, three directions, and the layout check passed after one round of fixes.
+- The folder's hash is `aa3e83da9194`.
+
 ## v1.2.1
 
 - The helpers start in the same message as the frame, so the first direction's top goes up sooner. Before, they started only after the frame was pushed and saved, 1:20 later in a measured run.
