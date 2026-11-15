@@ -45,7 +45,13 @@ if (a[0] === "versions") {
   console.log(JSON.stringify({ versions: all.slice(0, n), page: { next: all.length > n ? all[n - 1].id : "" } }));
   process.exit(0);
 }
-if (a[0] === "deploy") { console.log("✓ Updated https://stage.test/s"); process.exit(0); }
+// What each save sent; FAKE_TOUCH changes work/ during the upload, as a writer's fold can.
+if (a[0] === "deploy") {
+  fs.copyFileSync("work/index.html", path.join(dir, "deployed.html"));
+  if (process.env.FAKE_TOUCH) fs.appendFileSync("work/index.html", "\\n<!-- folded during the save -->");
+  console.log("✓ Updated https://stage.test/s");
+  process.exit(0);
+}
 if (a[0] === "spaces" && a[1] === "get") { console.log("title: Untitled\\n  id: ${SPACE}"); process.exit(0); }
 if (a[0] === "read") { fs.mkdirSync("work", { recursive: true }); fs.writeFileSync("work/index.html", fs.readFileSync(process.env.FAKE_PAGE)); console.log("↓ index.html"); process.exit(0); }
 process.exit(0);
@@ -371,5 +377,95 @@ test("a save stopped at its time limit is saved only when a version with its mes
     assert.equal(w.status, 1, `wait must fail on a save that didn't land or can't be shown to (${JSON.stringify(more)})`);
     assert.equal(w.stdout.trim().split("\n").pop().slice(9), `save failed: ${said}`);
     assert.ok(!calls().some((a) => a[0] === "live" && a.includes("Checking details")), "a failed save puts no status back");
+  }
+});
+
+// A build drawn as parts and saved: the Programme starts at 2pm, and the writer's frame and part stay in draw/.
+function built() {
+  const t = setup();
+  const { root, folder, fold } = t;
+  assert.equal(fold(["start", "--new", "Poster"]).status, 0);
+  fs.writeFileSync(path.join(folder, "work", "index.html"),
+    '<!DOCTYPE html><title>Poster</title><section class="direction" data-ss-id="direction-programme" data-ss-label="Programme"><!-- part:programme --><p>Drawing</p><!-- /part:programme --></section>');
+  fs.mkdirSync(path.join(folder, "draw", "programme"));
+  fs.writeFileSync(path.join(folder, "draw", "programme", "01.html"), '<!-- status: Programme: the times -->\n<p data-ss-id="programme-times">Music from 2pm, food from 3pm, dancing from 5pm</p>\n');
+  spawnSync("sleep", ["0.5"]);
+  assert.equal(fold(["write"]).status, 0);
+  const s = fold(["stop", "Programme poster"]);
+  assert.equal(s.status, 0, s.stdout + s.stderr);
+  const saved = fs.readFileSync(path.join(root, "deployed.html"), "utf8");
+  assert.match(saved, /Music from 2pm/);
+  return { ...t, saved };
+}
+
+test("a revision's save sends the page as read and edited: the last build's frame and parts are put aside, never folded back over it", () => {
+  const { root, folder, fold, calls, saved } = built();
+  fs.writeFileSync(path.join(root, "page.html"), saved);
+  const r = fold(["read", "Making the Programme start at 3pm"], { FAKE_PAGE: path.join(root, "page.html") });
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.match(r.stdout, /the last build's frame and parts are put aside in draw\/old\/[^:]+: edit work\/index\.html/);
+  assert.ok(!fs.existsSync(path.join(folder, "draw", "frame.html")) && !fs.existsSync(path.join(folder, "draw", "programme")), "nothing left to fold");
+  const [old] = fs.readdirSync(path.join(folder, "draw", "old"));
+  assert.ok(fs.existsSync(path.join(folder, "draw", "old", old, "frame.html")), "the frame is kept aside");
+  assert.match(fs.readFileSync(path.join(folder, "draw", "old", old, "programme", "01.html"), "utf8"), /Music from 2pm/, "and the part");
+  // The session's edit, in work/index.html, as section 7 says.
+  const page = path.join(folder, "work", "index.html");
+  fs.writeFileSync(page, fs.readFileSync(page, "utf8").replace("Music from 2pm, food from 3pm, dancing from 5pm", "Music from 3pm, food from 4pm, dancing from 6pm"));
+  assert.equal(fold(["save", "Programme starts at 3pm", "Programme now starts at 3pm"]).status, 0);
+  const w = fold(["wait"]);
+  assert.equal(w.status, 0, w.stdout + w.stderr);
+  assert.doesNotMatch(w.stdout, /folded/);
+  const sent = fs.readFileSync(path.join(root, "deployed.html"), "utf8");
+  assert.match(sent, /Music from 3pm/, "the save carries the edit");
+  assert.doesNotMatch(sent, /Music from 2pm/);
+  // A later writer takes its frame from that page, and no old part folds back in.
+  const n = calls().length;
+  assert.equal(fold(["write"]).status, 0);
+  const s = fold(["stop", "Programme, again"]);
+  assert.equal(s.status, 0, s.stdout + s.stderr);
+  assert.ok(calls().slice(n).some((a) => a[0] === "deploy"), "stop saved");
+  assert.match(fs.readFileSync(path.join(root, "deployed.html"), "utf8"), /Music from 3pm/);
+});
+
+test("a save or stop never folds draw/ over an edit made in work/index.html since fold.js wrote it: it fails, says where to edit, and saves nothing", () => {
+  const { root, folder, fold, calls } = built();
+  const page = path.join(folder, "work", "index.html");
+  fs.writeFileSync(page, fs.readFileSync(page, "utf8").replace("Music from 2pm", "Music from 3pm"));
+  // The frame has moved on since (a renamed heading), so folding would undo the edit.
+  const frame = path.join(folder, "draw", "frame.html");
+  fs.writeFileSync(frame, fs.readFileSync(frame, "utf8").replace("<title>Poster</title>", "<title>Street party poster</title>"));
+  const n = calls().length;
+  assert.equal(fold(["save", "Programme starts at 3pm", "Checking"]).status, 0);
+  const w = fold(["wait"]);
+  assert.equal(w.status, 1, "wait must fail");
+  assert.equal(w.stdout.trim().split("\n").pop().slice(9), "save failed: work/index.html was changed after fold.js last wrote it, and folding draw/ (the frame and its parts) over it would undo that change. Make the change in draw/frame.html, or in the part it belongs to (draw/<slug>/NN.html), then save again");
+  const s = fold(["stop", "Programme starts at 3pm"]);
+  assert.equal(s.status, 1);
+  assert.match(s.stderr, /^stop: work\/index\.html was changed after fold\.js last wrote it.*; nothing saved$/m);
+  assert.ok(!calls().slice(n).some((a) => a[0] === "deploy" || (a[0] === "call" && a[1] === "push_live")), "no save and no page push");
+  assert.match(fs.readFileSync(page, "utf8"), /Music from 3pm/, "the edit is still there");
+  assert.match(fs.readFileSync(path.join(root, "deployed.html"), "utf8"), /Music from 2pm/, "the space keeps its version");
+});
+
+test("a save pushes the page after its upload only when it changed during it, so the saved version isn't marked live again", () => {
+  for (const touch of [false, true]) {
+    const { folder, fold, calls, sent } = setup();
+    assert.equal(fold(["start", "--new", "Poster"]).status, 0);
+    fs.writeFileSync(path.join(folder, "work", "index.html"), '<!DOCTYPE html><title>Poster</title><section class="direction" data-ss-id="direction-bunting" data-ss-label="Bunting"><p>Street party</p></section>');
+    assert.equal(fold(["save", "Bunting", "Checking details"], touch ? { FAKE_TOUCH: "1" } : {}).status, 0);
+    const w = fold(["wait"]);
+    assert.equal(w.status, 0, w.stdout + w.stderr);
+    const log = calls(), deployed = log.findIndex((a) => a[0] === "deploy" && a.includes("Bunting"));
+    const k = log.slice(0, deployed).filter((a) => a[0] === "call").length; // push_live calls before the deploy
+    const after = sent().slice(k).filter((x) => "html" in x);
+    assert.ok(log.slice(deployed).some((a) => a[0] === "live" && String(a.at(-1)).endsWith("Checking details")), "the status still goes after the save");
+    if (!touch) {
+      assert.deepEqual(after, [], "no page push after an unchanged save");
+      assert.doesNotMatch(w.stdout, /pushed the page again/);
+    } else {
+      assert.equal(after.length, 1);
+      assert.match(after[0].html, /folded during the save -->$/, "the newer page is pushed");
+      assert.match(w.stdout, /pushed the page again: it changed during the save/);
+    }
   }
 });
