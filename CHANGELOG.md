@@ -2,6 +2,12 @@
 
 Each release is a heading with its tag. The release workflow uses the words under it as the release's notes.
 
+## v1.2.14
+
+- A session without the skill's folder now says what it is doing while it fetches the files. SKILL.md's "Getting this skill" asks, before the first file and when the person gave a space's link, for `npx -y spacesheep@latest live push --space <link> --status "Fetching the Design skill"`. fold.js's first status (`start` or `read`) replaces it. With no space yet there is nothing to show it on, so it is skipped. In one recorded revision the page said "Reading your request" for 72 s while the files were fetched; earlier runs that named the fetch did so on their own.
+- One new test runs that command from SKILL.md against a stand-in CLI and checks what it sends. It fails on v1.2.13 (no such command).
+- The folder's hash is `a7fcb4f823a3`.
+
 ## v1.2.13
 
 - SKILL.md's command for fetching one of the skill's files now writes the whole file. The store sends about 40,000 characters a call, with `next_offset` saying where the next page starts (0 once the file has ended). The old command read one answer and wrote its text, so `assets/fold.js` (57,910 bytes) came out at 36,683 and `assets/base.html` (39,357 bytes) at 37,266. In one recorded run the first `fold.js` was cut, failed to run, and fetching the rest by hand took about 1.5 minutes. The new command asks with `--offset` from each answer until the file ends; checked against the store, both files come out byte for byte.
