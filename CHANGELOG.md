@@ -2,6 +2,16 @@
 
 Each release is a heading with its tag. The release workflow uses the words under it as the release's notes.
 
+## v1.2.11
+
+- A save fold.js stops at 60 s no longer ends with a bare `save failed:`. Before each deploy, fold.js notes the space's newest version. If the deploy is still running at its time limit, it reads the history again. The save counts as saved only if a version with its message is newer than that one: "Saved as version N. The server answered late: fold.js stopped the CLI at 60 s, after the version was made." It then goes on as usual (status, page push, pictures). In one recorded run the version existed 3 s into the deploy, the answer took 79 s, and the session saved a second time.
+- There's no clock in that match, so an earlier version with the same message (an earlier save, or a retry) never passes for this one. Otherwise the save fails and says why: no new version with its message, or which history read failed and how. Saving again is safe: if the first one landed after all, the second makes no new version.
+- A deploy that exits non-zero without printing anything now says how it ended (`the CLI ended (exit N) without saying why`), not an empty `save failed:`.
+- `fold.js read` with no words says "Reading your design", not "Reading the page".
+- Each save makes one extra history call before its deploy: about 0.5 s, at most 15 s.
+- One new test hangs the stand-in CLI's deploy in five cases: landed (saved as version 2, then status and push), no new version with only an older one carrying the same message, history refused throughout, refused only before, and refused only after. On v1.2.10 the no-new-version case exits 0 with "Saved as version 1".
+- The folder's hash is `2a2771351d98`.
+
 ## v1.2.10
 
 - A revision says what will change before anything is read. `fold.js read "<what you'll change>"` puts that status on the page ("Making Big Day's 18 red"), then reads the current source into `work/`. Before, `read` pushed nothing, so after a person asked for a change the page said nothing until the save: 2 min 41 s in one recorded run. Without words it says "Reading the page". A refused push is said, and the read goes on.

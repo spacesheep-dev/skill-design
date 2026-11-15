@@ -28,6 +28,23 @@ if (a[0] === "deploy" && process.env.FAKE_REFUSE) {
   console.error("✗ index.html would shrink from 38318 to " + n + " bytes (90% smaller), which looks like a page lost rather than a page edited. Nothing was published; the space keeps its current version. To publish this smaller page on purpose, send the same call again with drop_files: true.");
   process.exit(1);
 }
+// The space's history, newest first: one version with the message the tests save with, made 10 s ago.
+// A deploy the server answers late: with "landed" its version goes on top first; either way it never ends by itself.
+const VERSIONS = path.join(dir, "versions.json");
+const history = () => fs.existsSync(VERSIONS) ? JSON.parse(fs.readFileSync(VERSIONS, "utf8")) : [{ id: "a8a114a8aa44", label: "Big Day, red 18", created_at: new Date(Date.now() - 10000).toISOString() }];
+if (a[0] === "deploy" && process.env.FAKE_HANG) {
+  if (process.env.FAKE_HANG === "landed") fs.writeFileSync(VERSIONS, JSON.stringify([{ id: "d4c0834a3907", label: a[a.indexOf("-m") + 1], created_at: new Date().toISOString() }, ...history()]));
+  setTimeout(() => process.exit(0), 30000);
+  return;
+}
+// The history refused: always, only before the deploy has made a version ("before"), or only after ("after").
+if (a[0] === "versions") {
+  const h = process.env.FAKE_HISTORY, made = fs.existsSync(VERSIONS);
+  if (h === "refused" || (h === "before" && !made) || (h === "after" && made)) { console.error("forbidden: This account may not do this here."); process.exit(1); }
+  const n = Number(a[a.indexOf("--limit") + 1]) || 50, all = history();
+  console.log(JSON.stringify({ versions: all.slice(0, n), page: { next: all.length > n ? all[n - 1].id : "" } }));
+  process.exit(0);
+}
 if (a[0] === "deploy") { console.log("✓ Updated https://stage.test/s"); process.exit(0); }
 if (a[0] === "spaces" && a[1] === "get") { console.log("title: Untitled\\n  id: ${SPACE}"); process.exit(0); }
 if (a[0] === "read") { fs.mkdirSync("work", { recursive: true }); fs.writeFileSync("work/index.html", fs.readFileSync(process.env.FAKE_PAGE)); console.log("↓ index.html"); process.exit(0); }
@@ -294,7 +311,7 @@ test("focus gives a page from before the meta its focus beside the ss-canvas met
     assert.equal(fs.readFileSync(path.join(folder, ...f), "utf8"), old.replace('<meta name="ss-canvas" content="on">', '<meta name="ss-canvas" content="on">\n<meta name="ss-canvas-focus" content="direction-second">'), f.join("/"));
 });
 
-test("a revision's first status goes up before anything is read: read's words (Reading the page unless given), and start's when given", () => {
+test("a revision's first status goes up before anything is read: read's words (Reading your design unless given), and start's when given", () => {
   const { root, folder, fold, calls } = setup();
   const design = BASE.replace("<title>", "<title>Street party · ");
   fs.writeFileSync(path.join(root, "page.html"), design);
@@ -306,7 +323,7 @@ test("a revision's first status goes up before anything is read: read's words (R
   const said = log.findIndex((a) => a[0] === "live" && a.includes("Making Big Day's 18 red"));
   assert.ok(said >= 0 && said < log.findIndex((a) => a[0] === "read"), "start's status came before its read");
   assert.ok(!log.some((a) => a.includes("Reading your brief")), "no brief status on a revision given its own words");
-  for (const [args, words] of [[["read", "Making the 18 red"], "Making the 18 red"], [["read"], "Reading the page"]]) {
+  for (const [args, words] of [[["read", "Making the 18 red"], "Making the 18 red"], [["read"], "Reading your design"]]) {
     const n = calls().length;
     const s = fold(args, env);
     assert.equal(s.status, 0, s.stdout + s.stderr);
@@ -318,4 +335,41 @@ test("a revision's first status goes up before anything is read: read's words (R
   }
   assert.equal(fs.readFileSync(path.join(folder, "draw", "card"), "utf8").trim(), "up", "the work card is up until a save");
   assert.equal(fold(["read", "-x"], env).status, 2, "a status can't start with -");
+});
+
+test("a save stopped at its time limit is saved only when a version with its message is newer than the space's newest before it", () => {
+  const limit = { FOLD_SAVE_MS: "1500" };
+  const again = "save again: if it landed after all, that save makes no second version";
+  // The version landed before the CLI was stopped: a save, which goes on to its status and push.
+  let { fold, calls } = setup();
+  assert.equal(fold(["start", "--new", "Poster"]).status, 0);
+  assert.equal(fold(["save", "Big Day, red 18", "Checking details"], { ...limit, FAKE_HANG: "landed" }).status, 0);
+  let w = fold(["wait"]);
+  assert.equal(w.status, 0, w.stdout + w.stderr);
+  assert.match(w.stdout, /saved: Saved as version 2\. The server answered late: fold\.js stopped the CLI at 2 s, after the version was made\./);
+  assert.match(w.stdout.trim().split("\n").pop(), /save done$/);
+  let log = calls();
+  const deployed = log.findIndex((a) => a[0] === "deploy" && a.includes("Big Day, red 18"));
+  const reads = log.map((a, i) => (a[0] === "versions" && a.includes("--space-id") && a.includes(SPACE) ? i : -1)).filter((i) => i >= 0);
+  assert.equal(reads.length, 2, "the history was read twice");
+  assert.ok(reads[0] < deployed && log[reads[0]].includes("1"), "its newest version was read before the deploy");
+  assert.ok(reads[1] > deployed, "and the history again after it");
+  assert.ok(log.findIndex((a) => a[0] === "live" && a.includes("Checking details")) > reads[1], "the save went on to its status");
+  // No version from this save: the only one with its message was made 10 s before it, so it isn't this
+  // save's. Or a history that can't be read, before or after: a failure that says so, even when it landed.
+  const before = "the space's history couldn't be read before the save (forbidden: This account may not do this here.)";
+  for (const [more, said] of [
+    [{ FAKE_HANG: "lost" }, `no answer from the server in 2 s, and the space has no version "Big Day, red 18" newer than its newest before this save; ${again}`],
+    [{ FAKE_HANG: "lost", FAKE_HISTORY: "refused" }, `no answer from the server in 2 s, and ${before}; ${again}`],
+    [{ FAKE_HANG: "landed", FAKE_HISTORY: "before" }, `no answer from the server in 2 s, and ${before}; ${again}`],
+    [{ FAKE_HANG: "landed", FAKE_HISTORY: "after" }, `no answer from the server in 2 s, and the space's history can't be read (forbidden: This account may not do this here.); ${again}`],
+  ]) {
+    ({ fold, calls } = setup());
+    assert.equal(fold(["start", "--new", "Poster"]).status, 0);
+    assert.equal(fold(["save", "Big Day, red 18", "Checking details"], { ...limit, ...more }).status, 0);
+    w = fold(["wait"]);
+    assert.equal(w.status, 1, `wait must fail on a save that didn't land or can't be shown to (${JSON.stringify(more)})`);
+    assert.equal(w.stdout.trim().split("\n").pop().slice(9), `save failed: ${said}`);
+    assert.ok(!calls().some((a) => a[0] === "live" && a.includes("Checking details")), "a failed save puts no status back");
+  }
 });
