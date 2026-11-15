@@ -21,3 +21,6 @@ jobs:
           node-version: 22
 
       - run: npx -y spacesheep@latest skills lint
+
+      # fold.js against a stand-in CLI: no network and no space.
+      - run: node --test test/
