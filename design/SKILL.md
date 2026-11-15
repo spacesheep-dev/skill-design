@@ -75,7 +75,7 @@ The frame goes up from the request alone (step 2); the rest is read after it (st
 - **Make one design** when the brand and content are fixed and the person asked for one thing ("make a one-pager in our brand"), and for a prototype, a deck or a component sheet unless they ask for options.
 - **All the directions sit in one space,** in one row on the canvas, with the pinned switcher: `assets/base.html` has both. Each direction is a `<section class="direction" data-ss-section data-ss-id="direction-<slug>" data-ss-thing="direction/<slug>">`. The `data-ss-thing` keeps comments on a direction while another shows. A link ending in `#direction-<slug>` opens that direction, and in a chat reply a button opens one with `{"emit": {"name": "show-direction", "data": {"id": "direction-<slug>"}}}`.
 - **Name each direction by its idea** in 1 to 3 words ("Harbour Chart", "Night Watch", "Logbook"), never "Option A". Its line says what it is for ("Calm and plain, for owners who check once a month").
-- **When the person picks one** ("the third, but bolder"), change only that direction, make it the one the space opens on (`data-default`), and point the canvas at it (`fold.js focus <slug>`). Remove the others only when they say to ("go with it", "drop the others"), and record the pick under Decisions (section 6).
+- **When the person picks one** ("go with the third", "the third, but bolder"), change only that direction, make it the one the space opens on (`data-default`), point the canvas at it (`fold.js focus <slug>`), and record the pick under Decisions (section 6). Keep the others, so they can still compare or come back. Remove them only when the person says so ("drop the others", "just that one").
 
 ## 3. Build it so it works
 
@@ -128,7 +128,7 @@ Reply in at most five short lines:
 - how to give feedback: tap a block and comment with @shepherd in it, or say it in this chat,
 - the next step (pick a direction, approve it, or hand it to a developer).
 
-**Keep a Decisions log on the space.** After the first revision or decision, add a folded section at the very end: `<details class="no-print" data-ss-id="decisions"><summary>Decisions</summary>…</details>`, one line per decision with the date and version ("11 Nov, v4: picked Night Watch; bolder type").
+**Keep a Decisions log on the space.** After the first revision or decision, add it at the very end: `<details class="no-print" data-ss-id="decisions" data-ss-canvas="pin" style="display:none"><summary>Decisions</summary>…</details>`, one line per decision with the date and version ("11 Nov, v4: picked Night Watch; bolder type"). It is the record, read from the source, never shown: the canvas draws any block outside a direction as a frame of its own, so `data-ss-canvas="pin"` keeps it off the canvas, and the check flags a log that would show.
 
 ## 7. Revise from comments and chat
 

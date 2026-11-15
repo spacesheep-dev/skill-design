@@ -65,3 +65,53 @@ test("the starter's controls as v1.2.4 had them are flagged: this is the script 
   assert.equal(lines.length, 1); // one line per script: the second run stops at its first name
   assert.match(lines[0], /declares "ssControls"/);
 });
+
+// check.js's lines about the Decisions log, for the starter with this log before </body>.
+function decisions(log) {
+  const folder = fs.mkdtempSync(path.join(os.tmpdir(), "check-test-"));
+  try {
+    fs.mkdirSync(path.join(folder, "work"));
+    fs.writeFileSync(path.join(folder, "work", "index.html"), BASE.replace("</body>", `${log}\n</body>`));
+    const r = spawnSync(process.execPath, [CHECK, "-C", folder], { encoding: "utf8", timeout: 20000 });
+    assert.equal(r.error, undefined, `check.js didn't finish: ${r.error}`);
+    return r.stdout.split("\n").filter((l) => l.includes("Decisions log"));
+  } finally {
+    fs.rmSync(folder, { recursive: true, force: true });
+  }
+}
+
+test("a Decisions log the canvas would draw over the first frame is flagged, with its line", () => {
+  for (const log of [
+    '<details class="no-print" data-ss-id="decisions"><summary>Decisions</summary><p>15 Nov, v4: picked Big Eighteen</p></details>',
+    '<details class="no-print" data-ss-id="decisions" style="display:none"><summary>Decisions</summary></details>',
+    '<details class="no-print" data-ss-id="decisions" data-ss-canvas="pin"><summary>Decisions</summary></details>',
+    // read as the browser reads the tag: spaces around "=", the display that wins, a ">" in a quoted value
+    '<details data-ss-id = "decisions"><summary>Decisions</summary></details>',
+    '<details data-ss-id="decisions" data-ss-canvas="pin" style="display:none;display:block"><summary>Decisions</summary></details>',
+    '<details data-ss-id="decisions" data-ss-canvas="pin" style="display:block !important; display:none"><summary>Decisions</summary></details>',
+    '<details title="a > b" data-ss-id=decisions data-ss-canvas=pin><summary>Decisions</summary></details>',
+    '<details data-ss-id="decisions" data-ss-canvas="PIN" style="display:none"><summary>Decisions</summary></details>', // the canvas matches "pin" exactly
+  ]) {
+    const lines = decisions(log);
+    assert.equal(lines.length, 1, `${log}: ${lines.join(" | ") || "not flagged"}`);
+    assert.match(lines[0], /work\/index\.html:\d+/);
+  }
+});
+
+test("a Decisions log pinned off the canvas and out of sight passes, and so does a page without one", () => {
+  assert.deepEqual(decisions('<details class="no-print" data-ss-id="decisions" data-ss-canvas="pin" style="display:none"><summary>Decisions</summary><p>15 Nov, v4: picked Big Eighteen</p></details>'), []);
+  assert.deepEqual(decisions(""), []);
+  for (const log of [
+    '<details class="no-print" data-ss-id = "decisions" data-ss-canvas = \'pin\' style = "display: block; display : none"><summary>Decisions</summary></details>',
+    '<details data-ss-id=decisions data-ss-canvas=pin style="display:none !important; display:block"><summary>Decisions</summary></details>',
+  ]) assert.deepEqual(decisions(log), [], log);
+});
+
+test("the starter's switcher writes the address only when a tab is clicked, never on its own at load", () => {
+  const SWITCHER = fs.readFileSync(path.join(__dirname, "..", "design", "assets", "switcher.html"), "utf8");
+  for (const [name, src] of [["base.html", BASE], ["switcher.html", SWITCHER]]) {
+    const writes = src.split("\n").filter((l) => /history\.(replaceState|pushState)|location\.hash\s*=/.test(l));
+    assert.equal(writes.length, 1, `${name}: ${writes.join(" | ")}`);
+    assert.match(writes[0], /addEventListener\('click'/, `${name}: ${writes[0]}`);
+  }
+});

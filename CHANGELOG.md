@@ -2,6 +2,14 @@
 
 Each release is a heading with its tag. The release workflow uses the words under it as the release's notes.
 
+## v1.2.9
+
+- A pick keeps the other directions. "Go with the third" makes it the one the space opens on, points the canvas at it and records the pick in Decisions; the others stay, to compare or come back to. They are removed only when the person says so ("drop the others", "just that one").
+- The Decisions log no longer shows on the canvas. The canvas draws any block outside a direction as a frame of its own, so the log appeared as a bare "Decisions" line over the first frame's top-left corner. It is now written `data-ss-canvas="pin" style="display:none"`: kept off the canvas and read from the source. `check.js` flags a log that would show, reading its tag as the browser does (spaces around "=", any quotes, the `display` that wins), and the hand-off copies its lines in.
+- The switcher no longer writes the default direction into the address when the page loads. `ss-canvas-focus` decides what the canvas opens on, and the canvas took that written address as the person moving the view, then kept a zoomed-in view as the chat drawer narrowed the window. A tab click still writes it.
+- Three new tests: an unpinned or visible Decisions log is flagged with its line (eight ways of writing it), a pinned and hidden one passes (three ways), and the starter's only address write is in its tab click.
+- The folder's hash is `03bc0e9b61f9`.
+
 ## v1.2.8
 
 - The canvas can follow the work. The starter carries `<meta name="ss-canvas-focus" content="all">`, and `fold.js focus <all|slug>` points it at every direction or at one (`direction-<slug>`). It sets the meta in `work/index.html` and in the writer's frame, then pushes the page; with a writer running, the writer pushes it. A slug that isn't one of the page's directions is refused, and nothing is changed or pushed. A page from before this version gets the meta beside its `ss-canvas` meta.

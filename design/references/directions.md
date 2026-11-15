@@ -54,6 +54,6 @@ A skeleton is the page's arrangement: one column, a lead item over a list, a gri
 
 ## After the pick
 
-- A pick with a change ("the third, but bolder"): change only the third, make it the one the space opens on, and leave the others untouched.
-- "Go with the third": remove the other directions and the switcher's tabs and script in one new version (keep its nav while it holds Tweaks or the answers line), point the canvas at the one left (`fold.js focus <slug>`), and record the pick in Decisions. Older versions still hold the others.
+- A pick, with a change or without ("go with the third", "the third, but bolder"): change only the third, make it the one the space opens on, point the canvas at it (`fold.js focus <slug>`), record the pick in Decisions, and leave the others untouched. The canvas shows the pick large, and the others stay to compare or come back to.
+- "Drop the others" ("just the third", "delete the rest"): only then remove the other directions and the switcher's tabs and script, in one new version (keep its nav while it holds Tweaks or the answers line), point the canvas at the one left, and record it in Decisions. Older versions still hold the others.
 - "Mix them" ("the layout of one with the colours of three"): add it as a new direction named for what it combines, and keep the originals until they choose.
