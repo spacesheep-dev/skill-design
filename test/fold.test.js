@@ -506,3 +506,33 @@ test("a save pushes the page after its upload only when it changed during it, so
     }
   }
 });
+
+test("SKILL.md's fetch command writes a file whole, asking page by page as the store serves it", () => {
+  // A stand-in npx that answers `skills get … --path <file> --offset <n> --json` as the store does: a page of the file
+  // counted in code points, and next_offset, 0 once the file has ended.
+  const SKILL = path.join(__dirname, "..", "design");
+  const line = fs.readFileSync(path.join(SKILL, "SKILL.md"), "utf8").split("\n").find((l) => l.startsWith("**Getting this skill:**"));
+  const cmd = line.match(/a file is fetched with `(.+? > <where>)`/)[1];
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "fetch-test-")), bin = path.join(root, "bin");
+  fs.mkdirSync(bin);
+  fs.writeFileSync(path.join(bin, "npx"), `#!/usr/bin/env node
+const fs = require("fs"), path = require("path"), a = process.argv.slice(2);
+fs.appendFileSync(path.join(process.env.FAKE_DIR, "calls.log"), JSON.stringify(a) + "\\n");
+const file = a[a.indexOf("--path") + 1], o = a.indexOf("--offset"), at = o < 0 ? 0 : Number(a[o + 1]), page = Number(process.env.FAKE_PAGE);
+const all = Array.from(fs.readFileSync(path.join(process.env.FAKE_SKILL, file), "utf8")), end = Math.min(at + page, all.length);
+console.log(JSON.stringify({ file: { path: file, text: all.slice(at, end).join(""), media_type: "text/plain" }, next_offset: end < all.length ? end : 0 }));
+`, { mode: 0o755 });
+  const env = { ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH}`, FAKE_DIR: root, FAKE_SKILL: SKILL, FAKE_PAGE: "20000" };
+  for (const file of ["assets/fold.js", "assets/base.html", "SKILL.md"]) {
+    fs.rmSync(path.join(root, "calls.log"), { force: true });
+    const out = path.join(root, path.basename(file));
+    const r = spawnSync("sh", ["-c", cmd.replace("<file>", file).replace("<where>", out)], { env, encoding: "utf8", timeout: 60000 });
+    assert.equal(r.status, 0, r.stderr);
+    assert.ok(fs.readFileSync(out).equals(fs.readFileSync(path.join(SKILL, file))), `${file} is written whole`);
+    const n = Array.from(fs.readFileSync(path.join(SKILL, file), "utf8")).length;
+    const offsets = fs.readFileSync(path.join(root, "calls.log"), "utf8").trim().split("\n").map((l) => { const a = JSON.parse(l), o = a.indexOf("--offset"); return o < 0 ? 0 : Number(a[o + 1]); });
+    assert.deepEqual(offsets, Array.from({ length: Math.ceil(n / 20000) }, (_, i) => i * 20000), `${file}: one call a page, each from the last answer's next_offset`);
+  }
+  // fold.js and base.html are each more than one page at the store's size, so one call would cut them.
+  for (const file of ["assets/fold.js", "assets/base.html"]) assert.ok(fs.statSync(path.join(SKILL, file)).size > 36000, file);
+});
