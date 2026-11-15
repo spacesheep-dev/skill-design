@@ -14,8 +14,8 @@
 //   node fold.js -C <folder> write               start the page's only writer in the background (below)
 //   node fold.js -C <folder> brief               wait for draw/BRIEF.md to end with `end brief`, print it
 //   node fold.js -C <folder> save "<message>" "<status>" [pictures]
-//                                               in the background: save a version, push the page again,
-//                                               put the status back, and with `pictures` take each whole
+//                                               in the background: save a version, put the status back,
+//                                               push the page again, and with `pictures` take each whole
 //                                               direction at 1440 and 390 px wide (<slug>-1440.png, and
 //                                               <slug>-390.png cut into columns), the page measuring itself
 //                                               for layout faults as it is drawn; log in draw/save.log
@@ -445,9 +445,10 @@ if (cmd === "save") {
     if (!d.ok) return end(`save failed: ${d.lines.join(" ").slice(0, 300)}`);
     say(`saved: ${d.lines.filter((l) => /Updated|Created|Merged|⇄/.test(l)).join(" ") || "ok"}`);
     // Every push must happen, or the save didn't do what it says: it ends "incomplete", never "done".
+    // The status first: a deploy takes the page's work card down as done, so mid-run it goes straight back up.
     let missed = 0;
-    say(push("--html", read("work/index.html") || "") ? "pushed the page again" : (missed++, "page push didn't happen (draw/fold.log)"));
     if (argv[2]) say(push("--status", argv[2]) ? `status: ${argv[2]}` : (missed++, "status push didn't happen (draw/fold.log)"));
+    say(push("--html", read("work/index.html") || "") ? "pushed the page again" : (missed++, "page push didn't happen (draw/fold.log)"));
     if (lost) return end(`save stopped: ${lost}`);
     if (missed) return end(`save incomplete: saved, but ${missed === 1 ? "a push" : `${missed} pushes`} didn't happen`);
     if (argv[3] !== "pictures") return end("save done");
