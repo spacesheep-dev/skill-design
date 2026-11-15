@@ -109,7 +109,7 @@ The frame goes up from the request alone (step 2); the rest is read after it (st
 
 ## 5. Checks, once it's visible
 
-**The source checks are `check.js`'s:** the brief's facts and not-lines, six words quoted from the request or a direction's line, ids, links, handlers, scripts that parse, widths on a phone, placeholders, colours from the tokens, type size and page size. It prints each failure with its file, line and fix, or "all pass". Never write a check script of your own.
+**The source checks are `check.js`'s:** the brief's facts and not-lines, six words quoted from the request or a direction's line, ids, links, handlers, scripts that parse and can run again after a push, widths on a phone, placeholders, colours from the tokens, type size and page size. It prints each failure with its file, line and fix, or "all pass". Never write a check script of your own.
 
 **The look is yours,** once per direction on its picture at the finish (order of work, step 6):
 

@@ -22,5 +22,5 @@ jobs:
 
       - run: npx -y spacesheep@latest skills lint
 
-      # fold.js against a stand-in CLI: no network and no space.
-      - run: node --test test/fold.test.js
+      # fold.js against a stand-in CLI, and check.js on a folder the test makes: no network and no space.
+      - run: node --test test/fold.test.js test/check.test.js
