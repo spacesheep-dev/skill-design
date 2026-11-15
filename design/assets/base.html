@@ -33,10 +33,16 @@
   html:not(:has(meta[name="ss-canvas"][content="on"])) .direction:not(.on) { display: none; }
   /* switcher: end */
 
-  /* controls: the pane where Spacesheep's workspace doesn't draw them itself */
+  /* controls: the pane where Spacesheep's workspace doesn't draw them itself. Pinned, so the canvas keeps it
+     at the screen's corner instead of laying it out over a direction; closed, it is a small button. */
   .tweaks { position: fixed; right: 12px; bottom: 12px; z-index: 20; width: min(300px, calc(100vw - 24px));
-    background: #fff; color: #111; border: 1px solid #ccc; border-radius: 12px; box-shadow: 0 2px 0 rgba(0,0,0,.08);
+    background: #fff; color: #111; border: 1px solid #ccc; border-radius: 8px; box-shadow: 0 2px 0 rgba(0,0,0,.08);
     font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .tweaks:not([open]) { width: auto; }
+  /* Open, it stays below the screen's middle and scrolls: a pinned block reaching above it counts as a header,
+     and the canvas would fit the directions into the space under it. */
+  .tweaks[open] { max-height: calc(50vh - 16px); max-height: calc(50svh - 16px); overflow-y: auto; }
+  .tweaks[open] summary { position: sticky; top: 0; background: #fff; }
   .tweaks:not(:has(input[data-var])) { display: none; }
   .tweaks summary { min-height: 44px; display: flex; align-items: center; padding: 0 14px; cursor: pointer; font-weight: 600; }
   .tweaks-body { padding: 0 14px 14px; display: grid; gap: 10px; }
@@ -262,7 +268,7 @@ function ssDraw(fn) { fn(); document.addEventListener('ss:live', () => fn()); }
        choice   <input type="range" data-var="--hero" min="0" max="2" step="1" data-kind="choice" data-options="Split|Centred|Photo">
      A choice has 2 to 4 options of at most 14 characters. A switch or choice also shows on each direction as
      data-dark="1", data-hero="2": style its variants with [data-ss-id="direction-<slug>"][data-hero="2"] … -->
-<details class="tweaks no-print" data-ss-react="off">
+<details data-ss-canvas="pin" class="tweaks no-print" data-ss-react="off">
   <summary>Tweaks</summary>
   <div class="tweaks-body">
     <button type="button" data-tweaks-copy>Copy for the chat</button>
