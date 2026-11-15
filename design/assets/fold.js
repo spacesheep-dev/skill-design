@@ -274,36 +274,43 @@ function push(flag, value) {
 }
 // A save, with everything the CLI says about it (its lines on stderr too: what landed, what merged).
 // A deploy still running at its time limit is stopped, and the space's history says what happened: a
-// version with this save's message, made since the save began, means it landed and only the answer was
-// late, so it counts as saved. A save that ends any other way without a word says how it ended.
+// version with this save's message, newer than the space's newest version before the deploy, means it
+// landed and only the answer was late, so it counts as saved. No clock: an earlier version with the same
+// message is never this save's. A save that ends any other way without a word says how it ended.
 const SAVE_MS = Number(process.env.FOLD_SAVE_MS) || 60000; // a test's shorter limit; 60 s otherwise
 function deploy(message) {
   if (!work()) return { ok: false, lines: ["work/ holds a link"] };
+  const before = history(1);
   const t = allowed(SAVE_MS);
   if (!t) return { ok: false, lines: [`not called: ${lost}`] };
-  const began = Date.now();
   const r = spawnSync(cli[0], [...cli.slice(1), "deploy", "work", "--space", space, "-m", message], { encoding: "utf8", timeout: t, killSignal: "SIGKILL" });
   const said = `${r.stdout || ""}\n${r.stderr || ""}`.split("\n").map((l) => l.trim()).filter(Boolean).filter((l) => !/^spacesheep /.test(l));
   if (r.error && r.error.code === "ETIMEDOUT") {
-    const s = `${Math.round(t / 1000)} s`, v = landed(message, began);
+    const s = `${Math.round(t / 1000)} s`, v = landed(message, before);
     if (v.version) return { ok: true, lines: [`Saved as version ${v.version}. The server answered late: fold.js stopped the CLI at ${s}, after the version was made.`] };
-    const again = "save again: if it landed after all, that save makes no second version";
-    return { ok: false, lines: [v.why ? `no answer from the server in ${s}, and the space's history can't be read (${v.why}); ${again}` : `no answer from the server in ${s}, and the space has no version "${message}" from this save; ${again}`] };
+    return { ok: false, lines: [`no answer from the server in ${s}, and ${v.why || `the space has no version "${message}" newer than its newest before this save`}; save again: if it landed after all, that save makes no second version`] };
   }
   if (r.status !== 0 && !said.filter((l) => !/^[↑=]/.test(l)).length) said.unshift(`the CLI ended (${r.error ? why(r.error) : r.signal || `exit ${r.status}`}) without saying why`);
   return { ok: r.status === 0, lines: said.slice(0, 8) };
 }
-// This save's version, if the space has one: its message, made at most 30 s before the save began (the
-// server's clock may be behind this one). Its number when the whole history came in one page, else its id.
-function landed(message, began) {
+// The space's history, newest first (at most n versions), or why it can't be read.
+function history(n) {
   const t = allowed(15000);
   if (!t) return { why: lost };
-  try {
-    const j = JSON.parse(run(["versions", "list", "--space-id", space, "--limit", "200", "--json"], { timeout: t }));
-    const all = j.versions || [], i = all.findIndex((v) => (v.label || "").trim() === message.trim() && Date.parse(v.created_at) >= began - 30000);
-    if (i < 0) return {};
-    return { version: j.page && j.page.next ? all[i].id : String(all.length - i) };
-  } catch (e) { return { why: why(e) }; }
+  try { const j = JSON.parse(run(["versions", "list", "--space-id", space, "--limit", String(n), "--json"], { timeout: t })); return { all: j.versions || [], more: !!(j.page && j.page.next) }; }
+  catch (e) { return { why: why(e) }; }
+}
+// This save's version, if the space has one: its message, above the version that was newest before the
+// deploy. Its number when the whole history came in one page, else its id.
+function landed(message, before) {
+  if (before.why) return { why: `the space's history couldn't be read before the save (${before.why})` };
+  const after = history(200);
+  if (after.why) return { why: `the space's history can't be read (${after.why})` };
+  const was = before.all[0], top = was ? after.all.findIndex((v) => v.id === was.id) : after.all.length;
+  if (top < 0) return { why: `the space's newest version before this save (${was.id}) isn't among its newest ${after.all.length}` };
+  const i = after.all.slice(0, top).findIndex((v) => (v.label || "").trim() === message.trim());
+  if (i < 0) return {};
+  return { version: after.more ? after.all[i].id : String(after.all.length - i) };
 }
 // The last line of a save that made no version. A refusal on purpose says "Nothing was published" (the
 // platform) or "Nothing was deployed" (the CLI): its words are kept up to there, and its advice is dropped.
