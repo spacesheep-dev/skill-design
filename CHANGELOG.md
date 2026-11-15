@@ -2,6 +2,15 @@
 
 Each release is a heading with its tag. The release workflow uses the words under it as the release's notes.
 
+## v1.2.12
+
+- A revision's save sends the page as the session edited it. `fold.js read`, and `start <link>`, put the last build's frame and parts aside in `draw/_old/<time>/` (moved, not deleted), so nothing is left to fold over the page just read. Only a part's own files move (its folder of parts, or an older page's `<slug>.html` and `<slug>.status`), so a part named `space` or `old` leaves fold.js's files where they are. In one recorded run ("Make the Programme poster start at 3pm") the save folded the first build back over the edit and published the old 2pm times as a version of its own.
+- A fold never goes over an edit made in `work/index.html`. `draw/work.sha` holds the page fold.js last put there. If the page was changed since and a fold would change it, `save` ends `save failed: work/index.html was changed after fold.js last wrote it…`, says where to make the change, and saves and pushes nothing; `stop` fails the same way. A folder from before this version keeps the old behaviour until its next read.
+- A save pushes the page again only if `work/index.html` changed during the upload. Before, every save pushed the same bytes again after its deploy, and the viewer showed LIVE after each save and after the run.
+- SKILL.md section 7: a revision's change and the "Keep these" values go in `work/index.html`. A change to a value a control sets changes the control: the option it opens on says the new value, the others still read as choices, and the brief's `control:` line changes with it.
+- Four new tests: read, edit and save carries the edit (a later `write` and `stop` too), with the frame and part in `draw/_old/`; a read with parts named after fold.js's own files (`space`, `card`, `stop`, `starter`, `old`, `_old`) moves only the parts' files and the folder still saves; a save over a hand edit fails with nothing deployed or pushed; a save of an unchanged page makes no page push after the deploy, and one changed during the upload pushes the newer page. The first three fail on v1.2.11.
+- The folder's hash is `6a9c3a6631b7`.
+
 ## v1.2.11
 
 - A save fold.js stops at 60 s no longer ends with a bare `save failed:`. Before each deploy, fold.js notes the space's newest version. If the deploy is still running at its time limit, it reads the history again. The save counts as saved only if a version with its message is newer than that one: "Saved as version N. The server answered late: fold.js stopped the CLI at 60 s, after the version was made." It then goes on as usual (status, page push, pictures). In one recorded run the version existed 3 s into the deploy, the answer took 79 s, and the session saved a second time.
