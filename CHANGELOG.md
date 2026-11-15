@@ -2,6 +2,17 @@
 
 Each release is a heading with its tag. The release workflow uses the words under it as the release's notes.
 
+## v1.2.1
+
+- The helpers start in the same message as the frame, so the first direction's top goes up sooner. Before, they started only after the frame was pushed and saved, 1:20 later in a measured run.
+- Measured on the bench, with the same ask and the same answers to its questions: the first direction's top went up 2:25 after the answer (3:20 on v1.2.0), and the final save came at 4:58 (6:26). Of the 2:25, 0:38 is the bench's own wake and re-read, which a person's chat doesn't have.
+- A helper's prompt is a few lines: the direction, the facts and the answers. Its standing rules moved to `references/helper.md`, which it reads.
+- A save puts the status back straight after the version, then pushes the page again. Before, the page went first, so the work card could say "Done" for a few seconds mid-run.
+- A push no tab confirms in time no longer stops the build. A tab behind another one can't confirm within the platform's wait, and a tab in front sometimes misses it too: six in a row in one measured run. The writer counted those as refused, so five in a row stopped it, and a save ended "incomplete". Now they count as sent. Any other refusal still counts.
+- A part a direction's script hides stays hidden, even when the direction gives it a display of its own, such as a grid row. Before, a filter could hide rows that stayed on screen.
+- v1.2.0's known gap is fixed on Spacesheep's side, with no change to the skill: a live push on the canvas keeps each direction in place, so drawn parts and controls stay. Staging has it now; production gets it with its next release.
+- The folder's hash is `dc16699e5817`.
+
 ## v1.2.0
 
 - The page fills in as the design is built: the frame and each direction's top go up first, helpers draw the directions at once, and one writer folds their parts into the space (`assets/fold.js`).
