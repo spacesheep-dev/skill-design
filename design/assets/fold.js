@@ -7,8 +7,9 @@
 // through a link, and says each thing it does: here, in draw/fold.log (the writer) and in
 // draw/save.log (a save).
 //
-//   node fold.js -C <folder> start <link>        a status on the space, its source read into work/ (the
-//                                               starter instead, if its page is blank), its id kept
+//   node fold.js -C <folder> start <link> ["<status>"]   a status on the space ("Reading your brief" unless
+//                                               given), its source read into work/ (the starter instead,
+//                                               if its page is blank), its id kept
 //   node fold.js -C <folder> start --new "<title>"   a new space whose first version is a short page saying
 //                                               it is being drawn, then the starter in work/ (below)
 //   node fold.js -C <folder> push                push work/index.html to the space once
@@ -29,7 +30,9 @@
 //   node fold.js -C <folder> stop "<message>"    ask the writer to stop and wait for its own word that it
 //                                               has (else fail), fold the last edits, push them and save;
 //                                               `stop` alone saves nothing and takes the work card down
-//   node fold.js -C <folder> read                read the space's current source into work/ again
+//   node fold.js -C <folder> read ["<status>"]   a status on the space ("Reading the page" unless given),
+//                                               then its current source read into work/ again: a
+//                                               revision's first status, before anything changes
 //   node fold.js -C <folder> focus <all|slug>    what the canvas shows: every direction, or the one named
 //                                               (its <meta name="ss-canvas-focus">), then push the page
 //
@@ -427,12 +430,12 @@ if (cmd === "start") {
     console.log(`made a new space; the starter is in work/index.html: ${(j.space || {}).url || space}\nspace: ${space}\n${NEXT}`);
     process.exit(0);
   }
-  const link = plain("link", argv[1]);
+  const link = plain("link", argv[1]), first = (plain("status", argv[2]) || "Reading your brief").slice(0, 200);
   if (!link) { console.error("start: give the space's link, or --new \"<title>\""); process.exit(2); }
   space = ((run(["spaces", "get", link]).match(/^ *id: (.*)$/m) || [])[1] || "").trim();
   if (!UUID.test(space)) { console.error(`start: no id in the answer to spaces get ${link}`); process.exit(1); }
   keep(space);
-  try { run(["live", "push", "--space", space, "--status", "Reading your brief"]); card("up"); console.log("status: Reading your brief"); }
+  try { run(["live", "push", "--space", space, "--status", first]); card("up"); console.log(`status: ${first}`); }
   catch (e) { console.error(`status refused: ${why(e)}`); }
   if (!work()) process.exit(2);
   process.stdout.write(run(["read", space, "-o", "work"]));
@@ -443,7 +446,11 @@ if (cmd === "start") {
   console.log(`space: ${space}`);
   process.exit(0);
 }
+// A revision's first word to the person: the status goes up before the read, so the page says something
+// changes before anything does (a refused push is said and the read goes on).
 if (cmd === "read") {
+  const words = (plain("status", argv[1]) || "Reading the page").slice(0, 200);
+  console.log(push("--status", words) ? `status: ${words}` : "status not pushed (draw/fold.log); reading all the same");
   if (!work()) process.exit(2);
   process.stdout.write(run(["read", space, "-o", "work"]));
   process.exit(0);
