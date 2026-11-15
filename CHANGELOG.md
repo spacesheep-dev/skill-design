@@ -2,6 +2,14 @@
 
 Each release is a heading with its tag. The release workflow uses the words under it as the release's notes.
 
+## v1.2.5
+
+- The starter's scripts run again after a live push in a tab that was already open. A push that changes a script swaps the page in the same window, so its scripts run a second time, and a name a script declared at its top with `const`, `let` or `class` was declared twice: the browser skipped that whole script. The switcher shared a script with two such names, so a tab open from the first version never drew the direction tabs. They are functions now.
+- `check.js` flags a direction's script that declares a name at its top with `const`, `let` or `class`, names it, and says to put the code inside `(() => { … })();`. It runs each script twice in an empty context behind a first line that throws, so the names are declared and none of the code runs. Helpers are told the same.
+- A new test pins the check: `const`, `let` and `class` flagged; names inside a function, an arrow or a block passed, and so are top-level functions and `var`; the starter passes; v1.2.4's lines fail.
+- Checked in headless Chrome 157 by swapping pages into one window as a live push does (`document.open`, `write`, `close`): the short first version, the starter, the starter with three directions drawn as parts and two controls, then a push that changes a script and a tab's name. With v1.2.4 the tabs bar was empty after the second swap and the third, and the browser reported `ssControls` already declared. With this version it showed the new names after both, the controls ran, and no error was reported.
+- The folder's hash is `b680dfb405e5`.
+
 ## v1.2.4
 
 - `fold.js stop` with no message takes the work card down. Before, it exited before calling the CLI, so a run that finished with nothing to fix left open tabs saying "spacesheep is working on this page" for minutes. It now waits for the save and the writer to settle, then sends an empty status. A refused clear fails the step, and a second `stop` sends nothing.
