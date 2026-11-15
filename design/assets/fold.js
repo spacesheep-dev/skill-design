@@ -500,8 +500,11 @@ if (cmd === "save") {
     if (argv[3] !== "pictures") return end("save done");
     // Each whole direction at 1440 and at 390 px wide, from the page with ?ss-check: the starter's script then
     // measures the direction as it is drawn, and each layout fault comes back named in the picture's answer.
-    const slugs = [...new Set([...(read("work/index.html") || "").matchAll(/data-ss-id="direction-([a-z0-9-]+)"/g)].map((m) => m[1]))];
+    const saved = read("work/index.html") || "";
+    const slugs = [...new Set([...saved.matchAll(/data-ss-id="direction-([a-z0-9-]+)"/g)].map((m) => m[1]))];
     const faults = new Map(), notes = new Set();
+    // A page without the starter's script (written whole, or a person's own page) has nothing to measure it.
+    if (slugs.length && !saved.includes("ss-fault/")) notes.add("layout not measured: the page doesn't carry the starter's check script, so no fault can be reported; look at each picture closely");
     const KIND = { narrow: "words run under 4 characters a line", wide: "runs past the direction's edge", cut: "words cut off by the box around them",
       redraw: "a live push puts it back as the source has it, and nothing draws it again: build it in the function the script runs with ssDraw" };
     const shot = async (d, w) => {
