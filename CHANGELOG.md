@@ -2,6 +2,15 @@
 
 Each release is a heading with its tag. The release workflow uses the words under it as the release's notes.
 
+## v1.2.7
+
+- `fold.js start <link>` lays down the starter on Spacesheep's own new page (sheep.new, or a space made with no page). That page is `<html data-ss-id="root">` with an empty `<body data-ss-id="body">`, and start used to count any `data-ss-id` as a design, so it skipped the starter there and the agent had to add it by hand. Blank now means the page's source is one of the few known to be empty, whatever its title: an empty file, Spacesheep's new page as it is stored, or `start --new`'s first version. Every other page is a design and is kept, so start never lays the starter over a page with anything on it. If the platform changes its new page, start reads it as a design and the starter is laid by hand, as before; a test that compares fold.js's copy with the platform's (`SPACESHEEP_SRC=<the spacesheep repo>`) catches that.
+- A page with content but no `data-ss-id`, such as one written by hand, used to read as blank, and start put the starter over it. It is kept now.
+- The starter's Tweaks button sits at the right end of the direction tabs' row. Spacesheep's comment button holds the page's bottom-right corner and covered it there in a tab that had watched a blank page being built. Open, its pane drops down from the button, over the directions without moving them. A one-design page keeps the nav while it holds Tweaks or the answers line.
+- Two start tests: the four known empty pages get the starter, and fifteen other pages are kept. The fifteen include a head script, CSS `content` and `url()`, a `background` attribute, an outside stylesheet, any `.ss-*` element and words after `</body>`.
+- Checked on staging and in the local viewer. One real poster run (`claude-opus-5-5`) went into a copy of sheep.new's page: start laid the starter, no starter was laid by hand, and each direction showed by name from 2:03, with the run ending at 4:30. Stills on that path (blank page open, then the design pushed in) at 1440 and 390: on v1.2.6 the comment button covers "Tweaks"; now the button sits in the tabs row clear of every control, and the open pane doesn't move the directions.
+- The folder's hash is `d125fc644407`.
+
 ## v1.2.6
 
 - fold.js names the starter's placeholders after their sections: `push`, `save` and `write` rename `part:first`, `part:second` and `part:third` (and the placeholder's id and heading) with the slug and name of the section holding them. Step 2's Edits now stop at the directions' tokens and each section's opening tag, so they never reach a placeholder, and the directions are drawn as parts, each with its own status.
