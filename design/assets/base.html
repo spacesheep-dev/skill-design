@@ -276,6 +276,9 @@ function ssDraw(fn) { fn(); document.addEventListener('ss:live', () => fn()); }
 </details>
 
 <script>
+/* Nothing in a script here is declared at its top with const, let or class, only functions and what's inside
+   blocks: a live push that changes a script runs the page's scripts again in the same tab, where a name
+   declared at a script's top a second time stops that whole script before its first line, the switcher too. */
 /* switcher: start */
 (() => {
   const tabsNow = () => document.querySelector('.switcher-tabs');
@@ -336,8 +339,8 @@ function ssDraw(fn) { fn(); document.addEventListener('ss:live', () => fn()); }
    on show and stay in this tab. Each switch and choice also shows on every direction as an attribute named
    for its token, --hero: 2 as data-hero="2", so its variants are plain CSS. That runs on load and whenever a
    direction's style changes: a Tweaks change, a saved value after a reload, a live push. */
-const ssControls = () => [...document.querySelectorAll('.tweaks input[data-var]')].slice(0, 6);
-const ssStep = (i) => i.dataset.kind === 'switch' || i.dataset.kind === 'choice';
+function ssControls() { return [...document.querySelectorAll('.tweaks input[data-var]')].slice(0, 6); }
+function ssStep(i) { return i.dataset.kind === 'switch' || i.dataset.kind === 'choice'; }
 function ssMirror() {
   const steps = ssControls().filter(ssStep);
   if (!steps.length) return;
