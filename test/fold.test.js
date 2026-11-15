@@ -72,3 +72,21 @@ test("a refused save ends 'save refused' with the reason and the instruction to 
   assert.doesNotMatch(last, /drop_files|unchanged|↑/);
 });
 
+test("the writer sends a part's status before the page", () => {
+  const { folder, fold, calls } = setup();
+  assert.equal(fold(["start", "--new", "Notice"]).status, 0);
+  fs.writeFileSync(path.join(folder, "work", "index.html"),
+    '<!DOCTYPE html><title>Notice</title><section class="direction" data-ss-id="direction-lift"><!-- part:lift --><p>Drawing</p><!-- /part:lift --></section>');
+  fs.mkdirSync(path.join(folder, "draw", "lift"));
+  fs.writeFileSync(path.join(folder, "draw", "lift", "01.html"), '<!-- status: Lift: the dates -->\n<p data-ss-id="lift-dates">The lift is out of service from 18 to 20 November.</p>\n');
+  spawnSync("sleep", ["0.5"]); // older than the 300 ms a part waits, so the first pass folds it
+  assert.equal(fold(["write"]).status, 0);
+  const s = fold(["stop"]);
+  assert.equal(s.status, 0, s.stdout + s.stderr);
+  const log = calls();
+  const status = log.findIndex((a) => a[0] === "live" && a.includes("Lift: the dates"));
+  const page = log.findIndex((a, i) => i > log.findIndex((b) => b[0] === "live" && b.includes("Reading your brief")) && a[0] === "call" && a[1] === "push_live");
+  assert.ok(status >= 0, "the part's status was pushed");
+  assert.ok(page >= 0, "the page was pushed");
+  assert.ok(status < page, `status was call ${status}, page call ${page}`);
+});

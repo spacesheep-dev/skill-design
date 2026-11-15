@@ -628,11 +628,12 @@ for (;;) {
   const page = fold();
   if (page && page.html !== input) { input = page.html; changed = Date.now(); }
   const may = () => !stopped() && refusals < 5;
+  // The status first: after a save the person's work card waits 3 s for one, and a page push can take longer.
+  if (page && page.status && page.status !== said && may() && tried(push("--status", page.status))) said = page.status;
   if (page && page.html !== shown && may()) {
     swap("work/index.html", page.html);
     if (tried(push("--html", page.html))) shown = page.html;
   }
-  if (page && page.status && page.status !== said && may() && tried(push("--status", page.status))) said = page.status;
   sleep(1000);
 }
 log(`the writer stopped: ${how}`);
