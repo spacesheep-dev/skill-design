@@ -203,10 +203,28 @@ function checkUnit(slug, u) {
     for (const c of v.matchAll(/#[0-9a-f]{3,8}\b|rgba?\([^)]*\)|hsla?\([^)]*\)/g)) if (!NEUTRAL.test(c[0])) colours.push({ c: c[0], w });
   }
   if (colours.length) fail(slug, colours[0].w, `colour ${colours[0].c} isn't a token${colours.length > 1 ? ` (${colours.length - 1} more: ${[...new Set(colours.slice(1).map((x) => x.c))].slice(0, 4).join(", ")})` : ""}: use the direction's variables`);
-  // Scripts: each one must at least parse.
+  // Scripts: each one must parse, and run a second time in the same tab, as it does after a live push.
   for (const b of blocks.filter((b) => b.kind === "script")) {
-    try { new vm.Script(b.body); } catch (e) { fail(slug, where(b.bodyAt), `the script doesn't parse: ${e.message}`); }
+    try { new vm.Script(b.body); } catch (e) { fail(slug, where(b.bodyAt), `the script doesn't parse: ${e.message}`); continue; }
+    const name = declaredTwice(b.body);
+    if (name) fail(slug, where(b.bodyAt), `the script declares ${name} at its top (const, let or class): a live push runs the page's scripts again in the same tab, where that stops the whole script; put its code inside (() => { … })();`);
   }
+}
+
+// The name a script declares at its top with const, let or class, which a second run in the same window
+// declares again and so stops the whole script there ("" for none). The script runs twice in one empty
+// context, each time behind a first line that throws: its names are declared, and none of its code runs.
+function declaredTwice(src) {
+  const tab = vm.createContext({});
+  for (let n = 0; n < 2; n++) {
+    try { vm.runInContext(`throw 0;\n${src}`, tab); }
+    catch (e) {
+      if (e === 0) continue;
+      const m = /Identifier '([^']+)' has already been declared/.exec(String(e && e.message));
+      return m ? `"${m[1]}"` : "";
+    }
+  }
+  return "";
 }
 
 // The brief's facts: `fact: …` shows in every direction, `not: …` in none.

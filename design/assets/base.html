@@ -104,6 +104,9 @@ function ssDraw(fn) { fn(); document.addEventListener('ss:live', () => fn()); }
 </section>
 
 <script>
+/* Nothing in a script here is declared at its top with const, let or class, only functions and what's inside
+   blocks: a live push that changes a script runs the page's scripts again in the same tab, where a name
+   declared at a script's top a second time stops that whole script before its first line, the switcher too. */
 /* switcher: start */
 (() => {
   const tabsNow = () => document.querySelector('.switcher-tabs');
