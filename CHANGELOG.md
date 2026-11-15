@@ -2,6 +2,15 @@
 
 Each release is a heading with its tag. The release workflow uses the words under it as the release's notes.
 
+## v1.2.6
+
+- fold.js names the starter's placeholders after their sections: `push`, `save` and `write` rename `part:first`, `part:second` and `part:third` (and the placeholder's id and heading) with the slug and name of the section holding them. Step 2's Edits now stop at the directions' tokens and each section's opening tag, so they never reach a placeholder, and the directions are drawn as parts, each with its own status.
+- `start` says the next step when the starter is in `work/`: leave the placeholders, push, the Frame save, `write`, then each direction as `draw/<slug>/01.html`.
+- A new build saved with no part marker left was drawn straight into `work/index.html`. Its status names the directions ("Sunny Bunting, Stacked Type and Long Table are up. Checking details"), and `draw/save.log` says no part's status reached the person. A revision of a space that already held a design keeps the save's own status.
+- Three new tests: the next step and the renaming (nothing else in the page changes), the one-go status and its log line, and the parts and revision cases keeping the save's own status.
+- Checked in one real poster run on staging, with a tab open from the start: the agent left the placeholders, saved the Frame ("Drawing three directions"), started the writer and wrote one part per direction. The tab showed five statuses: reading the brief, drawing three directions, the three directions by name, "All three are up. Checking details", then the work card gone. All three posters showed 68 s after the start, and the run ended at 88 s. A run on v1.2.5 that drew in one go showed two statuses.
+- The folder's hash is `b3c15489be34`.
+
 ## v1.2.5
 
 - The starter's scripts run again after a live push in a tab that was already open. A push that changes a script swaps the page in the same window, so its scripts run a second time, and a name a script declared at its top with `const`, `let` or `class` was declared twice: the browser skipped that whole script. The switcher shared a script with two such names, so a tab open from the first version never drew the direction tabs. They are functions now.
