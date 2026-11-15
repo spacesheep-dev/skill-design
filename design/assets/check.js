@@ -273,6 +273,31 @@ for (const d of dirs) {
 }
 if (!only && page.length > 200000) fail("page", "work/index.html", `the page is ${Math.round(page.length / 1000)} KB: over 200 KB is slow on a phone`);
 
+// The Decisions log is the record, read from the source and never shown. The canvas draws any block outside a
+// direction as a frame of its own, at the top left of the first frame when it has no place, so the log is
+// pinned off the canvas (data-ss-canvas="pin") and kept out of sight (style="display:none"). The tag is read as
+// the browser reads it: spaces around "=", any quotes, a ">" inside a quoted value, and the display that wins
+// (an !important one, else the last).
+const shownDisplay = (style) => {
+  let won = "", important = false;
+  for (const d of style.replace(/\/\*[\s\S]*?\*\//g, " ").split(";")) {
+    const k = d.indexOf(":");
+    if (k < 0 || d.slice(0, k).trim().toLowerCase() !== "display") continue;
+    const v = d.slice(k + 1).trim().toLowerCase(), imp = /!\s*important$/.test(v);
+    if (imp || !important) { won = v.replace(/\s*!\s*important$/, ""); important = imp; }
+  }
+  return won;
+};
+if (!only) {
+  const bare = page.replace(/<!--[\s\S]*?-->/g, (c) => c.replace(/[^\n]/g, " "));
+  for (const m of bare.matchAll(/<[a-z][a-z0-9-]*((?:[^>"']|"[^"]*"|'[^']*')*)>/gi)) {
+    const a = attrs(m[1]);
+    if ((a["data-ss-id"] || "").trim().toLowerCase() !== "decisions") continue;
+    if (a["data-ss-canvas"] !== "pin" || shownDisplay(a.style || "") !== "none")
+      fail("page", `work/index.html:${lineAt(page, m.index)}`, 'the Decisions log would show in the design: open it as <details class="no-print" data-ss-id="decisions" data-ss-canvas="pin" style="display:none">');
+  }
+}
+
 if (!fails.length) {
   console.log(`all pass: ${dirs.length} direction${dirs.length === 1 ? "" : "s"}, ${facts.length} facts, ${nots.length} not-lines, ${seen.size} anchors`);
   process.exit(0);

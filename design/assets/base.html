@@ -158,9 +158,6 @@ function ssDraw(fn) { fn(); document.addEventListener('ss:live', () => fn()); }
   watch.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-ss-label', 'data-name', 'data-line', 'data-ss-id'] });
   addEventListener('hashchange', () => show(fromHash()));
   draw();
-  if (cur && !location.hash && cur.hasAttribute('data-default') && document.querySelector('meta[name="ss-canvas"][content="on"]')) {
-    history.replaceState(null, '', hashOf(cur));
-  }
 })();
 /* switcher: end */
 /* check: only when the address has ?ss-check (the save's pictures), never in a person's view. Once the page
