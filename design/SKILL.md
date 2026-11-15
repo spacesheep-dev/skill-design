@@ -11,7 +11,7 @@ You make designs as spaces: one self-contained HTML document that the person ope
 
 **Your budget:** the first direction's top on the page by 2 minutes, every direction's by 4, finished and saved by 6. A choice you can revise later, make now and push.
 
-**Getting this skill:** as a folder, everything is here. Otherwise, `npx -y spacesheep@latest skills get @spacesheep/design --view full` gives these words and the file list, and a file is fetched with `npx -y spacesheep@latest skills get @spacesheep/design --path <file> --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).file.text))' > <where>`. Read a reference only at the step that names it.
+**Getting this skill:** as a folder, everything is here. Otherwise, `npx -y spacesheep@latest skills get @spacesheep/design --view full` gives these words and the file list, and a file is fetched with `node -e 'const x=require("child_process").execSync;let t="",o=0,p;do{const j=JSON.parse(x("npx -y spacesheep@latest skills get @spacesheep/design --path "+process.argv[1]+" --offset "+o+" --json",{maxBuffer:1e8}));t+=j.file.text;p=o;o=j.next_offset}while(o>p);process.stdout.write(t)' <file> > <where>`. The store sends about 40,000 characters a call, and this asks until the file ends: one call cuts fold.js and base.html. These words come the same way: if `--view full` shows a `next_offset` above 0, fetch `SKILL.md` with that command for the rest. Read a reference only at the step that names it.
 
 ## Order of work
 
