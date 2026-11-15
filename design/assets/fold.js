@@ -33,7 +33,7 @@
 //   node fold.js -C <folder> read ["<status>"]   a status on the space ("Reading your design" unless given),
 //                                               then its current source read into work/ again: a
 //                                               revision's first status, before anything changes; the
-//                                               last build's frame and parts go to draw/old/, so a save
+//                                               last build's frame and parts go to draw/_old/, so a save
 //                                               sends work/ as edited
 //   node fold.js -C <folder> focus <all|slug>    what the canvas shows: every direction, or the one named
 //                                               (its <meta name="ss-canvas-focus">), then push the page
@@ -428,17 +428,21 @@ function foldOnce(what) {
   return { line: push("--html", page.html) ? `${what}: folded and pushed the last edits` : `${what}: folded the last edits; the push was refused (draw/fold.log)` };
 }
 // A revision starts from the page as the space has it. The last build's frame and parts are put aside, in
-// draw/old/<time>/ (moved, not deleted), so no fold puts them back over the page just read, and a later
-// write takes its frame from that page.
+// draw/_old/<time>/ (moved, not deleted), so no fold puts them back over the page just read, and a later
+// write takes its frame from that page. Only what fold() reads is moved: the frame, and for each part marker
+// its folder of parts (draw/<slug>/) or an older page's draw/<slug>.html and draw/<slug>.status. fold.js's own
+// files (draw/space, draw/card, draw/stop, the logs…) are never a folder, a .html or a .status, and "_old"
+// can't be a slug, so a part named "space" or "old" moves only its parts.
 function retire() {
   const frame = read("draw/frame.html");
   if (frame === null) return "";
   const slugs = new Set([...`${frame}${read("work/index.html") || ""}`.matchAll(/<!-- part:([a-z0-9-]+) -->/g)].map((m) => m[1]));
-  const to = `draw/old/${new Date().toISOString().replace(/[:.]/g, "-")}`;
+  const is = (f, folder) => { if (!within(f)) return false; try { const st = fs.lstatSync(f); return folder ? st.isDirectory() : st.isFile(); } catch { return false; } };
+  const to = `draw/_old/${new Date().toISOString().replace(/[:.]/g, "-")}`;
   mkdir(to);
   const moved = [];
-  for (const f of ["draw/frame.html", ...[...slugs].flatMap((d) => [`draw/${d}`, `draw/${d}.html`, `draw/${d}.status`])]) {
-    if (!here(f) || isLink(f)) continue;
+  for (const [f, folder] of [["draw/frame.html", false], ...[...slugs].flatMap((d) => [[`draw/${d}`, true], [`draw/${d}.html`, false], [`draw/${d}.status`, false]])]) {
+    if (!is(f, folder)) continue;
     fs.renameSync(f, `${to}/${path.basename(f)}`);
     moved.push(f.slice(5));
   }
