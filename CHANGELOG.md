@@ -2,6 +2,14 @@
 
 Each release is a heading with its tag. The release workflow uses the words under it as the release's notes.
 
+## v1.2.3
+
+- On Spacesheep's canvas, the starter's Tweaks pane stays pinned to the screen's bottom corner, like the direction tabs, instead of being laid out over the first direction. Before, it covered the first direction's heading in the page, its screenshot, a shared link and its gallery card.
+- The pane starts closed, as a small Tweaks button. Its corners are 8 px.
+- Open, the pane is at most half the screen's height and its controls scroll under a fixed Tweaks heading. Without the cap, six controls on a 390 px phone reached above the screen's middle, and the canvas took the pane for a header and squeezed the directions under it.
+- Checked with staging's screenshots at 1440 and 390: closed, and open with two and with six controls.
+- The folder's hash is `1ec86f364132`.
+
 ## v1.2.2
 
 - A new space's first version is a short page saying the design is being drawn, not the 38 KB starter, which stays in the folder. Before, a small design such as a notice was refused for cutting the page to a fraction of the starter, and the agent then published another way, skipping the pictures and the layout check.
