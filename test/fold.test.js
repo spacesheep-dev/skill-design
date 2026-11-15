@@ -29,6 +29,8 @@ if (a[0] === "deploy" && process.env.FAKE_REFUSE) {
   process.exit(1);
 }
 if (a[0] === "deploy") { console.log("✓ Updated https://stage.test/s"); process.exit(0); }
+if (a[0] === "spaces" && a[1] === "get") { console.log("title: Untitled\\n  id: ${SPACE}"); process.exit(0); }
+if (a[0] === "read") { fs.mkdirSync("work", { recursive: true }); fs.writeFileSync("work/index.html", fs.readFileSync(process.env.FAKE_PAGE)); console.log("↓ index.html"); process.exit(0); }
 process.exit(0);
 `;
 
@@ -168,4 +170,88 @@ test("a page drawn as parts, or a revision of a space that held a design, keeps 
     assert.doesNotMatch(w.stdout, /no part's status/);
     assert.ok(calls().some((a) => a[0] === "live" && a.at(-1) === "Checking details"), `revision ${revision}: the save's own status`);
   }
+});
+
+// The page sheep.new (and a space made empty) starts as: spacesheep's starterHtml("Untitled"), as it is.
+const PLATFORM_BLANK = `<!doctype html>
+<html lang="en" data-ss-id="root">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Untitled</title>
+<style>
+  html{background:#fff}
+  body{margin:0;min-height:100vh;box-sizing:border-box;padding:48px clamp(20px,7vw,96px) 40vh;background:#fff;color:#1a1a1f;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:18px;line-height:1.6}
+  body:not(:has(> :not(script,style,link,template,[class^="ss-"]))){background-image:radial-gradient(circle,#dcdfe5 1px,transparent 1.3px);background-size:22px 22px}
+  h1{font-size:2rem;line-height:1.2;margin:0 0 .5em}
+  h2{font-size:1.4rem;margin:1.2em 0 .4em}
+  p,li{max-width:40em;margin:0 0 .7em}
+</style>
+</head>
+<body data-ss-id="body"></body>
+</html>`;
+
+// start <link> on a page in the space: what it leaves in work/, and whether it laid the starter.
+function startOn(page) {
+  const { root, folder, fold } = setup();
+  fs.writeFileSync(path.join(root, "page.html"), page);
+  const r = fold(["start", "https://stage.test/s"], { FAKE_PAGE: path.join(root, "page.html") });
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  return { r, work: fs.readFileSync(path.join(folder, "work", "index.html"), "utf8"), starter: fs.existsSync(path.join(folder, "draw", "starter")) };
+}
+
+test("start on a known empty page lays down the starter: an empty file, sheep.new's page whatever its title, and start --new's first version", () => {
+  const { root, fold } = setup();
+  assert.equal(fold(["start", "--new", "Lift <notice>"]).status, 0);
+  const pages = {
+    "an empty file": "",
+    "sheep.new": PLATFORM_BLANK,
+    "sheep.new, another title": PLATFORM_BLANK.replace("<title>Untitled</title>", "<title>Summer party &amp; street fair</title>"),
+    "start --new": fs.readFileSync(path.join(root, "first.html"), "utf8"),
+  };
+  for (const [name, page] of Object.entries(pages)) {
+    const { r, work, starter } = startOn(page);
+    assert.equal(work, BASE, `${name}: the starter is in work/`);
+    assert.ok(starter, `${name}: draw/starter is written`);
+    assert.match(r.stdout, /held no design: the starter is in its place\nnext: /, name);
+  }
+});
+
+test("start keeps every other page, however empty it looks: a design, words, a picture, a script, CSS that draws, any mark added to sheep.new's page", () => {
+  const body = (inner, attrs = "") => PLATFORM_BLANK.replace('<body data-ss-id="body"></body>', `<body data-ss-id="body"${attrs}>${inner}</body>`);
+  const pages = {
+    design: '<!DOCTYPE html><title>Poster</title><section class="direction" data-ss-section data-ss-id="direction-bunting"><h1 data-ss-id="bunting-title">Summer Street Party</h1></section>',
+    "no data-ss-id": "<!DOCTYPE html><title>Notice</title><p>The lift is out of service.</p>",
+    "words on sheep.new's page": body("<p>Poster for the street party, 18 July</p>"),
+    "an image": body('<img src="photo.jpg" alt="">'),
+    "drawn by a script": body('<script>document.body.append("Open daily")</script>'),
+    "a script in the head": PLATFORM_BLANK.replace("</head>", '<script>addEventListener("load", () => document.body.append("Open daily"))</script>\n</head>'),
+    "words from CSS": PLATFORM_BLANK.replace("</style>", '  body::before { content: "Open daily" }\n</style>'),
+    "a picture from CSS": body("", ' style="background: url(photo.jpg) center / cover"'),
+    "a picture from CSS, unquoted": body("", " style=background:url(poster.png)"),
+    "a picture from an attribute": body("", ' background="poster.png"'),
+    "an outside stylesheet": PLATFORM_BLANK.replace("</head>", '<link rel="stylesheet" href="https://example.com/poster.css">\n</head>'),
+    "words in a .ss- mark": body('<p class="ss-note">Keep me</p>'),
+    "an empty .ss- mark that draws": body('<div class="ss-poster" style="width:200px;height:200px;background:red"></div>'),
+    "the platform's own marks": body('\n<style data-ss-id="ss-style">p{color:red}</style>\n<div class="ss-mark"></div>\n'),
+    "words after </body>": PLATFORM_BLANK.replace("</html>", "<p>Open daily</p>\n</html>"),
+  };
+  for (const [name, page] of Object.entries(pages)) {
+    const { r, work, starter } = startOn(page);
+    assert.equal(work, page, `${name}: work/ holds the page as it was`);
+    assert.ok(!starter, `${name}: no draw/starter`);
+    assert.doesNotMatch(r.stdout, /starter/, name);
+  }
+});
+
+// fold.js keeps a copy of Spacesheep's new page. Run with SPACESHEEP_SRC=<the spacesheep repo> to check the copy
+// against the platform's starterHtml: if they drift, start reads a new page as a design, the agent lays the
+// starter by hand, and this test says so.
+test("fold.js's copy of Spacesheep's new page matches starterHtml", { skip: !process.env.SPACESHEEP_SRC && "set SPACESHEEP_SRC to the spacesheep repo" }, () => {
+  const src = fs.readFileSync(path.join(process.env.SPACESHEEP_SRC, "packages", "app", "src", "index.ts"), "utf8");
+  const theirs = /function starterHtml\(title: string\): string \{\n  return `([\s\S]*?)`;\n\}/.exec(src);
+  assert.ok(theirs, "starterHtml not found in packages/app/src/index.ts");
+  const ours = /const platformBlank = \(title\) => `([\s\S]*?)`;/.exec(fs.readFileSync(FOLD, "utf8"));
+  assert.equal(ours[1], theirs[1].replace("${escapeHtml(title)}", "${title}"));
+  assert.equal(PLATFORM_BLANK, theirs[1].replace("${escapeHtml(title)}", "Untitled"));
 });
