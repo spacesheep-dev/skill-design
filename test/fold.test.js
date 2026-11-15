@@ -403,11 +403,11 @@ test("a revision's save sends the page as read and edited: the last build's fram
   fs.writeFileSync(path.join(root, "page.html"), saved);
   const r = fold(["read", "Making the Programme start at 3pm"], { FAKE_PAGE: path.join(root, "page.html") });
   assert.equal(r.status, 0, r.stdout + r.stderr);
-  assert.match(r.stdout, /the last build's frame and parts are put aside in draw\/old\/[^:]+: edit work\/index\.html/);
+  assert.match(r.stdout, /the last build's frame and parts are put aside in draw\/_old\/[^:]+: edit work\/index\.html/);
   assert.ok(!fs.existsSync(path.join(folder, "draw", "frame.html")) && !fs.existsSync(path.join(folder, "draw", "programme")), "nothing left to fold");
-  const [old] = fs.readdirSync(path.join(folder, "draw", "old"));
-  assert.ok(fs.existsSync(path.join(folder, "draw", "old", old, "frame.html")), "the frame is kept aside");
-  assert.match(fs.readFileSync(path.join(folder, "draw", "old", old, "programme", "01.html"), "utf8"), /Music from 2pm/, "and the part");
+  const [old] = fs.readdirSync(path.join(folder, "draw", "_old"));
+  assert.ok(fs.existsSync(path.join(folder, "draw", "_old", old, "frame.html")), "the frame is kept aside");
+  assert.match(fs.readFileSync(path.join(folder, "draw", "_old", old, "programme", "01.html"), "utf8"), /Music from 2pm/, "and the part");
   // The session's edit, in work/index.html, as section 7 says.
   const page = path.join(folder, "work", "index.html");
   fs.writeFileSync(page, fs.readFileSync(page, "utf8").replace("Music from 2pm, food from 3pm, dancing from 5pm", "Music from 3pm, food from 4pm, dancing from 6pm"));
@@ -425,6 +425,43 @@ test("a revision's save sends the page as read and edited: the last build's fram
   assert.equal(s.status, 0, s.stdout + s.stderr);
   assert.ok(calls().slice(n).some((a) => a[0] === "deploy"), "stop saved");
   assert.match(fs.readFileSync(path.join(root, "deployed.html"), "utf8"), /Music from 3pm/);
+});
+
+test("a revision's read moves only a part's own files: a part named after fold.js's files (space, card, stop, starter, old, _old) leaves those files where they are", () => {
+  const t = setup();
+  const { root, folder, fold, calls } = t;
+  assert.equal(fold(["start", "--new", "Poster"]).status, 0);
+  const names = ["space", "card", "stop", "starter", "old", "programme"];
+  const parts = names.map((n) => `<!-- part:${n} --><p>Drawing</p><!-- /part:${n} -->`).join("") + "<!-- part:_old --><!-- /part:_old -->";
+  fs.writeFileSync(path.join(folder, "work", "index.html"), `<!DOCTYPE html><title>Poster</title><section class="direction" data-ss-id="direction-programme" data-ss-label="Programme">${parts}</section>`);
+  fs.writeFileSync(path.join(folder, "draw", "frame.html"), fs.readFileSync(path.join(folder, "work", "index.html")));
+  // The parts a writer would read: a folder for "old" and "programme", an older page's files for "programme".
+  for (const d of ["old", "programme"]) { fs.mkdirSync(path.join(folder, "draw", d)); fs.writeFileSync(path.join(folder, "draw", d, "01.html"), `<p>${d}: the times</p>\n`); }
+  fs.writeFileSync(path.join(folder, "draw", "programme.html"), "<p>older page</p><!-- end programme -->");
+  fs.writeFileSync(path.join(folder, "draw", "programme.status"), "Programme: the times\n");
+  fs.writeFileSync(path.join(folder, "draw", "space.html"), "<p>a part's older page</p>"); // a file of the part "space", moved
+  const own = ["space", "starter"].map((f) => [f, fs.readFileSync(path.join(folder, "draw", f), "utf8")]);
+  fs.writeFileSync(path.join(root, "page.html"), fs.readFileSync(path.join(folder, "work", "index.html")));
+  for (const round of [1, 2]) { // twice: the second read finds the first one's draw/_old/ and the part "old" already moved
+    if (round === 2) { fs.writeFileSync(path.join(folder, "draw", "frame.html"), "<!-- part:old --><!-- /part:old --><!-- part:_old --><!-- /part:_old -->"); spawnSync("sleep", ["0.01"]); }
+    const r = fold(["read", "Moving the Programme"], { FAKE_PAGE: path.join(root, "page.html") });
+    assert.equal(r.status, 0, r.stdout + r.stderr);
+  }
+  for (const [f, text] of own) assert.equal(fs.readFileSync(path.join(folder, "draw", f), "utf8"), text, `draw/${f} stays`);
+  assert.equal(fs.readFileSync(path.join(folder, "draw", "card"), "utf8").trim(), "up", "draw/card stays, as read's status left it");
+  assert.ok(!fs.existsSync(path.join(folder, "draw", "stop")), "no draw/stop appears");
+  const kept = fs.readdirSync(path.join(folder, "draw", "_old")).sort();
+  assert.equal(kept.length, 2, "one folder per read, and draw/_old/ itself never moved");
+  const first = path.join(folder, "draw", "_old", kept[0]);
+  assert.deepEqual(fs.readdirSync(first).sort(), ["frame.html", "old", "programme", "programme.html", "programme.status", "space.html"]);
+  assert.equal(fs.readFileSync(path.join(first, "old", "01.html"), "utf8"), "<p>old: the times</p>\n");
+  assert.deepEqual(fs.readdirSync(path.join(folder, "draw", "_old", kept[1])), ["frame.html"]);
+  // The folder still saves: draw/space is still its space.
+  const n = calls().length;
+  assert.equal(fold(["save", "Programme moved", "Programme moved"]).status, 0);
+  const w = fold(["wait"]);
+  assert.equal(w.status, 0, w.stdout + w.stderr);
+  assert.ok(calls().slice(n).some((a) => a[0] === "deploy"), "the save deployed");
 });
 
 test("a save or stop never folds draw/ over an edit made in work/index.html since fold.js wrote it: it fails, says where to edit, and saves nothing", () => {
