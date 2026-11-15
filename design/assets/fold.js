@@ -8,7 +8,7 @@
 // draw/save.log (a save).
 //
 //   node fold.js -C <folder> start <link>        a status on the space, its source read into work/ (the
-//                                               starter instead, if it holds no design), its id kept
+//                                               starter instead, if its page is blank), its id kept
 //   node fold.js -C <folder> start --new "<title>"   a new space whose first version is a short page saying
 //                                               it is being drawn, then the starter in work/ (below)
 //   node fold.js -C <folder> push                push work/index.html to the space once
@@ -286,8 +286,9 @@ function unsaved(d) {
   const words = text.slice(0, m.index + m[0].length);
   return `save refused: ${words.slice(words.lastIndexOf("✗") + 1).trim().slice(-400)} ${STOP}`;
 }
-// A new space's first version: the title, the starter's chat and workspace metas, and one line. No
-// data-ss-id and no direction, so `start <link>` on it later puts the starter in work/, as for any blank page.
+// A new space's first version: the title, the starter's chat and workspace metas, and one line (DRAWING),
+// which isBlank sets aside, so `start <link>` on it later puts the starter in work/, as for any blank page.
+const DRAWING = "is being drawn. It fills in here in a moment.";
 const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 const firstPage = (title, base) => `<!DOCTYPE html>
 <html lang="en">
@@ -299,11 +300,27 @@ ${(base.match(/<meta name="ss-(?:chat|workspace)"[^>]*>/g) || []).join("\n")}
 <style>body { margin: 0; padding: 32px 20px; font: 18px/1.5 system-ui, sans-serif; }</style>
 </head>
 <body>
-<p>${esc(title)} is being drawn. It fills in here in a moment.</p>
+<p>${esc(title)} ${DRAWING}</p>
 </body>
 </html>
 `;
-const isDesign = (h) => /<section\b[^>]*class="[^"]*\bdirection\b|data-ss-id="[a-z0-9-]+"/.test(h || "");
+// A blank page gets the starter; anything else is a design, and start never puts the starter over it. Blank
+// is a body with no words and no element once comments, styles, links, templates, the platform's own
+// .ss-* marks and the first version's line are set aside. The platform's new page (sheep.new, a space
+// made empty) is <html data-ss-id="root"> with <body data-ss-id="body"></body>, so a data-ss-id says
+// nothing. A script counts (a page can be drawn by one). When unsure it reads a design: the worst that
+// does is a starter laid by hand, never a page lost.
+function isBlank(h) {
+  const html = (h || "").replace(/<!--[\s\S]*?-->/g, "");
+  const body = (/<body\b[^>]*>([\s\S]*?)(?:<\/body>|$)/i.exec(html) || [])[1]
+    ?? html.replace(/<head\b[\s\S]*?<\/head>|<title\b[\s\S]*?<\/title>|<(?:meta|base)\b[^>]*>|<\/?(?:!doctype|html|head)\b[^>]*>/gi, "");
+  const left = body
+    .replace(/<(style|template)\b[\s\S]*?<\/\1\s*>|<link\b[^>]*>/gi, "")
+    .replace(/<([a-z][a-z0-9-]*)\b[^>]*\sclass="ss-[^"]*"[^>]*>(?:[^<]*<\/\1\s*>)?/gi, "")
+    .replace(new RegExp(`<p>[^<]*${DRAWING.replace(/\./g, "\\.")}</p>`), "");
+  return !/<[a-z]/i.test(left) && !/\S/.test(left.replace(/<\/[a-z][^>]*>/gi, ""));
+}
+const isDesign = (h) => !isBlank(h);
 // One space per folder: start never points a folder at a second space.
 function keep(id) {
   const had = (read("draw/space") || "").trim();
