@@ -8,7 +8,7 @@
 // draw/save.log (a save).
 //
 //   node fold.js -C <folder> start <link>        a status on the space, its source read into work/ (the
-//                                               starter instead, if it holds no design), its id kept
+//                                               starter instead, if its page is blank), its id kept
 //   node fold.js -C <folder> start --new "<title>"   a new space whose first version is a short page saying
 //                                               it is being drawn, then the starter in work/ (below)
 //   node fold.js -C <folder> push                push work/index.html to the space once
@@ -286,8 +286,8 @@ function unsaved(d) {
   const words = text.slice(0, m.index + m[0].length);
   return `save refused: ${words.slice(words.lastIndexOf("✗") + 1).trim().slice(-400)} ${STOP}`;
 }
-// A new space's first version: the title, the starter's chat and workspace metas, and one line. No
-// data-ss-id and no direction, so `start <link>` on it later puts the starter in work/, as for any blank page.
+// A new space's first version: the title, the starter's chat and workspace metas, and one line. It is one
+// of the pages isBlank knows, so `start <link>` on it later puts the starter in work/, as for any blank page.
 const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 const firstPage = (title, base) => `<!DOCTYPE html>
 <html lang="en">
@@ -303,7 +303,36 @@ ${(base.match(/<meta name="ss-(?:chat|workspace)"[^>]*>/g) || []).join("\n")}
 </body>
 </html>
 `;
-const isDesign = (h) => /<section\b[^>]*class="[^"]*\bdirection\b|data-ss-id="[a-z0-9-]+"/.test(h || "");
+// Spacesheep's page for a new space (sheep.new, or a space made with no page): its starterHtml, as it is stored.
+const platformBlank = (title) => `<!doctype html>
+<html lang="en" data-ss-id="root">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${title}</title>
+<style>
+  html{background:#fff}
+  body{margin:0;min-height:100vh;box-sizing:border-box;padding:48px clamp(20px,7vw,96px) 40vh;background:#fff;color:#1a1a1f;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:18px;line-height:1.6}
+  body:not(:has(> :not(script,style,link,template,[class^="ss-"]))){background-image:radial-gradient(circle,#dcdfe5 1px,transparent 1.3px);background-size:22px 22px}
+  h1{font-size:2rem;line-height:1.2;margin:0 0 .5em}
+  h2{font-size:1.4rem;margin:1.2em 0 .4em}
+  p,li{max-width:40em;margin:0 0 .7em}
+</style>
+</head>
+<body data-ss-id="body"></body>
+</html>`;
+// A blank page gets the starter; anything else is a design, and start never puts the starter over it. Blank is
+// one of the pages known to be empty, whatever their title: an empty file, Spacesheep's new page, and this
+// skill's first version from start --new. Nothing else, however empty it looks: if the platform changes its new
+// page by a character, start reads it as a design and the starter is laid by hand, and nothing is lost.
+const knownPage = (make) => new RegExp(`^${make("\u0000").trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&").split("\u0000").join("[^<]*")}$`);
+function isBlank(h) {
+  const page = (h || "").replace(/\r\n/g, "\n").trim();
+  if (!page) return true;
+  const base = fs.readFileSync(path.join(__dirname, "base.html"), "utf8");
+  return [platformBlank, (t) => firstPage(t, base)].some((make) => knownPage(make).test(page));
+}
+const isDesign = (h) => !isBlank(h);
 // One space per folder: start never points a folder at a second space.
 function keep(id) {
   const had = (read("draw/space") || "").trim();
