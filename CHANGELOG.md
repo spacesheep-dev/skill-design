@@ -2,6 +2,15 @@
 
 Each release is a heading with its tag. The release workflow uses the words under it as the release's notes.
 
+## v1.2.10
+
+- A revision says what will change before anything is read. `fold.js read "<what you'll change>"` puts that status on the page ("Making Big Day's 18 red"), then reads the current source into `work/`. Before, `read` pushed nothing, so after a person asked for a change the page said nothing until the save: 2 min 41 s in one recorded run. Without words it says "Reading the page". A refused push is said, and the read goes on.
+- `fold.js start <link> "<status>"` takes the same words, for a revision in a folder that has no space yet. A new build still says "Reading your brief".
+- SKILL.md section 7 opens every revision with that one command, and no longer asks for a status push fold.js couldn't make.
+- One new test: start's and read's words are pushed before the source is read, read defaults to "Reading the page", the work card is up afterwards, and a status that starts with `-` is refused. It fails on v1.2.9.
+- A save that fold.js stops at 60 s still reports "save failed", even when its version landed. That message changes in a later release.
+- The folder's hash is `e9ea0585a301`.
+
 ## v1.2.9
 
 - A pick keeps the other directions. "Go with the third" makes it the one the space opens on, points the canvas at it and records the pick in Decisions; the others stay, to compare or come back to. They are removed only when the person says so ("drop the others", "just that one").
