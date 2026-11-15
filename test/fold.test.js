@@ -1,4 +1,4 @@
-// fold.js against a stand-in spacesheep CLI: no network, no space. Run with `node --test test/`.
+// fold.js against a stand-in spacesheep CLI: no network, no space. Run with `node --test test/fold.test.js`.
 // The stand-in logs every call (one JSON array of its arguments a line) and answers as the CLI does.
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
