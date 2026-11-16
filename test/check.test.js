@@ -115,3 +115,53 @@ test("the starter's switcher writes the address only when a tab is clicked, neve
     assert.match(writes[0], /addEventListener\('click'/, `${name}: ${writes[0]}`);
   }
 });
+
+// A device view: its own frame after its direction, data-view-of naming it, built for its own width.
+function withView({ of = "first", css = "", tokens = true } = {}) {
+  const view = `\n<section class="direction" data-view-of="${of}" data-ss-frame="phone" data-ss-section data-ss-id="direction-first-phone" data-ss-thing="direction/first/phone" data-ss-label="First · Phone" data-ss-x="0" data-ss-y="896">
+  <style>${css}</style>
+  <div class="first-phone-top" data-ss-id="first-phone-top"><h2>First</h2><p>On a phone.</p></div>
+</section>`;
+  const at = BASE.indexOf("</section>", BASE.indexOf('data-ss-id="direction-first"')) + "</section>".length;
+  let page = BASE.slice(0, at) + view + BASE.slice(at);
+  if (tokens) page = page.replace('[data-ss-id="direction-first"]  {', '[data-ss-id="direction-first"], [data-view-of="first"] {');
+  const folder = fs.mkdtempSync(path.join(os.tmpdir(), "check-test-"));
+  try {
+    fs.mkdirSync(path.join(folder, "work"));
+    fs.writeFileSync(path.join(folder, "work", "index.html"), page);
+    const r = spawnSync(process.execPath, [CHECK, "-C", folder], { encoding: "utf8", timeout: 20000 });
+    assert.equal(r.error, undefined, `check.js didn't finish: ${r.error}`);
+    return r.stdout.trim().split("\n").filter((l) => !/^all pass: 3 directions, 1 view,|to fix/.test(l));
+  } finally {
+    fs.rmSync(folder, { recursive: true, force: true });
+  }
+}
+
+test("a phone view that takes its direction's tokens and asks its frame's width passes", () => {
+  assert.deepEqual(withView({ css: "@container (min-width: 48rem) { .first-phone-top { padding: 2rem; } } .first-phone-top h2 { font-size: clamp(2rem, 6cqi, 3rem); }" }), []);
+});
+
+test("a view without its direction's tokens, or of no direction on the page, is flagged", () => {
+  const bare = withView({ tokens: false });
+  assert.equal(bare.length, 1, bare.join(" | "));
+  assert.match(bare[0], /^first-phone .*list \[data-view-of="first"\] beside \[data-ss-id="direction-first"\]/);
+  const lost = withView({ of: "fourth" });
+  assert.equal(lost.length, 1, lost.join(" | "));
+  assert.match(lost[0], /data-view-of="fourth" names no direction on the page/);
+});
+
+test("a width rule on the window, or a size in vw, is flagged with the frame's way to say it", () => {
+  const lines = withView({ css: "@media (min-width: 48rem) { .first-phone-top { padding: 2rem; } } @media screen and (max-width: 30rem) { .first-phone-top p { margin: 0; } } .first-phone-top h2 { font-size: clamp(2rem, 6vw, 3rem); }" });
+  assert.equal(lines.length, 3, lines.join(" | "));
+  assert.match(lines[0], /"@media \(min-width: 48rem\)" asks the window's width.*write it as @container \(min-width: 48rem\)/);
+  assert.match(lines[1], /write it as @container \(max-width: 30rem\)/);
+  assert.match(lines[2], /6vw.*use cqi/);
+});
+
+test("the starter's kit lays out at its frame's width, and its switcher makes no tab of a view", () => {
+  const head = BASE.slice(0, BASE.indexOf("</head>"));
+  assert.doesNotMatch(head, /@media[^{]*width/, "a kit rule still asks the window's width");
+  assert.match(head, /\.direction, \[data-ss-frame\] \{ container-type: inline-size; \}/);
+  assert.match(BASE, /const all = \(\) => \[\.\.\.document\.querySelectorAll\('section\.direction:not\(\[data-view-of\]\)'\)\];/);
+  assert.match(BASE, /<div class="switcher-views" role="group" aria-label="Device views"><\/div>/);
+});

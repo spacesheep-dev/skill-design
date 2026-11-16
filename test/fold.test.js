@@ -52,6 +52,16 @@ if (a[0] === "deploy") {
   console.log("✓ Updated https://stage.test/s");
   process.exit(0);
 }
+// A picture: a whole 2 x 2 RGB PNG, as the renderer sends one.
+if (a[0] === "spaces" && a[1] === "screenshot" && process.env.FAKE_SHOT) {
+  const zlib = require("zlib");
+  const chunk = (k, d) => { const l = Buffer.alloc(4), c = Buffer.alloc(4), kd = Buffer.concat([Buffer.from(k, "latin1"), d]); l.writeUInt32BE(d.length); c.writeUInt32BE(zlib.crc32(kd) >>> 0); return Buffer.concat([l, kd, c]); };
+  const head = Buffer.alloc(13); head.writeUInt32BE(2, 0); head.writeUInt32BE(2, 4); head[8] = 8; head[9] = 2;
+  const raw = Buffer.alloc(14, 255); raw[0] = 0; raw[7] = 0;
+  const png = Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk("IHDR", head), chunk("IDAT", zlib.deflateSync(raw)), chunk("IEND", Buffer.alloc(0))]);
+  console.log(JSON.stringify({ png: png.toString("base64"), resource_failures: [] }));
+  process.exit(0);
+}
 if (a[0] === "spaces" && a[1] === "get") { console.log("title: Untitled\\n  id: ${SPACE}"); process.exit(0); }
 if (a[0] === "read") { fs.mkdirSync("work", { recursive: true }); fs.writeFileSync("work/index.html", fs.readFileSync(process.env.FAKE_PAGE)); console.log("↓ index.html"); process.exit(0); }
 process.exit(0);
@@ -551,4 +561,48 @@ require("fs").appendFileSync(require("path").join(process.env.FAKE_DIR, "calls.l
   assert.equal(r.status, 0, r.stderr);
   assert.deepEqual(JSON.parse(fs.readFileSync(path.join(root, "calls.log"), "utf8")), ["-y", "spacesheep@latest", "live", "push", "--space", link, "--status", "Fetching the Design skill"]);
   assert.ok(line.indexOf(cmd) < line.indexOf("Read a reference only"), "said in the fetch's own paragraph");
+});
+
+test("a save with pictures takes a direction at 1440 and 390, and each of its device views once, at its frame's width", () => {
+  const { folder, fold, calls } = setup();
+  assert.equal(fold(["start", "--new", "Poster"]).status, 0);
+  fs.writeFileSync(path.join(folder, "work", "index.html"), '<!DOCTYPE html><title>Poster</title>'
+    + '<section class="direction" data-ss-frame="desktop" data-ss-id="direction-bunting" data-ss-label="Bunting"><p>Street party</p></section>'
+    + '<section class="direction" data-view-of="bunting" data-ss-frame="phone" data-ss-id="direction-bunting-phone" data-ss-label="Bunting · Phone"><p>Street party</p></section>'
+    + '<section class="direction" data-view-of="bunting" data-ss-frame="tablet" data-ss-id="direction-bunting-tablet" data-ss-label="Bunting · Tablet"><p>Street party</p></section>');
+  assert.equal(fold(["save", "Bunting", "Checking details", "pictures"], { FAKE_SHOT: "1" }).status, 0);
+  const w = fold(["wait"]);
+  assert.equal(w.status, 0, w.stdout + w.stderr);
+  const at = (a, k) => a[a.indexOf(k) + 1];
+  const shots = calls().filter((a) => a[0] === "spaces" && a[1] === "screenshot").map((a) => `${at(a, "--section")} ${at(a, "--width")}x${at(a, "--height")}`).sort();
+  assert.deepEqual(shots, ["direction-bunting 1440x1000", "direction-bunting 390x844", "direction-bunting-phone 390x844", "direction-bunting-tablet 820x1180"]);
+  assert.match(w.stdout, /pictures done: 4 pictures, no layout faults/);
+  for (const f of ["bunting-1440.png", "bunting-390.png", "bunting-phone-390.png", "bunting-tablet-820.png"]) assert.ok(fs.existsSync(path.join(folder, f)), f);
+});
+
+test("kit brings a page made before device views up to the starter's switcher and container rules, and changes nothing else", () => {
+  const { folder, fold, calls } = setup();
+  assert.equal(fold(["start", "--new", "Poster"]).status, 0);
+  // The starter as it was: a switcher that tabs every section, no device row, kit rules on the window's width.
+  const span = /\/\* switcher: start \*\/[\s\S]*?\/\* switcher: end \*\//g;
+  const was = ["/* switcher: start */\n  .switcher { position: sticky; }\n  /* switcher: end */",
+    "/* switcher: start */\n(() => { const all = () => [...document.querySelectorAll('section.direction')]; })();\n/* switcher: end */"];
+  let i = 0;
+  const old = BASE.replace(span, () => was[i++]).replace(/\n *<div class="switcher-views"[^>]*><\/div>/, "")
+    .replace(/@container \(max-width: 40rem\)/g, "@media (max-width: 40rem)").replace("5cqi", "5vw");
+  assert.equal(i, 2);
+  assert.notEqual(old, BASE);
+  const page = path.join(folder, "work", "index.html");
+  fs.writeFileSync(page, old);
+  const n = calls().length;
+  const r = fold(["kit"]);
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /^kit: the switcher, the device buttons' row and the kit's phone rules are now the starter's; nothing pushed$/m);
+  assert.equal(fs.readFileSync(page, "utf8"), BASE);
+  assert.match(fold(["kit"]).stdout, /^kit: already current$/m);
+  assert.equal(calls().length, n, "kit pushes nothing");
+  fs.writeFileSync(page, "<!DOCTYPE html><title>Poster</title><section class=\"direction\" data-ss-id=\"direction-bunting\"></section>");
+  const bare = fold(["kit"]);
+  assert.equal(bare.status, 2);
+  assert.match(bare.stderr, /^kit: work\/index\.html has no starter switcher/m);
 });
