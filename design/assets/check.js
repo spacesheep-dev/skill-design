@@ -56,7 +56,8 @@ const lineAt = (text, i) => text.slice(0, i).split("\n").length;
 const fails = [];
 const fail = (dir, where, msg) => fails.push({ dir, where, msg });
 
-// The page's directions: each <section class="direction" data-ss-id="direction-<slug>">, nesting counted.
+// The page's directions: each <section class="direction" data-ss-id="direction-<slug>">, nesting counted. A
+// device view is one too, its own frame, with data-view-of="<its direction's slug>" (of).
 function directions(text) {
   const out = [];
   const open = /<section\b[^>]*class="[^"]*\bdirection\b[^"]*"[^>]*>/g;
@@ -70,7 +71,7 @@ function directions(text) {
     let t;
     while (depth && (t = tag.exec(text))) depth += t[1] ? -1 : 1;
     const end = t ? t.index + t[0].length : text.length;
-    out.push({ slug: id, start: m.index, end });
+    out.push({ slug: id, start: m.index, end, of: attrs(m[0].slice(8, -1))["data-view-of"] || "" });
     open.lastIndex = end;
   }
   return out;
@@ -99,7 +100,8 @@ function split(text) {
 const inside = (blocks, i) => blocks.some((b) => i >= b.start && i < b.end);
 const attrs = (s) => { const a = {}; s.replace(/([:\w-]+)(?:\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+)))?/g, (_, k, __, d, q, u) => { a[k.toLowerCase()] = d ?? q ?? u ?? ""; }); return a; };
 
-// CSS declarations with the media queries around them: [{ sel, prop, value, at, wide }].
+// CSS declarations with the media queries around them: [{ sel, prop, value, at, wide, media }]. media is the
+// @media rule around it that asks the window's width, if any.
 function decls(css) {
   const out = [], stack = [];
   let buf = "", i = 0, sel = null;
@@ -123,7 +125,8 @@ function decls(css) {
     const k = d.indexOf(":");
     if (k < 0) return;
     const lead = d.length - d.trimStart().length;
-    out.push({ sel, prop: d.slice(0, k).trim().toLowerCase(), value: d.slice(k + 1).trim(), at: at + lead, wide: stack.some((s) => s && /min-width/.test(s)) });
+    out.push({ sel, prop: d.slice(0, k).trim().toLowerCase(), value: d.slice(k + 1).trim(), at: at + lead, wide: stack.some((s) => s && /min-width/.test(s)),
+      media: stack.find((s) => s && /^@media\b/i.test(s) && /width/i.test(s)) || "" });
   }
   return out;
 }
@@ -190,9 +193,18 @@ function checkUnit(slug, u) {
   const colours = [];
   const styles = blocks.filter((b) => b.kind === "style").map((b) => ({ body: b.body, at: b.bodyAt }));
   for (const s of u.text.matchAll(/\sstyle="([^"]*)"/g)) styles.push({ body: `x{${s[1]}}`, at: s.index + 8 - 2 });
+  const windowed = new Set();
   for (const s of styles) for (const d of decls(s.body)) {
     const w = where(s.at + d.at), v = d.value.toLowerCase();
+    // On the canvas each frame has its own width and the window another: a rule on the window's width gives a
+    // phone frame the wide layout (and a desktop frame the phone one, on a phone). The frame is the container.
+    if (d.media && !windowed.has(d.media)) {
+      windowed.add(d.media);
+      const asks = d.media.match(/\((?:min|max)-width[^)]*\)/gi) || [];
+      fail(slug, w, `"${d.media}" asks the window's width, not the frame's: on the canvas a phone frame gets the wide rule; write it as @container ${asks.join(" and ") || "(…)"}`);
+    }
     if (d.prop.startsWith("--")) continue;
+    if (/(^|[^\w.-])(\d+\.?\d*|\.\d+)vw\b/.test(v)) fail(slug, w, `${d.prop}: ${d.value} in "${d.sel}" follows the window's width, not the frame's: use cqi`);
     if (!d.wide) {
       if (/^(width|min-width|flex-basis)$/.test(d.prop)) { const px = +(v.match(/^(\d+(?:\.\d+)?)px\b/) || [])[1]; if (px > 390) fail(slug, w, `${d.prop}: ${px}px in "${d.sel}" is wider than a phone (390 px)`); }
       if (d.prop === "grid-template-columns") { const px = [...v.replace(/minmax\([^)]*\)/g, "").matchAll(/(\d+(?:\.\d+)?)px/g)].reduce((t, x) => t + +x[1], 0); if (px > 240) fail(slug, w, `grid columns "${d.value}" in "${d.sel}" fix ${px}px, leaving under ${390 - px}px on a phone: stack them below 40rem`); }
@@ -302,12 +314,31 @@ function drawnRatio(x, y, g, onGround) {
 const PAIRS = [["--brand-ink", "--brand-ground", "text on its ground"], ["--brand-muted", "--brand-ground", "muted text on the ground"],
   ["--brand-on-surface", "--brand-surface", "text on a card or field"], ["--brand-muted", "--brand-surface", "muted text on a card"],
   ["--brand-on-accent", "--brand-accent", "a button's label on the accent"], ["--brand-accent", "--brand-ground", "accent text and links on the ground"]];
-function tokens(slug, texts) {
+// A rule counts for a direction when one of its selectors ends with [data-ss-id="direction-<slug>"], and for a
+// device view also with [data-view-of="<its direction>"], which the direction's own rule lists beside its id.
+function tokens(d, texts) {
   const tok = { "--brand-surface": "color-mix(in srgb, var(--brand-ink) 6%, var(--brand-ground))", "--brand-on-surface": "var(--brand-ink)",
     "--brand-muted": "color-mix(in srgb, var(--brand-ink) 74%, var(--brand-ground))", "--brand-on-accent": "var(--brand-ground)" };
-  const rule = new RegExp(`\\[data-ss-id="direction-${slug}"\\]\\s*\\{([^}]*)\\}`, "g");
-  for (const t of texts) for (const m of t.matchAll(rule)) for (const d of m[1].matchAll(/(--brand-[\w-]+)\s*:\s*([^;]+)/g)) tok[d[1]] = d[2].trim();
+  const mine = [`[data-ss-id="direction-${d.slug}"]`, ...(d.of ? [`[data-view-of="${d.of}"]`] : [])];
+  for (const t of texts) for (const b of split(t)) {
+    if (b.kind !== "style") continue;
+    for (const m of b.body.replace(/\/\*[\s\S]*?\*\//g, " ").matchAll(/([^{}]*)\{([^{}]*)\}/g)) {
+      if (!m[1].split(",").some((sel) => mine.some((x) => sel.trim().endsWith(x)))) continue;
+      for (const x of m[2].matchAll(/(--brand-[\w-]+)\s*:\s*([^;]+)/g)) tok[x[1]] = x[2].trim();
+    }
+  }
   return tok;
+}
+const every = directions(page);
+// The canvas numbers frames in page order, and its number keys open them: views come after the last direction,
+// so the directions keep 1 to n and match the switcher's tabs.
+for (const v of dirs.filter((d) => d.of)) {
+  if (!every.some((d) => !d.of && d.slug === v.of)) { fail(v.slug, "work/index.html", `data-view-of="${v.of}" names no direction on the page: give the slug of the direction this view shows`); continue; }
+  const before = every.filter((d) => !d.of && d.start > v.start).length;
+  if (before) fail(v.slug, "work/index.html", `the view comes before ${before} direction${before === 1 ? "" : "s"}: move its section after the last direction's, so the canvas numbers the directions 1 to ${every.filter((d) => !d.of).length} and their number keys match the tabs (data-ss-x and data-ss-y still draw it under its own)`);
+  const sources_ = [page, ...sources(v).map((u) => u.text)];
+  if (tokens({ slug: v.of }, sources_)["--brand-ground"] && !tokens(v, sources_)["--brand-ground"])
+    fail(v.slug, "tokens", `the view gets none of ${v.of}'s tokens: list [data-view-of="${v.of}"] beside [data-ss-id="direction-${v.of}"] in its rule's selector`);
 }
 for (const d of dirs) {
   const units = sources(d);
@@ -315,7 +346,7 @@ for (const d of dirs) {
   const all = units.map((u) => u.text).join("\n");
   const shown = norm(shownText(all));
   for (const f of facts) if (!shown.includes(norm(f))) fail(d.slug, units[units.length - 1].file, `missing fact: "${f}"`);
-  const tok = tokens(d.slug, [page, ...units.map((u) => u.text)]);
+  const tok = tokens(d, [page, ...units.map((u) => u.text)]);
   for (const [fg, bg, what] of PAIRS) {
     const x = rgb(tok[fg], tok), y = rgb(tok[bg], tok), g = rgb(tok["--brand-ground"], tok);
     if (!x || !y || !g) continue; // a colour this check can't read (oklch, a gradient): the look checks it
@@ -362,7 +393,8 @@ if (!only) {
 }
 
 if (!fails.length) {
-  console.log(`all pass: ${dirs.length} direction${dirs.length === 1 ? "" : "s"}, ${facts.length} facts, ${nots.length} not-lines, ${seen.size} anchors`);
+  const n = dirs.filter((d) => !d.of).length, v = dirs.length - n;
+  console.log(`all pass: ${n} direction${n === 1 ? "" : "s"}${v ? `, ${v} view${v === 1 ? "" : "s"}` : ""}, ${facts.length} facts, ${nots.length} not-lines, ${seen.size} anchors`);
   process.exit(0);
 }
 const groups = new Map();
