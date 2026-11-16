@@ -2,6 +2,18 @@
 
 Each release is a heading with its tag. The release workflow uses the words under it as the release's notes.
 
+## v1.2.15
+
+- Phone and tablet views are part of the design. Spacesheep's Design bar no longer has a Desktop / Tablet / Phone switch. When the person asks for one ("the phone version", "responsive"), the session builds it as a frame of its own (`data-view-of="<slug>"`, `data-ss-frame="phone"` or `"tablet"`), after the last direction and drawn under its own on the canvas. Views are never built by default. The directions keep the canvas's numbers 1 to n, matching the tabs, and a direction's number key, pressed again, steps through its views and back.
+- Each frame lays out at its own width. The starter's phone rules are `@container` rules, and the headline uses `5cqi`, not `5vw`. Before, a 390 px frame on a wide window got the wide layout, and a 1280 px frame on a phone got the phone layout.
+- Without the canvas (the client copy), a direction with views gets Desktop / Phone (/ Tablet) buttons under the tabs, and a narrow window opens on the phone view. A one-design page keeps the switcher's script, so its buttons work too.
+- A view gets one picture, at its frame's width (390 for a phone, 820 for a tablet).
+- `fold.js kit` (new) brings a page made before views up to date: the switcher's styles and script, the device row, the container rules, and the layout check the save's pictures run. It changes nothing else, pushes nothing, and says "already current" when run again.
+- A folder made before v1.2.0 has no `draw/writer.run` or `draw/save.run`, so `save` refused it. Now the next `start`, `read`, `kit`, `save`, `write`, `wait` or `stop` sets a missing record up as `none`, but only when no save, writer, deploy or live push for the space is running in that folder; otherwise the line names the process. A record is made only where none is, so one another command writes meanwhile is never replaced. In one recorded run on a pre-1.2.0 page, the phone view took 6:51 and one save, but the session wrote both records by hand and its pictures said "layout not measured".
+- `check.js` flags a view without its direction's tokens, a `data-view-of` that names no direction, a view before a direction, and a direction's `@media` width rule or `vw` size.
+- Twelve new tests (42 in all, one skipped as before), including a stand-in `ps` that writes a save's record while fold.js lists the processes. That one fails on a version that replaces the record.
+- The folder's hash is `04e640de3111`.
+
 ## v1.2.14
 
 - A session without the skill's folder now says what it is doing while it fetches the files. SKILL.md's "Getting this skill" asks, before the first file and when the person gave a space's link, for `npx -y spacesheep@latest live push --space <link> --status "Fetching the Design skill"`. fold.js's first status (`start` or `read`) replaces it. With no space yet there is nothing to show it on, so it is skipped. In one recorded revision the page said "Reading your request" for 72 s while the files were fetched; earlier runs that named the fetch did so on their own.
