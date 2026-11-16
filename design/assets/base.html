@@ -474,6 +474,7 @@ document.addEventListener('click', (e) => {
   f.toggleAttribute('data-open');
   b.setAttribute('aria-expanded', String(f.hasAttribute('data-open')));
 });
+/* check: start */
 /* check: only when the address has ?ss-check (the save's pictures), never in a person's view. Once the page
    has loaded, it measures each direction at this width for what a picture can't be trusted to show:
      narrow  words in a column so thin they run under 4 characters a line
@@ -603,6 +604,7 @@ if (/[?&]ss-check\b/.test(location.search)) addEventListener('load', () => (docu
     });
   }).catch((e) => unmeasured((e && e.message) || e));
 }));
+/* check: end */
 </script>
 </body>
 </html>

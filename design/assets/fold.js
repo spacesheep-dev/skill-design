@@ -41,9 +41,13 @@
 //                                               (its <meta name="ss-canvas-focus">), then push the page
 //   node fold.js -C <folder> kit                 before a page's first device view: its switcher (styles and
 //                                               script, the script added if the page dropped it) as the
-//                                               starter has it now, the device buttons' row,
-//                                               and the kit's phone rules as container queries, in
+//                                               starter has it now, the device buttons' row, the kit's
+//                                               phone rules as container queries, and the layout check
+//                                               the save's pictures run (added if the page has none), in
 //                                               work/index.html; nothing else changes and nothing is pushed
+//
+// A folder from before fold.js kept run records (draw/writer.run, draw/save.run) gets them from start, read,
+// kit, save, write, wait or stop, once no fold.js save or writer is running in it (adopt, below).
 //
 // A save the platform refuses on purpose (a page cut to a fraction of the version before it, files left
 // out, a clash with edits made on the page) ends "save refused": nothing was saved, and saving again can't
@@ -158,7 +162,8 @@ const rework = (html) => { const clean = isOurs(read("work/index.html")); return
 //   open     anything else: it hasn't said, or something it started is still there, or that can't be told
 //   unknown  the record is missing, unreadable, malformed or a link: nothing about it can be told
 // `write` and `save` start a run only after none, done or lapsed; `wait` and `stop` succeed only on done
-// (or none). Unknown stays unknown: no command replaces it or reads it as "none". draw/<job>.pid is there
+// (or none). Unknown stays unknown: no command replaces it or reads it as "none", except a missing record in a
+// folder no run can be going in (adopt, below). draw/<job>.pid is there
 // for a person to look the process up; nothing here decides on it.
 const LIFE = { writer: 31 * 60 * 1000, save: 10 * 60 * 1000 };
 const RUNID = /^[0-9a-f]{16}$/;
@@ -199,6 +204,40 @@ function launchable(name, what) {
   if (j.state === "unknown") { console.error(`${cmd}: ${j.why}, so fold.js can't tell whether a ${name} is still running here; it may be. Nothing started; ${LOOK(what)}`); process.exit(2); }
   if (j.state === "lapsed") console.log(`the last ${name} (run ${j.id}) never said how it ended; its time ran out at ${at(j.deadline)} and none of its processes is left`);
   return j;
+}
+// A folder from before fold.js kept run records (an older skill made it) has no draw/writer.run or
+// draw/save.run, and a missing record is unknown, so every job command would refuse it. A missing record (not
+// a link, not unreadable) is set up as "none" only when no run can be going here: no process, other than this
+// command and those that started it, is a fold.js write or save, or the CLI deploying or pushing this space,
+// with this folder as its working folder (a process whose folder can't be told counts). Else it stays missing,
+// and the line says which process holds it.
+const RUNLIKE = (args, id) => /fold\.js\b.*\s(save|write)(\s|$)/.test(args) || (!!id && args.includes(id) && /\s(deploy|live)\s/.test(args));
+// A process's working folder (its real path): from /proc, else from lsof; null when it can't be told.
+function cwdOf(pid) {
+  try { return fs.realpathSync(`/proc/${pid}/cwd`); } catch {}
+  for (const lsof of ["lsof", "/usr/sbin/lsof"]) {
+    try {
+      const n = (execFileSync(lsof, ["-a", "-p", String(pid), "-d", "cwd", "-Fn"], { encoding: "utf8", timeout: 10000, killSignal: "SIGKILL", stdio: ["ignore", "pipe", "ignore"] }).match(/^n(.+)$/m) || [])[1];
+      return n ? fs.realpathSync(n) : null;
+    } catch {}
+  }
+  return null;
+}
+function adopt() {
+  const gone = ["writer", "save"].filter((n) => within(`draw/${n}.run`) && !fs.existsSync(`draw/${n}.run`) && !isLink(`draw/${n}.run`));
+  if (!gone.length) return;
+  const names = gone.map((n) => `draw/${n}.run`).join(" and "), id = (read("draw/space") || "").trim();
+  let rows;
+  try {
+    rows = execFileSync("ps", ["-A", "-o", "pid=,ppid=,args="], { encoding: "utf8", timeout: 10000, killSignal: "SIGKILL", maxBuffer: 64 << 20, stdio: ["ignore", "pipe", "ignore"] })
+      .split("\n").map((l) => l.match(/^\s*(\d+)\s+(\d+)\s+(.*)$/)).filter(Boolean).map((m) => ({ pid: +m[1], ppid: +m[2], args: m[3] }));
+  } catch (e) { console.log(`${names} missing, and the processes can't be listed (${why(e)}), so nothing tells whether a run is going here: left missing`); return; }
+  const by = new Map(rows.map((r) => [r.pid, r])), mine = new Set();
+  for (let p = process.pid; p > 1 && !mine.has(p); p = (by.get(p) || {}).ppid || 0) mine.add(p);
+  const held = rows.filter((r) => !mine.has(r.pid) && RUNLIKE(r.args, UUID.test(id) && id)).filter((r) => { const c = cwdOf(r.pid); return c === null || c === ROOT; });
+  if (held.length) { console.log(`${names} missing, and a run may be going in this folder (${held.slice(0, 3).map((r) => `process ${r.pid}: ${r.args.slice(0, 120)}`).join("; ")}): left missing until it has gone; the next fold.js command then sets them up`); return; }
+  for (const n of gone) if (!swap(`draw/${n}.run`, "none\n")) process.exit(2);
+  console.log(`set up ${names} as none: this folder is from before fold.js kept run records, and no save or writer is running in it`);
 }
 // Start a run: its record first (no group yet, so nothing can count it as ended), then the job, detached,
 // then the record again with the job's process group. The job finds its id and deadline in the record.
@@ -485,6 +524,8 @@ function idle() {
 
 // Said when the starter is in work/, just before the agent draws: how each direction reaches the person.
 const NEXT = 'next: Edit the title, the directions\' tokens and each section\'s opening tag (slug, name, line) in work/index.html, one Edit each, and leave every <!-- part:… --> placeholder as it is (fold.js names it after its section). Then fold.js push, fold.js save "Frame" "Drawing three directions", fold.js write, and each direction as draw/<slug>/01.html, 02.html…, its first line its status. A direction drawn in work/index.html shows no status.';
+// Each command that starts a run or reads one first sets up an older folder's missing records, when that's safe.
+if (!bg && !NEW && ["start", "read", "kit", "save", "write", "wait", "stop"].includes(cmd)) adopt();
 if (cmd === "start") {
   // Only a folder's first start may say that no writer or save has run in it.
   if (NEW) for (const name of ["writer", "save"]) if (!swap(`draw/${name}.run`, "none\n")) process.exit(2);
@@ -565,12 +606,13 @@ if (cmd === "focus") {
   console.log(ok ? `focus: ${value}, pushed` : "focus set, but the push was refused: see draw/fold.log");
   process.exit(ok ? 0 : 1);
 }
-// A page made before device views has a switcher that would make a view a tab, and kit rules that follow the
-// window: `kit` puts in the starter's switcher spans (each /* switcher: start */ … /* switcher: end */, the
+// A page made before device views has a switcher that would make a view a tab, kit rules that follow the
+// window, and maybe no layout check: `kit` puts in the starter's switcher spans (each /* switcher: start */ … /* switcher: end */, the
 // styles' in a <style>, the script's in a <script>), the script's in a <script> of its own when the page has
 // none (one design, whose script was dropped), the device buttons' row (before the switcher's line, else at
 // the end of the switcher, else in a nav of its own, shown only when it has buttons), and container queries
-// for the kit's phone rules in the starter's own <style>. It changes work/index.html and the writer's frame,
+// for the kit's phone rules in the starter's own <style>, and the starter's layout check (/* check: start */ …
+// /* check: end */) for the page's marked one, or in a <script> of its own on a page with none. It changes work/index.html and the writer's frame,
 // if there is one, and pushes nothing: the view's own Edits come next.
 function kitted(page) {
   const span = /\/\* switcher: start \*\/[\s\S]*?\/\* switcher: end \*\//g;
@@ -596,6 +638,14 @@ function kitted(page) {
   const open = out.lastIndexOf("<style", at), close = out.indexOf("</style>", at);
   if (at >= 0 && open >= 0 && close > at) out = out.slice(0, open) + out.slice(open, close).replace(/@media \(max-width: 40rem\)/g, "@container (max-width: 40rem)")
     .replace(/clamp\(var\(--step-3\), 5vw, var\(--step-5\)\)/g, "clamp(var(--step-3), 5cqi, var(--step-5))") + out.slice(close);
+  // The layout check the save's pictures run (?ss-check): the starter's in place of the page's own marked one,
+  // or in a <script> of its own before </body> when the page has none, so its pictures are measured.
+  const check = /\/\* check: start \*\/[\s\S]*?\/\* check: end \*\//, nowCheck = base.match(check)[0];
+  if (check.test(out)) out = out.replace(check, () => nowCheck);
+  else if (!out.includes("ss-fault/")) {
+    const body = out.lastIndexOf("</body>"), add = `<script>\n${nowCheck}\n</script>\n`;
+    out = body >= 0 ? out.slice(0, body) + add + out.slice(body) : out + "\n" + add;
+  }
   return out;
 }
 if (cmd === "kit") {
@@ -609,7 +659,7 @@ if (cmd === "kit") {
     if (set === null) { console.error(`kit: ${f} has no starter switcher to bring up to date (no /* switcher: start */ span in a <style>, or no <body> for its device row); its views still show on the canvas, with no device buttons without it`); process.exit(2); }
     if (set !== p) { if (!(f === "work/index.html" ? rework(set) : swap(f, set))) process.exit(2); changed++; }
   }
-  console.log(changed ? "kit: the switcher, the device buttons' row and the kit's phone rules are now the starter's; nothing pushed" : "kit: already current");
+  console.log(changed ? "kit: the switcher, the device buttons' row, the kit's phone rules and the layout check are now the starter's; nothing pushed" : "kit: already current");
   process.exit(0);
 }
 if (cmd === "push") {
