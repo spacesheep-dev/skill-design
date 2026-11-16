@@ -107,22 +107,25 @@ test("a Decisions log pinned off the canvas and out of sight passes, and so does
   ]) assert.deepEqual(decisions(log), [], log);
 });
 
-test("the starter's switcher writes the address only when a tab is clicked, never on its own at load", () => {
+test("the starter's switcher writes the address only when a tab is clicked (or, on the canvas, a number key pressed), never on its own at load", () => {
   const SWITCHER = fs.readFileSync(path.join(__dirname, "..", "design", "assets", "switcher.html"), "utf8");
-  for (const [name, src] of [["base.html", BASE], ["switcher.html", SWITCHER]]) {
+  for (const [name, src, keys] of [["base.html", BASE, 1], ["switcher.html", SWITCHER, 0]]) {
     const writes = src.split("\n").filter((l) => /history\.(replaceState|pushState)|location\.hash\s*=/.test(l));
-    assert.equal(writes.length, 1, `${name}: ${writes.join(" | ")}`);
-    assert.match(writes[0], /addEventListener\('click'/, `${name}: ${writes[0]}`);
+    assert.equal(writes.length, 1 + keys, `${name}: ${writes.join(" | ")}`);
+    // Each write is inside the listener of a person's click or key: the nearest addEventListener before it.
+    const by = writes.map((w) => { const at = src.indexOf(w) + w.search(/history|location/), from = src.lastIndexOf("addEventListener(", at); return src.slice(from, from + 26); });
+    assert.equal(by.filter((x) => x.startsWith("addEventListener('click'")).length, 1, `${name}: ${by.join(" | ")}`);
+    assert.equal(by.filter((x) => x.startsWith("addEventListener('keydown'")).length, keys, `${name}: ${by.join(" | ")}`);
   }
 });
 
 // A device view: its own frame after its direction, data-view-of naming it, built for its own width.
-function withView({ of = "first", css = "", tokens = true } = {}) {
+function withView({ of = "first", css = "", tokens = true, place = "third" } = {}) {
   const view = `\n<section class="direction" data-view-of="${of}" data-ss-frame="phone" data-ss-section data-ss-id="direction-first-phone" data-ss-thing="direction/first/phone" data-ss-label="First · Phone" data-ss-x="0" data-ss-y="896">
   <style>${css}</style>
   <div class="first-phone-top" data-ss-id="first-phone-top"><h2>First</h2><p>On a phone.</p></div>
 </section>`;
-  const at = BASE.indexOf("</section>", BASE.indexOf('data-ss-id="direction-first"')) + "</section>".length;
+  const at = BASE.indexOf("</section>", BASE.indexOf(`data-ss-id="direction-${place}" data-ss-thing`)) + "</section>".length;
   let page = BASE.slice(0, at) + view + BASE.slice(at);
   if (tokens) page = page.replace('[data-ss-id="direction-first"]  {', '[data-ss-id="direction-first"], [data-view-of="first"] {');
   const folder = fs.mkdtempSync(path.join(os.tmpdir(), "check-test-"));
@@ -148,6 +151,19 @@ test("a view without its direction's tokens, or of no direction on the page, is 
   const lost = withView({ of: "fourth" });
   assert.equal(lost.length, 1, lost.join(" | "));
   assert.match(lost[0], /data-view-of="fourth" names no direction on the page/);
+});
+
+test("a view before a direction is flagged: the canvas would number it among the directions", () => {
+  const early = withView({ place: "first" });
+  assert.equal(early.length, 1, early.join(" | "));
+  assert.match(early[0], /^first-phone .*the view comes before 2 directions: move its section after the last direction's, so the canvas numbers the directions 1 to 3/);
+});
+
+test("the starter's switcher steps a direction's number key through its views on the canvas, and runs without tabs", () => {
+  assert.match(BASE, /if \(!window\.ssViewKeys\) \{\n    window\.ssViewKeys = true;\n    addEventListener\('keydown', /);
+  assert.match(BASE, /const d = all\(\)\[\+k - 1\], set = d \? \[d, \.\.\.viewsOf\(d\)\] : \[\];\n      if \(set\.length < 2\) return;/);
+  assert.match(BASE, /\}, true\);/);
+  assert.doesNotMatch(BASE, /if \(!tabsNow\(\)\) return;/);
 });
 
 test("a width rule on the window, or a size in vw, is flagged with the frame's way to say it", () => {

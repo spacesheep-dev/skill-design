@@ -330,8 +330,12 @@ function tokens(d, texts) {
   return tok;
 }
 const every = directions(page);
+// The canvas numbers frames in page order, and its number keys open them: views come after the last direction,
+// so the directions keep 1 to n and match the switcher's tabs.
 for (const v of dirs.filter((d) => d.of)) {
   if (!every.some((d) => !d.of && d.slug === v.of)) { fail(v.slug, "work/index.html", `data-view-of="${v.of}" names no direction on the page: give the slug of the direction this view shows`); continue; }
+  const before = every.filter((d) => !d.of && d.start > v.start).length;
+  if (before) fail(v.slug, "work/index.html", `the view comes before ${before} direction${before === 1 ? "" : "s"}: move its section after the last direction's, so the canvas numbers the directions 1 to ${every.filter((d) => !d.of).length} and their number keys match the tabs (data-ss-x and data-ss-y still draw it under its own)`);
   const sources_ = [page, ...sources(v).map((u) => u.text)];
   if (tokens({ slug: v.of }, sources_)["--brand-ground"] && !tokens(v, sources_)["--brand-ground"])
     fail(v.slug, "tokens", `the view gets none of ${v.of}'s tokens: list [data-view-of="${v.of}"] beside [data-ss-id="direction-${v.of}"] in its rule's selector`);

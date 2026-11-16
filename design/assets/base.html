@@ -5,10 +5,12 @@
      slug (direction-slug, its blocks slug-part), data-ss-label (its name), data-line and tokens.
   2. Push it: that is the frame. Then assets/fold.js draws each direction in parts, between its
      part:slug markers, in place of its .drawing block. Leave the markers: fold.js names them after the slug.
-  One design, not directions: keep one section, and drop the switcher's tabs and script. Keep the nav while it
-  holds controls (Tweaks, at the right end of its row) or the answers line; with neither, drop it too.
+  One design, not directions: keep one section, and drop the switcher's tabs; keep its script (it shows the
+  design, and its views' buttons). Keep the nav while it holds controls (Tweaks, at the right end of its row),
+  the answers line or a view; with none of them, drop it too.
   Keep the metas, the switcher and the ids. The person's answers, when you asked: references/questions.md.
-  A direction's phone or tablet view is a section of its own after it, with data-view-of: SKILL.md, section 2.
+  A direction's phone or tablet view is a section of its own after the last direction, with data-view-of:
+  SKILL.md, section 2.
 -->
 <html lang="en">
 <head>
@@ -42,6 +44,9 @@
   .direction, [data-ss-frame] { container-type: inline-size; }
   .switcher-views { display: flex; gap: 6px; margin-top: 6px; }
   .switcher-views:empty, html:has(meta[name="ss-canvas"][content="on"]) .switcher-views { display: none; }
+  /* a one-design page's nav that holds only the device row (fold.js kit adds it) shows only when it has buttons */
+  .switcher:has(> .switcher-views:only-child:empty),
+  html:has(meta[name="ss-canvas"][content="on"]) .switcher:has(> .switcher-views:only-child) { display: none; }
   .switcher-views button { min-height: 44px; padding: 0 14px; border: 1px solid #ccc; border-radius: 8px;
     background: #fff; color: #111; font: inherit; cursor: pointer; }
   .switcher-views button[aria-pressed="true"] { background: #111; color: #fff; border-color: #111; }
@@ -305,7 +310,8 @@ function ssDraw(fn) { fn(); document.addEventListener('ss:live', () => fn()); }
   const tabsNow = () => document.querySelector('.switcher-tabs');
   const lineNow = () => document.querySelector('.switcher-line');
   const viewsNow = () => document.querySelector('.switcher-views');
-  if (!tabsNow()) return;
+  // One design has no tabs: the script still shows it, and its views' buttons.
+  if (!tabsNow() && !document.querySelector('section.direction')) return;
   // A direction's device views (data-view-of="<its slug>") are frames of their own, never tabs.
   const all = () => [...document.querySelectorAll('section.direction:not([data-view-of])')];
   const views = () => [...document.querySelectorAll('section.direction[data-view-of]')];
@@ -382,6 +388,29 @@ function ssDraw(fn) { fn(); document.addEventListener('ss:live', () => fn()); }
     const n = viewsOf(cur).length;
     return box !== devices || (box && box.children.length !== (n ? n + 1 : 0));
   };
+  // On the canvas the number keys go to the directions, which the canvas numbers first (views come after them
+  // in the page). A direction's key opens it; pressed again, it steps through the direction's views and back.
+  // The canvas opens the frame the address names; this listener is on the window, so it hears the key before
+  // the canvas's own, and takes it only for a direction with views. A live push runs this script again: the
+  // listener is added once.
+  if (!window.ssViewKeys) {
+    window.ssViewKeys = true;
+    addEventListener('keydown', (e) => {
+      const t = e.target, k = e.key;
+      if (!canvas() || e.metaKey || e.ctrlKey || e.altKey || !/^[1-9]$/.test(k) || document.body.getAttribute('data-ss-edit') === 'paper') return;
+      if (t.closest && !t.closest('[role=tab],[data-ss-canvas-chip]')
+        && t.closest('input,textarea,select,button,summary,a,[role=button],[contenteditable=""],[contenteditable=true],[data-ss-ui]')) return;
+      const d = all()[+k - 1], set = d ? [d, ...viewsOf(d)] : [];
+      if (set.length < 2) return;
+      let id = location.hash.slice(1);
+      try { id = decodeURIComponent(id); } catch {}
+      const i = set.findIndex((x) => x.dataset.ssId === id || (x.id && x.id === id));
+      const to = set[i < 0 ? 0 : (i + 1) % set.length];
+      e.preventDefault(); e.stopImmediatePropagation();
+      history.replaceState(null, '', hashOf(to));
+      dispatchEvent(new HashChangeEvent('hashchange'));
+    }, true);
+  }
   const watch = new MutationObserver(() => { if (stale()) draw(); });
   watch.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-ss-label', 'data-name', 'data-line', 'data-ss-id', 'data-view-of', 'data-ss-frame'] });
   addEventListener('hashchange', () => show(...pick()));

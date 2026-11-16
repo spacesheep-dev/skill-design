@@ -40,7 +40,8 @@
 //   node fold.js -C <folder> focus <all|slug>    what the canvas shows: every direction, or the one named
 //                                               (its <meta name="ss-canvas-focus">), then push the page
 //   node fold.js -C <folder> kit                 before a page's first device view: its switcher (styles and
-//                                               script) as the starter has it now, the device buttons' row,
+//                                               script, the script added if the page dropped it) as the
+//                                               starter has it now, the device buttons' row,
 //                                               and the kit's phone rules as container queries, in
 //                                               work/index.html; nothing else changes and nothing is pushed
 //
@@ -566,18 +567,34 @@ if (cmd === "focus") {
 }
 // A page made before device views has a switcher that would make a view a tab, and kit rules that follow the
 // window: `kit` puts in the starter's switcher spans (each /* switcher: start */ … /* switcher: end */, the
-// styles first, then the script; a page with the styles alone gets them alone), the device buttons' row before
-// the switcher's line, and container queries for the kit's phone rules in the starter's own <style>. It changes
-// work/index.html and the writer's frame, if there is one, and pushes nothing: the view's own Edits come next.
+// styles' in a <style>, the script's in a <script>), the script's in a <script> of its own when the page has
+// none (one design, whose script was dropped), the device buttons' row (before the switcher's line, else at
+// the end of the switcher, else in a nav of its own, shown only when it has buttons), and container queries
+// for the kit's phone rules in the starter's own <style>. It changes work/index.html and the writer's frame,
+// if there is one, and pushes nothing: the view's own Edits come next.
 function kitted(page) {
   const span = /\/\* switcher: start \*\/[\s\S]*?\/\* switcher: end \*\//g;
-  const base = fs.readFileSync(path.join(__dirname, "base.html"), "utf8"), now = base.match(span) || [];
-  const had = page.match(span) || [];
-  if (!had.length || had.length > now.length) return null;
-  let i = 0, out = page.replace(span, () => now[i++]);
-  if (!/class="switcher-views"/.test(out)) out = out.replace(/([ \t]*)<p class="switcher-line"/, (m, pad) => `${pad}<div class="switcher-views" role="group" aria-label="Device views"></div>\n${m}`);
-  const at = out.indexOf("/* switcher: start */"), open = out.lastIndexOf("<style", at), close = out.indexOf("</style>", at);
-  if (open >= 0 && close > at) out = out.slice(0, open) + out.slice(open, close).replace(/@media \(max-width: 40rem\)/g, "@container (max-width: 40rem)")
+  // A span is the styles' or the script's: the nearer opening tag before it says which.
+  const kind = (text, at) => (text.lastIndexOf("<script", at) > text.lastIndexOf("<style", at) ? "script" : "style");
+  const base = fs.readFileSync(path.join(__dirname, "base.html"), "utf8"), now = {};
+  for (const m of base.matchAll(span)) now[kind(base, m.index)] = m[0];
+  const had = [...page.matchAll(span)].map((m) => kind(page, m.index));
+  if (!had.includes("style")) return null;
+  let out = page.replace(span, (m, at) => now[kind(page, at)]);
+  if (!had.includes("script")) {
+    const body = out.lastIndexOf("</body>"), add = `<script>\n${now.script}\n</script>\n`;
+    out = body >= 0 ? out.slice(0, body) + add + out.slice(body) : out + "\n" + add;
+  }
+  const row = '<div class="switcher-views" role="group" aria-label="Device views"></div>';
+  if (!/class="switcher-views"/.test(out)) {
+    if (/<p class="switcher-line"/.test(out)) out = out.replace(/([ \t]*)<p class="switcher-line"/, (m, pad) => `${pad}${row}\n${m}`);
+    else if (/<nav\b[^>]*class="[^"]*\bswitcher\b[^"]*"[^>]*>/.test(out)) out = out.replace(/(<nav\b[^>]*class="[^"]*\bswitcher\b[^"]*"[^>]*>[\s\S]*?)(\n?[ \t]*<\/nav>)/, (m, a, b) => `${a}\n  ${row}${b}`);
+    else out = out.replace(/<body\b[^>]*>/, (m) => `${m}\n<nav data-ss-canvas="pin" class="switcher no-print" aria-label="Design views" data-ss-react="off">\n  ${row}\n</nav>`);
+    if (!/class="switcher-views"/.test(out)) return null;
+  }
+  const first = [...out.matchAll(span)].find((m) => kind(out, m.index) === "style"), at = first ? first.index : -1;
+  const open = out.lastIndexOf("<style", at), close = out.indexOf("</style>", at);
+  if (at >= 0 && open >= 0 && close > at) out = out.slice(0, open) + out.slice(open, close).replace(/@media \(max-width: 40rem\)/g, "@container (max-width: 40rem)")
     .replace(/clamp\(var\(--step-3\), 5vw, var\(--step-5\)\)/g, "clamp(var(--step-3), 5cqi, var(--step-5))") + out.slice(close);
   return out;
 }
@@ -589,7 +606,7 @@ if (cmd === "kit") {
     const p = read(f);
     if (p === null) continue;
     const set = kitted(p);
-    if (set === null) { console.error(`kit: ${f} has no starter switcher to bring up to date (no /* switcher: start */ span); its views still show on the canvas, with no device buttons without it`); process.exit(2); }
+    if (set === null) { console.error(`kit: ${f} has no starter switcher to bring up to date (no /* switcher: start */ span in a <style>, or no <body> for its device row); its views still show on the canvas, with no device buttons without it`); process.exit(2); }
     if (set !== p) { if (!(f === "work/index.html" ? rework(set) : swap(f, set))) process.exit(2); changed++; }
   }
   console.log(changed ? "kit: the switcher, the device buttons' row and the kit's phone rules are now the starter's; nothing pushed" : "kit: already current");

@@ -606,3 +606,33 @@ test("kit brings a page made before device views up to the starter's switcher an
   assert.equal(bare.status, 2);
   assert.match(bare.stderr, /^kit: work\/index\.html has no starter switcher/m);
 });
+
+test("kit gives a one-design page that dropped the switcher's tabs, script and nav the script and a device row", () => {
+  const { folder, fold, calls } = setup();
+  assert.equal(fold(["start", "--new", "Poster"]).status, 0);
+  // One design as the starter said before views: one section, no tabs, no switcher script, no nav.
+  const span = /\/\* switcher: start \*\/[\s\S]*?\/\* switcher: end \*\//g;
+  const [styles, script] = BASE.match(span);
+  const old = BASE.replace(styles, "/* switcher: start */\n  .switcher { position: sticky; }\n  /* switcher: end */").replace(script, "")
+    .replace(/\n<nav\b[\s\S]*?<\/nav>\n/, "\n")
+    .replace(/\n<section class="direction"[^>]*data-ss-id="direction-second"[\s\S]*?<\/section>\n/, "\n")
+    .replace(/\n<section class="direction"[^>]*data-ss-id="direction-third"[\s\S]*?<\/section>\n/, "\n")
+    .replace(/@container \(max-width: 40rem\)/g, "@media (max-width: 40rem)").replace("5cqi", "5vw");
+  assert.equal((old.match(span) || []).length, 1);
+  assert.doesNotMatch(old, /<nav\b|class="switcher-tabs"|<section[^>]*direction-second/);
+  const page = path.join(folder, "work", "index.html");
+  fs.writeFileSync(page, old);
+  const n = calls().length;
+  const r = fold(["kit"]);
+  assert.equal(r.status, 0, r.stderr);
+  const out = fs.readFileSync(page, "utf8");
+  assert.deepEqual(out.match(span), [styles, script], "the starter's styles and script, each once");
+  assert.match(out, /<script>\n\/\* switcher: start \*\/[\s\S]*?\/\* switcher: end \*\/\n<\/script>\n<\/body>/, "the script in a <script> of its own, before </body>");
+  assert.match(out, /<body>\n<nav data-ss-canvas="pin" class="switcher no-print" aria-label="Design views" data-ss-react="off">\n  <div class="switcher-views" role="group" aria-label="Device views"><\/div>\n<\/nav>/);
+  assert.doesNotMatch(out, /@media \(max-width: 40rem\)|5vw/);
+  // The script runs without tabs, and the nav that holds only the device row shows only with buttons.
+  assert.doesNotMatch(script, /if \(!tabsNow\(\)\) return;/);
+  assert.match(styles, /\.switcher:has\(> \.switcher-views:only-child:empty\)/);
+  assert.match(fold(["kit"]).stdout, /^kit: already current$/m);
+  assert.equal(calls().length, n, "kit pushes nothing");
+});
