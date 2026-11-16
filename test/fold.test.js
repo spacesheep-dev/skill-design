@@ -52,6 +52,16 @@ if (a[0] === "deploy") {
   console.log("✓ Updated https://stage.test/s");
   process.exit(0);
 }
+// A picture: a whole 2 x 2 RGB PNG, as the renderer sends one.
+if (a[0] === "spaces" && a[1] === "screenshot" && process.env.FAKE_SHOT) {
+  const zlib = require("zlib");
+  const chunk = (k, d) => { const l = Buffer.alloc(4), c = Buffer.alloc(4), kd = Buffer.concat([Buffer.from(k, "latin1"), d]); l.writeUInt32BE(d.length); c.writeUInt32BE(zlib.crc32(kd) >>> 0); return Buffer.concat([l, kd, c]); };
+  const head = Buffer.alloc(13); head.writeUInt32BE(2, 0); head.writeUInt32BE(2, 4); head[8] = 8; head[9] = 2;
+  const raw = Buffer.alloc(14, 255); raw[0] = 0; raw[7] = 0;
+  const png = Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk("IHDR", head), chunk("IDAT", zlib.deflateSync(raw)), chunk("IEND", Buffer.alloc(0))]);
+  console.log(JSON.stringify({ png: png.toString("base64"), resource_failures: [] }));
+  process.exit(0);
+}
 if (a[0] === "spaces" && a[1] === "get") { console.log("title: Untitled\\n  id: ${SPACE}"); process.exit(0); }
 if (a[0] === "read") { fs.mkdirSync("work", { recursive: true }); fs.writeFileSync("work/index.html", fs.readFileSync(process.env.FAKE_PAGE)); console.log("↓ index.html"); process.exit(0); }
 process.exit(0);
@@ -551,4 +561,159 @@ require("fs").appendFileSync(require("path").join(process.env.FAKE_DIR, "calls.l
   assert.equal(r.status, 0, r.stderr);
   assert.deepEqual(JSON.parse(fs.readFileSync(path.join(root, "calls.log"), "utf8")), ["-y", "spacesheep@latest", "live", "push", "--space", link, "--status", "Fetching the Design skill"]);
   assert.ok(line.indexOf(cmd) < line.indexOf("Read a reference only"), "said in the fetch's own paragraph");
+});
+
+test("a save with pictures takes a direction at 1440 and 390, and each of its device views once, at its frame's width", () => {
+  const { folder, fold, calls } = setup();
+  assert.equal(fold(["start", "--new", "Poster"]).status, 0);
+  fs.writeFileSync(path.join(folder, "work", "index.html"), '<!DOCTYPE html><title>Poster</title>'
+    + '<section class="direction" data-ss-frame="desktop" data-ss-id="direction-bunting" data-ss-label="Bunting"><p>Street party</p></section>'
+    + '<section class="direction" data-view-of="bunting" data-ss-frame="phone" data-ss-id="direction-bunting-phone" data-ss-label="Bunting · Phone"><p>Street party</p></section>'
+    + '<section class="direction" data-view-of="bunting" data-ss-frame="tablet" data-ss-id="direction-bunting-tablet" data-ss-label="Bunting · Tablet"><p>Street party</p></section>');
+  assert.equal(fold(["save", "Bunting", "Checking details", "pictures"], { FAKE_SHOT: "1" }).status, 0);
+  const w = fold(["wait"]);
+  assert.equal(w.status, 0, w.stdout + w.stderr);
+  const at = (a, k) => a[a.indexOf(k) + 1];
+  const shots = calls().filter((a) => a[0] === "spaces" && a[1] === "screenshot").map((a) => `${at(a, "--section")} ${at(a, "--width")}x${at(a, "--height")}`).sort();
+  assert.deepEqual(shots, ["direction-bunting 1440x1000", "direction-bunting 390x844", "direction-bunting-phone 390x844", "direction-bunting-tablet 820x1180"]);
+  assert.match(w.stdout, /pictures done: 4 pictures, no layout faults/);
+  for (const f of ["bunting-1440.png", "bunting-390.png", "bunting-phone-390.png", "bunting-tablet-820.png"]) assert.ok(fs.existsSync(path.join(folder, f)), f);
+});
+
+test("kit brings a page made before device views up to the starter's switcher and container rules, and changes nothing else", () => {
+  const { folder, fold, calls } = setup();
+  assert.equal(fold(["start", "--new", "Poster"]).status, 0);
+  // The starter as it was: a switcher that tabs every section, no device row, kit rules on the window's width.
+  const span = /\/\* switcher: start \*\/[\s\S]*?\/\* switcher: end \*\//g;
+  const was = ["/* switcher: start */\n  .switcher { position: sticky; }\n  /* switcher: end */",
+    "/* switcher: start */\n(() => { const all = () => [...document.querySelectorAll('section.direction')]; })();\n/* switcher: end */"];
+  let i = 0;
+  const old = BASE.replace(span, () => was[i++]).replace(/\n *<div class="switcher-views"[^>]*><\/div>/, "")
+    .replace(/@container \(max-width: 40rem\)/g, "@media (max-width: 40rem)").replace("5cqi", "5vw");
+  assert.equal(i, 2);
+  assert.notEqual(old, BASE);
+  const page = path.join(folder, "work", "index.html");
+  fs.writeFileSync(page, old);
+  const n = calls().length;
+  const r = fold(["kit"]);
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /^kit: the switcher, the device buttons' row, the kit's phone rules and the layout check are now the starter's; nothing pushed$/m);
+  assert.equal(fs.readFileSync(page, "utf8"), BASE);
+  assert.match(fold(["kit"]).stdout, /^kit: already current$/m);
+  assert.equal(calls().length, n, "kit pushes nothing");
+  fs.writeFileSync(page, "<!DOCTYPE html><title>Poster</title><section class=\"direction\" data-ss-id=\"direction-bunting\"></section>");
+  const bare = fold(["kit"]);
+  assert.equal(bare.status, 2);
+  assert.match(bare.stderr, /^kit: work\/index\.html has no starter switcher/m);
+});
+
+test("kit gives a page with no layout check the starter's, so the save's pictures are measured; a marked one becomes the starter's", () => {
+  const { folder, fold, calls } = setup();
+  assert.equal(fold(["start", "--new", "Poster"]).status, 0);
+  const check = /\/\* check: start \*\/[\s\S]*?\/\* check: end \*\//;
+  const [mark] = BASE.match(check);
+  const page = path.join(folder, "work", "index.html");
+  // A page from before the check: nothing in it asks for ss-fault/, so a save could measure nothing.
+  const old = BASE.replace(check, "");
+  assert.doesNotMatch(old, /ss-fault\//);
+  fs.writeFileSync(page, old);
+  const n = calls().length;
+  const r = fold(["kit"]);
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /^kit: the switcher, the device buttons' row, the kit's phone rules and the layout check are now the starter's; nothing pushed$/m);
+  const out = fs.readFileSync(page, "utf8");
+  assert.equal(out.split(mark).length, 2, "the starter's check, once");
+  assert.ok(out.includes(`<script>\n${mark}\n</script>\n</body>`), "in a <script> of its own, before </body>");
+  assert.match(fold(["kit"]).stdout, /^kit: already current$/m);
+  // A marked check from an earlier starter is replaced by the starter's, in place.
+  fs.writeFileSync(page, BASE.replace(check, "/* check: start */\nif (false) {}\n/* check: end */"));
+  assert.equal(fold(["kit"]).status, 0);
+  assert.equal(fs.readFileSync(page, "utf8"), BASE);
+  // An unmarked check measures already: it stays as it is, and no second one is added.
+  const unmarked = BASE.replace("/* check: start */\n", "").replace("/* check: end */\n", "");
+  fs.writeFileSync(page, unmarked);
+  assert.match(fold(["kit"]).stdout, /^kit: already current$/m);
+  assert.equal(fs.readFileSync(page, "utf8"), unmarked);
+  assert.equal(calls().length, n, "kit pushes nothing");
+});
+
+test("a folder from before run records gets them, as none, from the next command once no save or writer runs in it", async () => {
+  const { root, folder, fold } = setup();
+  assert.equal(fold(["start", "--new", "Notice"]).status, 0);
+  const rec = (n) => path.join(folder, "draw", `${n}.run`);
+  for (const n of ["writer", "save"]) fs.rmSync(rec(n));
+  // A process that looks like a save, working in this folder: the records stay missing and nothing starts.
+  const hold = (cwd) => require("child_process").spawn(process.execPath, ["-e", "setTimeout(() => {}, 60000)", "fold.js", "save", "Frame"], { cwd, stdio: "ignore" });
+  const end = (p) => { const gone = new Promise((ok) => p.once("exit", ok)); p.kill("SIGKILL"); return gone; };
+  const here = hold(folder);
+  try {
+    const r = fold(["save", "Frame"]);
+    assert.equal(r.status, 2, r.stdout + r.stderr);
+    assert.match(r.stdout, new RegExp(`^draw/writer\\.run and draw/save\\.run missing, and a run may be going in this folder \\(process ${here.pid}: .*fold\\.js save Frame\\)`, "m"));
+    assert.match(r.stderr, /^save: draw\/save\.run is missing, so fold\.js can't tell whether a save is still running here; it may be\. Nothing started/m);
+    assert.ok(!fs.existsSync(rec("save")) && !fs.existsSync(rec("writer")));
+  } finally { await end(here); }
+  // The same process in another folder doesn't hold this one; with this one's gone, the records are set up.
+  const there = hold(root);
+  try {
+    const r = fold(["wait"]);
+    assert.equal(r.status, 0, r.stdout + r.stderr);
+    assert.match(r.stdout, /^set up draw\/writer\.run and draw\/save\.run as none: this folder is from before fold\.js kept run records, and no save or writer is running in it$/m);
+    assert.match(r.stdout, /^no save has run$/m);
+  } finally { await end(there); }
+  for (const n of ["writer", "save"]) assert.equal(fs.readFileSync(rec(n), "utf8"), "none\n");
+  assert.doesNotMatch(fold(["wait"]).stdout, /set up/, "once only");
+  // A record that is there but holds no run is still unknown: only a missing one is set up.
+  fs.writeFileSync(rec("save"), "garbage\n");
+  const g = fold(["wait"]);
+  assert.equal(g.status, 1);
+  assert.match(g.stdout, /^can't tell whether a save is running or how it went: draw\/save\.run doesn't hold a run/m);
+});
+
+test("a run's record written by another command while an older folder's processes are listed is never replaced by none", () => {
+  const { root, folder, fold } = setup();
+  assert.equal(fold(["start", "--new", "Notice"]).status, 0);
+  const rec = (n) => path.join(folder, "draw", `${n}.run`);
+  for (const n of ["writer", "save"]) fs.rmSync(rec(n));
+  // A stand-in ps: as fold.js lists the processes, another command writes its save's record (begin's first write,
+  // no process group yet), then the list shows nothing that runs here. Its folder is fold.js's.
+  const run = `0123456789abcdef ${Date.now() + 600000} -\n`;
+  fs.writeFileSync(path.join(root, "bin", "ps"), `#!/bin/sh\nprintf '%s\\n' '${run.trim()}' > draw/save.run\necho "    1     0 /sbin/launchd"\n`, { mode: 0o755 });
+  const r = fold(["kit"]);
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.equal(fs.readFileSync(rec("save"), "utf8"), run, "the run's record stays");
+  assert.equal(fs.readFileSync(rec("writer"), "utf8"), "none\n", "the record nobody wrote is set up");
+  assert.match(r.stdout, /^set up draw\/writer\.run as none: /m);
+  assert.match(r.stdout, /^draw\/save\.run appeared while the processes were checked \(another fold\.js command wrote it\): left as it is$/m);
+  assert.deepEqual(fs.readdirSync(path.join(folder, "draw")).filter((f) => f.endsWith(".new")), [], "no copy left behind");
+});
+
+test("kit gives a one-design page that dropped the switcher's tabs, script and nav the script and a device row", () => {
+  const { folder, fold, calls } = setup();
+  assert.equal(fold(["start", "--new", "Poster"]).status, 0);
+  // One design as the starter said before views: one section, no tabs, no switcher script, no nav.
+  const span = /\/\* switcher: start \*\/[\s\S]*?\/\* switcher: end \*\//g;
+  const [styles, script] = BASE.match(span);
+  const old = BASE.replace(styles, "/* switcher: start */\n  .switcher { position: sticky; }\n  /* switcher: end */").replace(script, "")
+    .replace(/\n<nav\b[\s\S]*?<\/nav>\n/, "\n")
+    .replace(/\n<section class="direction"[^>]*data-ss-id="direction-second"[\s\S]*?<\/section>\n/, "\n")
+    .replace(/\n<section class="direction"[^>]*data-ss-id="direction-third"[\s\S]*?<\/section>\n/, "\n")
+    .replace(/@container \(max-width: 40rem\)/g, "@media (max-width: 40rem)").replace("5cqi", "5vw");
+  assert.equal((old.match(span) || []).length, 1);
+  assert.doesNotMatch(old, /<nav\b|class="switcher-tabs"|<section[^>]*direction-second/);
+  const page = path.join(folder, "work", "index.html");
+  fs.writeFileSync(page, old);
+  const n = calls().length;
+  const r = fold(["kit"]);
+  assert.equal(r.status, 0, r.stderr);
+  const out = fs.readFileSync(page, "utf8");
+  assert.deepEqual(out.match(span), [styles, script], "the starter's styles and script, each once");
+  assert.match(out, /<script>\n\/\* switcher: start \*\/[\s\S]*?\/\* switcher: end \*\/\n<\/script>\n<\/body>/, "the script in a <script> of its own, before </body>");
+  assert.match(out, /<body>\n<nav data-ss-canvas="pin" class="switcher no-print" aria-label="Design views" data-ss-react="off">\n  <div class="switcher-views" role="group" aria-label="Device views"><\/div>\n<\/nav>/);
+  assert.doesNotMatch(out, /@media \(max-width: 40rem\)|5vw/);
+  // The script runs without tabs, and the nav that holds only the device row shows only with buttons.
+  assert.doesNotMatch(script, /if \(!tabsNow\(\)\) return;/);
+  assert.match(styles, /\.switcher:has\(> \.switcher-views:only-child:empty\)/);
+  assert.match(fold(["kit"]).stdout, /^kit: already current$/m);
+  assert.equal(calls().length, n, "kit pushes nothing");
 });

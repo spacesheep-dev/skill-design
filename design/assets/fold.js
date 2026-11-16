@@ -19,8 +19,10 @@
 //                                               in the background: save a version, put the status back,
 //                                               push the page again, and with `pictures` take each whole
 //                                               direction at 1440 and 390 px wide (<slug>-1440.png, and
-//                                               <slug>-390.png cut into columns), the page measuring itself
-//                                               for layout faults as it is drawn; log in draw/save.log
+//                                               <slug>-390.png cut into columns), and each device view
+//                                               (data-view-of) once at its frame's width (a phone's
+//                                               <slug>-phone-390.png), the page measuring itself for layout
+//                                               faults as it is drawn; log in draw/save.log
 //   node fold.js -C <folder> wait                wait for that save to end (at most 100 s), print its log;
 //                                               exit 0 only for "save done…" or "pictures done: N pictures,
 //                                               no layout faults". "layout check failed" means fix each
@@ -37,6 +39,15 @@
 //                                               sends work/ as edited
 //   node fold.js -C <folder> focus <all|slug>    what the canvas shows: every direction, or the one named
 //                                               (its <meta name="ss-canvas-focus">), then push the page
+//   node fold.js -C <folder> kit                 before a page's first device view: its switcher (styles and
+//                                               script, the script added if the page dropped it) as the
+//                                               starter has it now, the device buttons' row, the kit's
+//                                               phone rules as container queries, and the layout check
+//                                               the save's pictures run (added if the page has none), in
+//                                               work/index.html; nothing else changes and nothing is pushed
+//
+// A folder from before fold.js kept run records (draw/writer.run, draw/save.run) gets them from start, read,
+// kit, save, write, wait or stop, once no fold.js save or writer is running in it (adopt, below).
 //
 // A save the platform refuses on purpose (a page cut to a fraction of the version before it, files left
 // out, a clash with edits made on the page) ends "save refused": nothing was saved, and saving again can't
@@ -66,7 +77,7 @@ if (argv[0] === "-C") {
   argv.splice(0, 2);
 }
 const cmd = argv[0];
-const COMMANDS = ["start", "push", "write", "brief", "save", "wait", "stop", "read", "focus"];
+const COMMANDS = ["start", "push", "write", "brief", "save", "wait", "stop", "read", "focus", "kit"];
 if (!COMMANDS.includes(cmd)) {
   console.error(`usage: node fold.js -C <folder> ${COMMANDS.join("|")} …  (the header of ${__filename} says what each does)`);
   process.exit(2);
@@ -130,6 +141,18 @@ const NEW = fs.readdirSync("draw").length === 0; // a folder fold.js hasn't used
 const log = (line) => { if (within("draw/fold.log")) fs.appendFileSync("draw/fold.log", `${new Date().toISOString()} ${line}\n`); else refuse("draw/fold.log"); };
 // Write whole files only (a temporary copy in draw/, then a rename), so no reader sees half of one.
 const swap = (f, text) => { const t = `draw/.${f.replace(/\//g, "_")}.tmp`; if (!within(t) || !within(f)) return refuse(f); fs.writeFileSync(t, text); fs.renameSync(t, f); return true; };
+// Make a file whole, and only where nothing is: a copy of its own, then a hard link to the name, which fails
+// if the name is taken (an exclusive create where hard links can't be made). true made, false already there
+// (left as it is), null refused. So a record another command wrote in the meantime is never replaced.
+function claim(f, text) {
+  const t = `draw/.${f.replace(/\//g, "_")}.${process.pid}.new`;
+  if (!within(t) || !within(f)) return refuse(f);
+  fs.writeFileSync(t, text);
+  try { fs.linkSync(t, f); return true; } catch (e) {
+    if (e.code === "EEXIST") return false;
+    try { fs.writeFileSync(f, text, { flag: "wx" }); return true; } catch (e2) { if (e2.code === "EEXIST") return false; throw e2; }
+  } finally { fs.rmSync(t, { force: true }); }
+}
 // draw/work.sha is the page fold.js last put in work/index.html (a fold, the starter, a read), so a fold never
 // undoes an edit made there since. setWork writes and records; rework (a renamed placeholder, a focus) keeps
 // an edit made by hand marked as one.
@@ -151,7 +174,8 @@ const rework = (html) => { const clean = isOurs(read("work/index.html")); return
 //   open     anything else: it hasn't said, or something it started is still there, or that can't be told
 //   unknown  the record is missing, unreadable, malformed or a link: nothing about it can be told
 // `write` and `save` start a run only after none, done or lapsed; `wait` and `stop` succeed only on done
-// (or none). Unknown stays unknown: no command replaces it or reads it as "none". draw/<job>.pid is there
+// (or none). Unknown stays unknown: no command replaces it or reads it as "none", except a missing record in a
+// folder no run can be going in (adopt, below). draw/<job>.pid is there
 // for a person to look the process up; nothing here decides on it.
 const LIFE = { writer: 31 * 60 * 1000, save: 10 * 60 * 1000 };
 const RUNID = /^[0-9a-f]{16}$/;
@@ -192,6 +216,44 @@ function launchable(name, what) {
   if (j.state === "unknown") { console.error(`${cmd}: ${j.why}, so fold.js can't tell whether a ${name} is still running here; it may be. Nothing started; ${LOOK(what)}`); process.exit(2); }
   if (j.state === "lapsed") console.log(`the last ${name} (run ${j.id}) never said how it ended; its time ran out at ${at(j.deadline)} and none of its processes is left`);
   return j;
+}
+// A folder from before fold.js kept run records (an older skill made it) has no draw/writer.run or
+// draw/save.run, and a missing record is unknown, so every job command would refuse it. A missing record (not
+// a link, not unreadable) is set up as "none" only when no run can be going here: no process, other than this
+// command and those that started it, is a fold.js write or save, or the CLI deploying or pushing this space,
+// with this folder as its working folder (a process whose folder can't be told counts). Else it stays missing,
+// and the line says which process holds it. It is made only where no record is (claim), so a run's record
+// written by another command after the processes were listed is never replaced by "none".
+const RUNLIKE = (args, id) => /fold\.js\b.*\s(save|write)(\s|$)/.test(args) || (!!id && args.includes(id) && /\s(deploy|live)\s/.test(args));
+// A process's working folder (its real path): from /proc, else from lsof; null when it can't be told.
+function cwdOf(pid) {
+  try { return fs.realpathSync(`/proc/${pid}/cwd`); } catch {}
+  for (const lsof of ["lsof", "/usr/sbin/lsof"]) {
+    try {
+      const n = (execFileSync(lsof, ["-a", "-p", String(pid), "-d", "cwd", "-Fn"], { encoding: "utf8", timeout: 10000, killSignal: "SIGKILL", stdio: ["ignore", "pipe", "ignore"] }).match(/^n(.+)$/m) || [])[1];
+      return n ? fs.realpathSync(n) : null;
+    } catch {}
+  }
+  return null;
+}
+function adopt() {
+  const gone = ["writer", "save"].filter((n) => within(`draw/${n}.run`) && !fs.existsSync(`draw/${n}.run`) && !isLink(`draw/${n}.run`));
+  if (!gone.length) return;
+  const names = gone.map((n) => `draw/${n}.run`).join(" and "), id = (read("draw/space") || "").trim();
+  let rows;
+  try {
+    rows = execFileSync("ps", ["-A", "-o", "pid=,ppid=,args="], { encoding: "utf8", timeout: 10000, killSignal: "SIGKILL", maxBuffer: 64 << 20, stdio: ["ignore", "pipe", "ignore"] })
+      .split("\n").map((l) => l.match(/^\s*(\d+)\s+(\d+)\s+(.*)$/)).filter(Boolean).map((m) => ({ pid: +m[1], ppid: +m[2], args: m[3] }));
+  } catch (e) { console.log(`${names} missing, and the processes can't be listed (${why(e)}), so nothing tells whether a run is going here: left missing`); return; }
+  const by = new Map(rows.map((r) => [r.pid, r])), mine = new Set();
+  for (let p = process.pid; p > 1 && !mine.has(p); p = (by.get(p) || {}).ppid || 0) mine.add(p);
+  const held = rows.filter((r) => !mine.has(r.pid) && RUNLIKE(r.args, UUID.test(id) && id)).filter((r) => { const c = cwdOf(r.pid); return c === null || c === ROOT; });
+  if (held.length) { console.log(`${names} missing, and a run may be going in this folder (${held.slice(0, 3).map((r) => `process ${r.pid}: ${r.args.slice(0, 120)}`).join("; ")}): left missing until it has gone; the next fold.js command then sets them up`); return; }
+  // Another command may have written a record since the processes were listed (a run's): claim leaves it.
+  const made = [], came = [];
+  for (const n of gone) { const r = claim(`draw/${n}.run`, "none\n"); if (r === null) process.exit(2); (r ? made : came).push(`draw/${n}.run`); }
+  if (made.length) console.log(`set up ${made.join(" and ")} as none: this folder is from before fold.js kept run records, and no save or writer is running in it`);
+  if (came.length) console.log(`${came.join(" and ")} appeared while the processes were checked (another fold.js command wrote it): left as it is`);
 }
 // Start a run: its record first (no group yet, so nothing can count it as ended), then the job, detached,
 // then the record again with the job's process group. The job finds its id and deadline in the record.
@@ -478,9 +540,12 @@ function idle() {
 
 // Said when the starter is in work/, just before the agent draws: how each direction reaches the person.
 const NEXT = 'next: Edit the title, the directions\' tokens and each section\'s opening tag (slug, name, line) in work/index.html, one Edit each, and leave every <!-- part:… --> placeholder as it is (fold.js names it after its section). Then fold.js push, fold.js save "Frame" "Drawing three directions", fold.js write, and each direction as draw/<slug>/01.html, 02.html…, its first line its status. A direction drawn in work/index.html shows no status.';
+// Each command that starts a run or reads one first sets up an older folder's missing records, when that's safe.
+if (!bg && !NEW && ["start", "read", "kit", "save", "write", "wait", "stop"].includes(cmd)) adopt();
 if (cmd === "start") {
   // Only a folder's first start may say that no writer or save has run in it.
-  if (NEW) for (const name of ["writer", "save"]) if (!swap(`draw/${name}.run`, "none\n")) process.exit(2);
+  // (A record already there was written by a command started since: it's left as it is.)
+  if (NEW) for (const name of ["writer", "save"]) if (claim(`draw/${name}.run`, "none\n") === null) process.exit(2);
   if (argv[1] === "--new") {
     if ((read("draw/space") || "").trim()) { console.error("start: this folder already has a space; use another folder for a new one"); process.exit(2); }
     mkdir("work");
@@ -557,6 +622,62 @@ if (cmd === "focus") {
   const ok = push("--html", read("work/index.html"));
   console.log(ok ? `focus: ${value}, pushed` : "focus set, but the push was refused: see draw/fold.log");
   process.exit(ok ? 0 : 1);
+}
+// A page made before device views has a switcher that would make a view a tab, kit rules that follow the
+// window, and maybe no layout check: `kit` puts in the starter's switcher spans (each /* switcher: start */ … /* switcher: end */, the
+// styles' in a <style>, the script's in a <script>), the script's in a <script> of its own when the page has
+// none (one design, whose script was dropped), the device buttons' row (before the switcher's line, else at
+// the end of the switcher, else in a nav of its own, shown only when it has buttons), and container queries
+// for the kit's phone rules in the starter's own <style>, and the starter's layout check (/* check: start */ …
+// /* check: end */) for the page's marked one, or in a <script> of its own on a page with none. It changes work/index.html and the writer's frame,
+// if there is one, and pushes nothing: the view's own Edits come next.
+function kitted(page) {
+  const span = /\/\* switcher: start \*\/[\s\S]*?\/\* switcher: end \*\//g;
+  // A span is the styles' or the script's: the nearer opening tag before it says which.
+  const kind = (text, at) => (text.lastIndexOf("<script", at) > text.lastIndexOf("<style", at) ? "script" : "style");
+  const base = fs.readFileSync(path.join(__dirname, "base.html"), "utf8"), now = {};
+  for (const m of base.matchAll(span)) now[kind(base, m.index)] = m[0];
+  const had = [...page.matchAll(span)].map((m) => kind(page, m.index));
+  if (!had.includes("style")) return null;
+  let out = page.replace(span, (m, at) => now[kind(page, at)]);
+  if (!had.includes("script")) {
+    const body = out.lastIndexOf("</body>"), add = `<script>\n${now.script}\n</script>\n`;
+    out = body >= 0 ? out.slice(0, body) + add + out.slice(body) : out + "\n" + add;
+  }
+  const row = '<div class="switcher-views" role="group" aria-label="Device views"></div>';
+  if (!/class="switcher-views"/.test(out)) {
+    if (/<p class="switcher-line"/.test(out)) out = out.replace(/([ \t]*)<p class="switcher-line"/, (m, pad) => `${pad}${row}\n${m}`);
+    else if (/<nav\b[^>]*class="[^"]*\bswitcher\b[^"]*"[^>]*>/.test(out)) out = out.replace(/(<nav\b[^>]*class="[^"]*\bswitcher\b[^"]*"[^>]*>[\s\S]*?)(\n?[ \t]*<\/nav>)/, (m, a, b) => `${a}\n  ${row}${b}`);
+    else out = out.replace(/<body\b[^>]*>/, (m) => `${m}\n<nav data-ss-canvas="pin" class="switcher no-print" aria-label="Design views" data-ss-react="off">\n  ${row}\n</nav>`);
+    if (!/class="switcher-views"/.test(out)) return null;
+  }
+  const first = [...out.matchAll(span)].find((m) => kind(out, m.index) === "style"), at = first ? first.index : -1;
+  const open = out.lastIndexOf("<style", at), close = out.indexOf("</style>", at);
+  if (at >= 0 && open >= 0 && close > at) out = out.slice(0, open) + out.slice(open, close).replace(/@media \(max-width: 40rem\)/g, "@container (max-width: 40rem)")
+    .replace(/clamp\(var\(--step-3\), 5vw, var\(--step-5\)\)/g, "clamp(var(--step-3), 5cqi, var(--step-5))") + out.slice(close);
+  // The layout check the save's pictures run (?ss-check): the starter's in place of the page's own marked one,
+  // or in a <script> of its own before </body> when the page has none, so its pictures are measured.
+  const check = /\/\* check: start \*\/[\s\S]*?\/\* check: end \*\//, nowCheck = base.match(check)[0];
+  if (check.test(out)) out = out.replace(check, () => nowCheck);
+  else if (!out.includes("ss-fault/")) {
+    const body = out.lastIndexOf("</body>"), add = `<script>\n${nowCheck}\n</script>\n`;
+    out = body >= 0 ? out.slice(0, body) + add + out.slice(body) : out + "\n" + add;
+  }
+  return out;
+}
+if (cmd === "kit") {
+  const page = read("work/index.html");
+  if (page === null) { console.error("kit: no work/index.html"); process.exit(2); }
+  let changed = 0;
+  for (const f of ["work/index.html", "draw/frame.html"]) {
+    const p = read(f);
+    if (p === null) continue;
+    const set = kitted(p);
+    if (set === null) { console.error(`kit: ${f} has no starter switcher to bring up to date (no /* switcher: start */ span in a <style>, or no <body> for its device row); its views still show on the canvas, with no device buttons without it`); process.exit(2); }
+    if (set !== p) { if (!(f === "work/index.html" ? rework(set) : swap(f, set))) process.exit(2); changed++; }
+  }
+  console.log(changed ? "kit: the switcher, the device buttons' row, the kit's phone rules and the layout check are now the starter's; nothing pushed" : "kit: already current");
+  process.exit(0);
 }
 if (cmd === "push") {
   nameParts();
@@ -687,8 +808,16 @@ if (cmd === "save") {
     if (argv[3] !== "pictures") return end("save done");
     // Each whole direction at 1440 and at 390 px wide, from the page with ?ss-check: the starter's script then
     // measures the direction as it is drawn, and each layout fault comes back named in the picture's answer.
+    // A device view (data-view-of) is drawn for one width, its frame's, so it gets that one picture.
     const saved = read("work/index.html") || "";
     const slugs = [...new Set([...saved.matchAll(/data-ss-id="direction-([a-z0-9-]+)"/g)].map((m) => m[1]))];
+    const sizes = new Map();
+    for (const [tag, d] of saved.matchAll(/<section\b[^>]*data-ss-id="direction-([a-z0-9-]+)"[^>]*>/g)) {
+      if (sizes.has(d) || !/\sdata-view-of="[^"]+"/.test(tag)) continue;
+      const f = (tag.match(/\sdata-ss-frame="([^"]*)"/) || [])[1] || "";
+      sizes.set(d, [{ phone: 390, tablet: 820 }[f] || Math.min(Math.max(+(f.match(/^(\d{3,4})x\d+$/) || [])[1] || 390, 320), 1920)]);
+    }
+    const widths = (d) => sizes.get(d) || [1440, 390];
     const faults = new Map(), notes = new Set();
     // A page without the starter's script (written whole, or a person's own page) has nothing to measure it.
     if (slugs.length && !saved.includes("ss-fault/")) notes.add("layout not measured: the page doesn't carry the starter's check script, so no fault can be reported; look at each picture closely");
@@ -699,7 +828,7 @@ if (cmd === "save") {
       if (!within(f)) { refuse(f); say(`picture ${f} refused: it is a link`); return false; }
       remove(f); // an earlier save's picture never stands in for this one
       for (let t = 1; t <= 2; t++) {
-        const r = await runAsync(["spaces", "screenshot", space, "--path", "/?ss-check=1", "--width", String(w), "--height", w === 390 ? "844" : "1000", "--section", `direction-${d}`, "--json"]);
+        const r = await runAsync(["spaces", "screenshot", space, "--path", "/?ss-check=1", "--width", String(w), "--height", String({ 390: 844, 820: 1180 }[w] || 1000), "--section", `direction-${d}`, "--json"]);
         let a = null;
         try { a = JSON.parse(r.out.slice(r.out.indexOf("{"))); } catch {}
         const png = !r.e && a && typeof a.png === "string" ? Buffer.from(a.png, "base64") : null, bad = png && pngBad(png);
@@ -720,8 +849,8 @@ if (cmd === "save") {
       }
       return false;
     };
-    const files = slugs.flatMap((d) => [`${d}-1440.png`, `${d}-390.png`]);
-    const shots = await Promise.all(slugs.flatMap((d) => [shot(d, 1440), shot(d, 390)]));
+    const files = slugs.flatMap((d) => widths(d).map((w) => `${d}-${w}.png`));
+    const shots = await Promise.all(slugs.flatMap((d) => widths(d).map((w) => shot(d, w))));
     for (const l of faults.values()) say(l);
     for (const l of notes) say(l); // not a fault: the save passes or fails on the rest
     // The last line says what to do, in its first words: a picture missing means save again; a layout fault
