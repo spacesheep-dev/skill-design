@@ -6,7 +6,7 @@ Read the part you need when the person asks for it. Each change is still shown b
 
 When the person wants sign-off ("send it to the client", "get approval", "I need a yes from Noor"):
 
-1. Make a client copy without the `ss-chat`, `ss-workspace`, `ss-canvas` and `ss-canvas-focus` metas, so it opens on the design alone, one direction at a time. Add an approval form near the end; the platform sends it from anyone who can open the space, with or without an account:
+1. Make a client copy without the `ss-chat`, `ss-workspace`, `ss-canvas` and `ss-canvas-focus` metas, so it opens on the design alone, one direction at a time (with Desktop / Phone buttons for a direction that has a view). Add an approval form near the end; the platform sends it from anyone who can open the space, with or without an account:
    ```html
    <form data-ss-form="approvals" class="no-print" aria-label="Approve this design">
      <label>Your name <input name="name" autocomplete="name" required></label>
