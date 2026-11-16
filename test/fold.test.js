@@ -670,6 +670,24 @@ test("a folder from before run records gets them, as none, from the next command
   assert.match(g.stdout, /^can't tell whether a save is running or how it went: draw\/save\.run doesn't hold a run/m);
 });
 
+test("a run's record written by another command while an older folder's processes are listed is never replaced by none", () => {
+  const { root, folder, fold } = setup();
+  assert.equal(fold(["start", "--new", "Notice"]).status, 0);
+  const rec = (n) => path.join(folder, "draw", `${n}.run`);
+  for (const n of ["writer", "save"]) fs.rmSync(rec(n));
+  // A stand-in ps: as fold.js lists the processes, another command writes its save's record (begin's first write,
+  // no process group yet), then the list shows nothing that runs here. Its folder is fold.js's.
+  const run = `0123456789abcdef ${Date.now() + 600000} -\n`;
+  fs.writeFileSync(path.join(root, "bin", "ps"), `#!/bin/sh\nprintf '%s\\n' '${run.trim()}' > draw/save.run\necho "    1     0 /sbin/launchd"\n`, { mode: 0o755 });
+  const r = fold(["kit"]);
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.equal(fs.readFileSync(rec("save"), "utf8"), run, "the run's record stays");
+  assert.equal(fs.readFileSync(rec("writer"), "utf8"), "none\n", "the record nobody wrote is set up");
+  assert.match(r.stdout, /^set up draw\/writer\.run as none: /m);
+  assert.match(r.stdout, /^draw\/save\.run appeared while the processes were checked \(another fold\.js command wrote it\): left as it is$/m);
+  assert.deepEqual(fs.readdirSync(path.join(folder, "draw")).filter((f) => f.endsWith(".new")), [], "no copy left behind");
+});
+
 test("kit gives a one-design page that dropped the switcher's tabs, script and nav the script and a device row", () => {
   const { folder, fold, calls } = setup();
   assert.equal(fold(["start", "--new", "Poster"]).status, 0);

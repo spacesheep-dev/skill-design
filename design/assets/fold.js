@@ -141,6 +141,18 @@ const NEW = fs.readdirSync("draw").length === 0; // a folder fold.js hasn't used
 const log = (line) => { if (within("draw/fold.log")) fs.appendFileSync("draw/fold.log", `${new Date().toISOString()} ${line}\n`); else refuse("draw/fold.log"); };
 // Write whole files only (a temporary copy in draw/, then a rename), so no reader sees half of one.
 const swap = (f, text) => { const t = `draw/.${f.replace(/\//g, "_")}.tmp`; if (!within(t) || !within(f)) return refuse(f); fs.writeFileSync(t, text); fs.renameSync(t, f); return true; };
+// Make a file whole, and only where nothing is: a copy of its own, then a hard link to the name, which fails
+// if the name is taken (an exclusive create where hard links can't be made). true made, false already there
+// (left as it is), null refused. So a record another command wrote in the meantime is never replaced.
+function claim(f, text) {
+  const t = `draw/.${f.replace(/\//g, "_")}.${process.pid}.new`;
+  if (!within(t) || !within(f)) return refuse(f);
+  fs.writeFileSync(t, text);
+  try { fs.linkSync(t, f); return true; } catch (e) {
+    if (e.code === "EEXIST") return false;
+    try { fs.writeFileSync(f, text, { flag: "wx" }); return true; } catch (e2) { if (e2.code === "EEXIST") return false; throw e2; }
+  } finally { fs.rmSync(t, { force: true }); }
+}
 // draw/work.sha is the page fold.js last put in work/index.html (a fold, the starter, a read), so a fold never
 // undoes an edit made there since. setWork writes and records; rework (a renamed placeholder, a focus) keeps
 // an edit made by hand marked as one.
@@ -210,7 +222,8 @@ function launchable(name, what) {
 // a link, not unreadable) is set up as "none" only when no run can be going here: no process, other than this
 // command and those that started it, is a fold.js write or save, or the CLI deploying or pushing this space,
 // with this folder as its working folder (a process whose folder can't be told counts). Else it stays missing,
-// and the line says which process holds it.
+// and the line says which process holds it. It is made only where no record is (claim), so a run's record
+// written by another command after the processes were listed is never replaced by "none".
 const RUNLIKE = (args, id) => /fold\.js\b.*\s(save|write)(\s|$)/.test(args) || (!!id && args.includes(id) && /\s(deploy|live)\s/.test(args));
 // A process's working folder (its real path): from /proc, else from lsof; null when it can't be told.
 function cwdOf(pid) {
@@ -236,8 +249,11 @@ function adopt() {
   for (let p = process.pid; p > 1 && !mine.has(p); p = (by.get(p) || {}).ppid || 0) mine.add(p);
   const held = rows.filter((r) => !mine.has(r.pid) && RUNLIKE(r.args, UUID.test(id) && id)).filter((r) => { const c = cwdOf(r.pid); return c === null || c === ROOT; });
   if (held.length) { console.log(`${names} missing, and a run may be going in this folder (${held.slice(0, 3).map((r) => `process ${r.pid}: ${r.args.slice(0, 120)}`).join("; ")}): left missing until it has gone; the next fold.js command then sets them up`); return; }
-  for (const n of gone) if (!swap(`draw/${n}.run`, "none\n")) process.exit(2);
-  console.log(`set up ${names} as none: this folder is from before fold.js kept run records, and no save or writer is running in it`);
+  // Another command may have written a record since the processes were listed (a run's): claim leaves it.
+  const made = [], came = [];
+  for (const n of gone) { const r = claim(`draw/${n}.run`, "none\n"); if (r === null) process.exit(2); (r ? made : came).push(`draw/${n}.run`); }
+  if (made.length) console.log(`set up ${made.join(" and ")} as none: this folder is from before fold.js kept run records, and no save or writer is running in it`);
+  if (came.length) console.log(`${came.join(" and ")} appeared while the processes were checked (another fold.js command wrote it): left as it is`);
 }
 // Start a run: its record first (no group yet, so nothing can count it as ended), then the job, detached,
 // then the record again with the job's process group. The job finds its id and deadline in the record.
@@ -528,7 +544,8 @@ const NEXT = 'next: Edit the title, the directions\' tokens and each section\'s 
 if (!bg && !NEW && ["start", "read", "kit", "save", "write", "wait", "stop"].includes(cmd)) adopt();
 if (cmd === "start") {
   // Only a folder's first start may say that no writer or save has run in it.
-  if (NEW) for (const name of ["writer", "save"]) if (!swap(`draw/${name}.run`, "none\n")) process.exit(2);
+  // (A record already there was written by a command started since: it's left as it is.)
+  if (NEW) for (const name of ["writer", "save"]) if (claim(`draw/${name}.run`, "none\n") === null) process.exit(2);
   if (argv[1] === "--new") {
     if ((read("draw/space") || "").trim()) { console.error("start: this folder already has a space; use another folder for a new one"); process.exit(2); }
     mkdir("work");
