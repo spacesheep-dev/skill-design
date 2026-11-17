@@ -66,6 +66,30 @@ test("the starter's controls as v1.2.4 had them are flagged: this is the script 
   assert.match(lines[0], /declares "ssControls"/);
 });
 
+// check.js's lines about ids off direction "first"'s slug, for one part holding these blocks.
+function offSlug(html) {
+  const folder = fs.mkdtempSync(path.join(os.tmpdir(), "check-test-"));
+  try {
+    fs.mkdirSync(path.join(folder, "work"));
+    fs.mkdirSync(path.join(folder, "draw", "first"), { recursive: true });
+    fs.writeFileSync(path.join(folder, "work", "index.html"), BASE);
+    fs.writeFileSync(path.join(folder, "draw", "first", "01.html"), `<!-- status: First: list -->\n${html}`);
+    const r = spawnSync(process.execPath, [CHECK, "-C", folder, "first"], { encoding: "utf8", timeout: 20000 });
+    assert.equal(r.error, undefined, `check.js didn't finish: ${r.error}`);
+    return r.stdout.split("\n").filter((l) => l.includes("doesn't start with"));
+  } finally {
+    fs.rmSync(folder, { recursive: true, force: true });
+  }
+}
+
+test("ids Spacesheep adds on save (auto-<tag>-<hash>) pass in a direction, and other ids off its slug still fail", () => {
+  assert.deepEqual(offSlug('<ul data-ss-id="first-list"><li data-ss-id="auto-li-1rcmmd">Shoyu</li><li data-ss-id="auto-li-1rcmmd-2">Shoyu</li><p data-ss-id="auto-p-0a9zx3">Open late</p></ul>'), []);
+  for (const id of ["night-list", "auto-li", "auto-li-1rcmm", "auto-li-1rcmmdx", "auto-LI-1rcmmd", "first"]) {
+    const lines = offSlug(`<div data-ss-id="${id}">x</div>`);
+    assert.equal(lines.length, 1, `${id}: ${lines.join(" | ") || "not flagged"}`);
+  }
+});
+
 // check.js's lines about the Decisions log, for the starter with this log before </body>.
 function decisions(log) {
   const folder = fs.mkdtempSync(path.join(os.tmpdir(), "check-test-"));

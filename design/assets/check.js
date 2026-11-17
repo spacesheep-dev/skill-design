@@ -159,7 +159,8 @@ function checkUnit(slug, u) {
     const id = a["data-ss-id"];
     if (id !== undefined) {
       if (CONTROLS.has(name)) fail(slug, where(m.index), `data-ss-id="${id}" is on a <${name}>: put it on the block around it`);
-      else if (id !== `direction-${slug}` && !id.startsWith(`${slug}-`)) fail(slug, where(m.index), `data-ss-id="${id}" doesn't start with "${slug}-"`);
+      // Spacesheep marks unmarked lines on save (auto-<tag>-<hash>, -2 on a clash); renaming one cuts its comments off.
+      else if (id !== `direction-${slug}` && !id.startsWith(`${slug}-`) && !/^auto-[a-z0-9]+-[a-z0-9]{6}(?:-\d+)?$/.test(id)) fail(slug, where(m.index), `data-ss-id="${id}" doesn't start with "${slug}-"`);
       if (seen.has(id) && seen.get(id) !== where(m.index)) fail(slug, where(m.index), `data-ss-id="${id}" is used twice (also ${seen.get(id)})`);
       else seen.set(id, where(m.index));
     }
