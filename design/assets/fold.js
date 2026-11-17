@@ -454,7 +454,6 @@ function isBlank(h) {
   const base = baseHtml();
   return [platformBlank, (t) => firstPage(t, base)].some((make) => knownPage(make).test(page));
 }
-const isDesign = (h) => !isBlank(h);
 // The starter with the space's own title: a design never renames the space unasked (`title` does, on the person's pick).
 const titled = (base, title) => base.replace(/<title>[^<]*<\/title>/, () => `<title>${esc(title)}</title>`);
 // The starter with no directions: the canvas and its frame, pushed the moment a blank page is known, before any design.
@@ -617,7 +616,7 @@ if (cmd === "start") {
     const aside = retire();
     if (aside) console.log(aside);
     let pushed = null;
-    if (!isDesign(read("work/index.html"))) {
+    if (isBlank(read("work/index.html"))) {
       const base = titled(baseHtml(), title || "Untitled");
       if (!setWork(base) || !write("draw/starter", "1\n")) process.exit(2);
       pushed = push("--html", emptyCanvas(base));
