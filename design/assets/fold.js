@@ -407,6 +407,8 @@ function unsaved(d) {
 }
 // A new space's first version: the title, the starter's chat and workspace metas, and one line. It is one
 // of the pages isBlank knows, so `start <link>` on it later puts the starter in work/, as for any blank page.
+// The starter, base.html beside this script: read when a command needs it.
+const baseHtml = () => fs.readFileSync(path.join(__dirname, "base.html"), "utf8");
 const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 const firstPage = (title, base) => `<!DOCTYPE html>
 <html lang="en">
@@ -448,10 +450,9 @@ const knownPage = (make) => new RegExp(`^${make("\u0000").trim().replace(/[.*+?^
 function isBlank(h) {
   const page = (h || "").replace(/\r\n/g, "\n").trim();
   if (!page) return true;
-  const base = fs.readFileSync(path.join(__dirname, "base.html"), "utf8");
+  const base = baseHtml();
   return [platformBlank, (t) => firstPage(t, base)].some((make) => knownPage(make).test(page));
 }
-const isDesign = (h) => !isBlank(h);
 // The starter with the space's own title: a design never renames the space unasked (`title` does, on the person's pick).
 const titled = (base, title) => base.replace(/<title>[^<]*<\/title>/, () => `<title>${esc(title)}</title>`);
 // The starter with no directions: the canvas and its frame, pushed the moment a blank page is known, before any design.
@@ -564,7 +565,7 @@ if (cmd === "start") {
   if (argv[1] === "--new") {
     if ((read("draw/space") || "").trim()) { console.error("start: this folder already has a space; use another folder for a new one"); process.exit(2); }
     mkdir("work");
-    const base = fs.readFileSync(path.join(__dirname, "base.html"), "utf8"), title = plain("title", argv[2]) || "Design";
+    const base = baseHtml(), title = plain("title", argv[2]) || "Design";
     if (!work() || !setWork(firstPage(title, base))) process.exit(2);
     const out = run(["deploy", "work", "--title", title, "--json"]);
     const j = JSON.parse(out.slice(out.indexOf("{")));
@@ -609,8 +610,8 @@ if (cmd === "start") {
     const aside = retire();
     if (aside) console.log(aside);
     let pushed = null;
-    if (!isDesign(read("work/index.html"))) {
-      const base = titled(fs.readFileSync(path.join(__dirname, "base.html"), "utf8"), title || "Untitled");
+    if (isBlank(read("work/index.html"))) {
+      const base = titled(baseHtml(), title || "Untitled");
       if (!setWork(base) || !write("draw/starter", "1\n")) process.exit(2);
       pushed = push("--html", emptyCanvas(base));
     } else remove("draw/starter"); // a revision: section 7, not a new build
@@ -687,7 +688,7 @@ function kitted(page) {
   const span = /\/\* switcher: start \*\/[\s\S]*?\/\* switcher: end \*\//g;
   // A span is the styles' or the script's: the nearer opening tag before it says which.
   const kind = (text, at) => (text.lastIndexOf("<script", at) > text.lastIndexOf("<style", at) ? "script" : "style");
-  const base = fs.readFileSync(path.join(__dirname, "base.html"), "utf8"), now = {};
+  const base = baseHtml(), now = {};
   for (const m of base.matchAll(span)) now[kind(base, m.index)] = m[0];
   const had = [...page.matchAll(span)].map((m) => kind(page, m.index));
   if (!had.includes("style")) return null;
@@ -739,16 +740,6 @@ if (cmd === "kit") {
 // data-version-of on the page and shown only on the canvas, behind the frames. The canvas then shows every
 // direction. It changes work/index.html and the writer's frame, if there is one, and pushes nothing: the versions'
 // Edits come next.
-const ROUNDS_CSS = `  /* rounds: start */
-  /* a round's versions sit in a row below, each joined to the direction it came from by a line: one block,
-     [data-round-lines], that fold.js round draws behind the frames. Only the canvas shows it. */
-  [data-round-lines] { z-index: -1; pointer-events: none; outline: none; }
-  [data-round-lines] svg { display: block; overflow: visible; }
-  /* each line is drawn from its version up, and starts 24 px (on screen) above it, clear of the version's label */
-  [data-round-lines] path { fill: none; stroke: light-dark(#9a9aa6, #6b6b78); stroke-width: calc(1.5px / var(--ss-cz, 1)); stroke-linecap: round;
-    stroke-dasharray: 0 min(calc(24px / var(--ss-cz, 1)), 200px) 100000; }
-  html:not(:has(meta[name="ss-canvas"][content="on"])) [data-round-lines] { display: none; }
-  /* rounds: end */`;
 const FRAME_SIZES = { desktop: [1280, 800], tablet: [820, 1180], phone: [390, 844] };
 const ROW_GAP = 320, FRAME_GAP = 72;
 const attrOf = (tag, name) => { const m = tag.match(new RegExp(`\\s${name}="([^"]*)"`)); return m ? m[1] : null; };
@@ -853,7 +844,7 @@ function rounded(page, parent, names) {
   if (!/\/\* rounds: start \*\//.test(out)) {
     const head = out.search(/<\/head>/i), style = out.indexOf("</style>");
     if (style < 0 || (head >= 0 && style > head)) return { error: "round: the page has no <style> in its <head> for the lines' rules" };
-    out = out.slice(0, style) + ROUNDS_CSS + "\n" + out.slice(style);
+    out = out.slice(0, style) + baseHtml().match(/  \/\* rounds: start \*\/[\s\S]*?\/\* rounds: end \*\//)[0] + "\n" + out.slice(style);
   }
   const focused = withFocus(withLines(out), "all");
   if (focused === null) return { error: "round: the page has no <head> to put the canvas's focus in" };

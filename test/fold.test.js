@@ -898,8 +898,7 @@ test("round puts each version in a row of its own below everything, joined to it
 });
 
 test("the starter carries the lines' rules as round adds them to an older page, shown only on the canvas", () => {
-  const css = fs.readFileSync(FOLD, "utf8").match(/const ROUNDS_CSS = `([\s\S]*?)`;/)[1];
-  assert.ok(BASE.includes(css), "base.html's rounds span is fold.js's");
+  const css = BASE.match(/  \/\* rounds: start \*\/[\s\S]*?\/\* rounds: end \*\//)[0];
   assert.match(css, /html:not\(:has\(meta\[name="ss-canvas"\]\[content="on"\]\)\) \[data-round-lines\] \{ display: none; \}/);
   const { folder, fold } = setup();
   assert.equal(fold(["start", "--new", "Poster"]).status, 0);
