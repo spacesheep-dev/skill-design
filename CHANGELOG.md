@@ -2,6 +2,14 @@
 
 Each release is a heading with its tag. The release workflow uses the words under it as the release's notes.
 
+## v1.2.23
+
+- A save whose deploy the CLI calls failed now checks, as a save stopped at its time limit already did, whether its version was made all the same (only its answer lost, for example when the server restarted mid-call). If it was, the save is a save: it says `Saved as version N`, goes on to its status and pictures, and nothing says failed. If not, the save ends with the CLI's own words, as before.
+- A refusal on purpose (`Nothing was published` or `Nothing was deployed`) is never checked: that save made no version, so it ends `save refused` as before, whatever lands meanwhile.
+- A version counts as the save's only when its message matches, it is newer than the space's newest before the save, and its page is byte for byte the `work/index.html` the deploy sent (read back with the CLI's `get_file`). Another writer's version with the same message and another page is not this save's. The same holds for a save stopped at its time limit, which matched on the message alone until now.
+- New tests: a deploy that answers `deploy failed:` after its version is made, after another writer's same-message version, and after none; a refusal while a same-message version with the same page lands; a timed-out save with only another writer's same-message version. 64 tests, one skipped as before.
+- The folder's hash is `f84feb75f907`.
+
 ## v1.2.22
 
 - Spacesheep no longer has a Design workspace, so the page no longer declares one: `<meta name="ss-workspace" content="design">` is gone from base.html and starter.html, and from the first version `start --new` puts up. `start` still knows a first version from before, with that meta, as a blank page.

@@ -17,25 +17,47 @@ const CLI = `#!/usr/bin/env node
 const fs = require("fs"), path = require("path");
 const a = process.argv.slice(2), dir = process.env.FAKE_DIR;
 fs.appendFileSync(path.join(dir, "calls.log"), JSON.stringify(a) + "\\n");
-if (a[0] === "call") { fs.appendFileSync(path.join(dir, "stdin.log"), JSON.stringify(JSON.parse(fs.readFileSync(0, "utf8"))) + "\\n"); process.exit(0); }
+if (a[0] === "call" && a[1] !== "get_file") { fs.appendFileSync(path.join(dir, "stdin.log"), JSON.stringify(JSON.parse(fs.readFileSync(0, "utf8"))) + "\\n"); process.exit(0); }
 if (a[0] === "deploy" && a.includes("--json")) {
   fs.writeFileSync(path.join(dir, "first.html"), fs.readFileSync("work/index.html"));
   console.log(JSON.stringify({ space: { id: "${SPACE}", url: "https://stage.test/s" } }));
   process.exit(0);
 }
+// The space's history, newest first: one version with the message the tests save with, made 10 s ago.
+// A version this stand-in makes keeps its page, which get_file gives back for that version.
+const VERSIONS = path.join(dir, "versions.json");
+const history = () => fs.existsSync(VERSIONS) ? JSON.parse(fs.readFileSync(VERSIONS, "utf8")) : [{ id: "a8a114a8aa44", label: "Big Day, red 18", created_at: new Date(Date.now() - 10000).toISOString() }];
+const made = (id, html) => fs.writeFileSync(VERSIONS, JSON.stringify([{ id, label: a[a.indexOf("-m") + 1], created_at: new Date().toISOString(), html }, ...history()]));
+const page = () => fs.readFileSync("work/index.html", "utf8");
+const OTHER = "<!DOCTYPE html><title>Big Day</title><p>Another writer's page, saved with the same message.</p>";
+if (a[0] === "call" && a[1] === "get_file") {
+  const q = JSON.parse(fs.readFileSync(0, "utf8")), v = history().find((x) => x.id === q.version);
+  // A page is bigger than a pipe holds: exit only once it's all written.
+  process.stdout.write(JSON.stringify(v && v.html !== undefined ? { file: { path: q.file, content: v.html }, version: { id: v.id }, next_offset: 0 } : { error: "not_found", message: "No such version." }) + "\\n", () => process.exit(0));
+  return;
+}
+// A refusal on purpose; with FAKE_OTHER, another writer saved a version with the same message and this very page meanwhile.
 if (a[0] === "deploy" && process.env.FAKE_REFUSE) {
+  if (process.env.FAKE_OTHER) made("f0e1d2c3b4a5", page());
   const n = fs.statSync("work/index.html").size;
   console.error("= index.html unchanged");
   console.error("↑ index.html (" + n + " bytes)");
   console.error("✗ index.html would shrink from 38318 to " + n + " bytes (90% smaller), which looks like a page lost rather than a page edited. Nothing was published; the space keeps its current version. To publish this smaller page on purpose, send the same call again with drop_files: true.");
   process.exit(1);
 }
-// The space's history, newest first: one version with the message the tests save with, made 10 s ago.
-// A deploy the server answers late: with "landed" its version goes on top first; either way it never ends by itself.
-const VERSIONS = path.join(dir, "versions.json");
-const history = () => fs.existsSync(VERSIONS) ? JSON.parse(fs.readFileSync(VERSIONS, "utf8")) : [{ id: "a8a114a8aa44", label: "Big Day, red 18", created_at: new Date(Date.now() - 10000).toISOString() }];
+// A deploy the CLI calls failed (the tool's answer was plain text): with "landed" its version was made first;
+// with "other", another writer's version with the same message and another page was.
+if (a[0] === "deploy" && process.env.FAKE_FAIL) {
+  if (process.env.FAKE_FAIL === "landed") made("e5f1a2b3c4d5", page());
+  if (process.env.FAKE_FAIL === "other") made("b7c8d9e0f1a2", OTHER);
+  console.error("deploy failed: Network connection lost.");
+  process.exit(1);
+}
+// A deploy the server answers late: with "landed" its version goes on top first, with "other" another writer's
+// with the same message; either way it never ends by itself.
 if (a[0] === "deploy" && process.env.FAKE_HANG) {
-  if (process.env.FAKE_HANG === "landed") fs.writeFileSync(VERSIONS, JSON.stringify([{ id: "d4c0834a3907", label: a[a.indexOf("-m") + 1], created_at: new Date().toISOString() }, ...history()]));
+  if (process.env.FAKE_HANG === "landed") made("d4c0834a3907", page());
+  if (process.env.FAKE_HANG === "other") made("c9d0e1f2a3b4", OTHER);
   setTimeout(() => process.exit(0), 30000);
   return;
 }
@@ -44,7 +66,7 @@ if (a[0] === "versions") {
   const h = process.env.FAKE_HISTORY, made = fs.existsSync(VERSIONS);
   if (h === "refused" || (h === "before" && !made) || (h === "after" && made)) { console.error("forbidden: This account may not do this here."); process.exit(1); }
   const n = Number(a[a.indexOf("--limit") + 1]) || 50, all = history();
-  console.log(JSON.stringify({ versions: all.slice(0, n), page: { next: all.length > n ? all[n - 1].id : "" } }));
+  console.log(JSON.stringify({ versions: all.slice(0, n).map(({ html, ...v }) => v), page: { next: all.length > n ? all[n - 1].id : "" } }));
   process.exit(0);
 }
 // What each save sent; FAKE_TOUCH changes work/ during the upload, as a writer's fold can.
@@ -528,11 +550,13 @@ test("a save stopped at its time limit is saved only when a version with its mes
   assert.ok(reads[0] < deployed && log[reads[0]].includes("1"), "its newest version was read before the deploy");
   assert.ok(reads[1] > deployed, "and the history again after it");
   assert.ok(log.findIndex((a) => a[0] === "live" && a.includes("Checking details")) > reads[1], "the save went on to its status");
-  // No version from this save: the only one with its message was made 10 s before it, so it isn't this
-  // save's. Or a history that can't be read, before or after: a failure that says so, even when it landed.
+  // No version from this save: the only one with its message was made 10 s before it, or by another writer
+  // with another page, so it isn't this save's. Or a history that can't be read, before or after: a failure
+  // that says so, even when it landed.
   const before = "the space's history couldn't be read before the save (forbidden: This account may not do this here.)";
   for (const [more, said] of [
     [{ FAKE_HANG: "lost" }, `no answer from the server in 2 s, and the space has no version "Big Day, red 18" newer than its newest before this save; ${again}`],
+    [{ FAKE_HANG: "other" }, `no answer from the server in 2 s, and the space has a version "Big Day, red 18" newer than its newest before this save, but not with the page this save sent; ${again}`],
     [{ FAKE_HANG: "lost", FAKE_HISTORY: "refused" }, `no answer from the server in 2 s, and ${before}; ${again}`],
     [{ FAKE_HANG: "landed", FAKE_HISTORY: "before" }, `no answer from the server in 2 s, and ${before}; ${again}`],
     [{ FAKE_HANG: "landed", FAKE_HISTORY: "after" }, `no answer from the server in 2 s, and the space's history can't be read (forbidden: This account may not do this here.); ${again}`],
@@ -545,6 +569,50 @@ test("a save stopped at its time limit is saved only when a version with its mes
     assert.equal(w.stdout.trim().split("\n").pop().slice(9), `save failed: ${said}`);
     assert.ok(!calls().some((a) => a[0] === "live" && a.includes("Checking details")), "a failed save puts no status back");
   }
+});
+
+test("a save the CLI calls failed is saved when a version with its message and its page is newer than the space's newest before it", () => {
+  // The version was made, then the CLI said "deploy failed": a save, with no word of failure.
+  let { fold, calls } = setup();
+  assert.equal(fold(["start", "--new", "Poster"]).status, 0);
+  assert.equal(fold(["save", "Big Day, red 18", "Checking details"], { FAKE_FAIL: "landed" }).status, 0);
+  let w = fold(["wait"]);
+  assert.equal(w.status, 0, w.stdout + w.stderr);
+  assert.match(w.stdout, /saved: Saved as version 2\. The version was made, though the CLI didn't get the server's usual answer\./);
+  assert.match(w.stdout.trim().split("\n").pop(), /save done$/);
+  assert.doesNotMatch(w.stdout, /fail/i);
+  const log = calls(), deployed = log.findIndex((a) => a[0] === "deploy" && a.includes("Big Day, red 18"));
+  const read = log.findIndex((a, i) => i > deployed && a[0] === "versions");
+  assert.ok(read > deployed, "the history was read after the deploy");
+  assert.ok(log.findIndex((a, i) => i > read && a[0] === "call" && a[1] === "get_file") > read, "and then the new version's page");
+  assert.ok(log.findIndex((a) => a[0] === "live" && a.includes("Checking details")) > deployed, "the save went on to its status");
+  // No version from this save, or only another writer's with the same message and another page: the CLI's words, as before.
+  for (const fail of ["lost", "other"]) {
+    ({ fold, calls } = setup());
+    assert.equal(fold(["start", "--new", "Poster"]).status, 0);
+    assert.equal(fold(["save", "Big Day, red 18", "Checking details"], { FAKE_FAIL: fail }).status, 0);
+    w = fold(["wait"]);
+    assert.equal(w.status, 1, `wait must fail on a save that didn't land (${fail})`);
+    assert.equal(w.stdout.trim().split("\n").pop().slice(9), "save failed: deploy failed: Network connection lost.");
+    assert.ok(!calls().some((a) => a[0] === "live" && a.includes("Checking details")), "a failed save puts no status back");
+  }
+});
+
+test("a save refused on purpose stays refused, even when a version with its message and its page lands meanwhile", () => {
+  // Another writer saved the same page under the same message while this save was refused: the refusal
+  // stands, and the history isn't read after it.
+  const { folder, fold, calls } = setup();
+  assert.equal(fold(["start", "--new", "Notice"]).status, 0);
+  fs.writeFileSync(path.join(folder, "work", "index.html"), "<!DOCTYPE html><title>Notice</title><p>The lift is out of service.</p>");
+  assert.equal(fold(["save", "Notice", "Saving the notice"], { FAKE_REFUSE: "1", FAKE_OTHER: "1" }).status, 0);
+  const w = fold(["wait"]);
+  assert.equal(w.status, 1, "wait must fail on a refused save");
+  assert.match(w.stdout.trim().split("\n").pop(), /^\d\d:\d\d:\d\d save refused: index\.html would shrink from 38318 to \d+ bytes/);
+  assert.doesNotMatch(w.stdout, /Saved as version/);
+  const log = calls(), deployed = log.findIndex((a) => a[0] === "deploy" && a.includes("-m"));
+  assert.ok(deployed >= 0, "the save was sent");
+  assert.ok(!log.some((a, i) => i > deployed && (a[0] === "versions" || (a[0] === "call" && a[1] === "get_file"))), "no history or page read after the refusal");
+  assert.ok(!log.some((a) => a[0] === "live" && a.includes("Saving the notice")), "a refused save puts no status back");
 });
 
 // A build drawn as parts and saved: the Programme starts at 2pm, and the writer's frame and part stay in draw/.
