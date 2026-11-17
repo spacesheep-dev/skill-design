@@ -82,14 +82,12 @@ Reply go to use my picks.
 
 ## Rename
 
-Only when the space's title clearly doesn't fit the work, and never before drawing: it rides on the frame's message, and drawing goes on. Three titles of 1 to 4 words, then Don't change, which is the pick.
+Only when the space's title clearly doesn't fit the work, asked once, as the last thing in the turn's last message (SKILL.md section 6): a chat takes taps only on its newest message, so its pills end the chat and stay live until answered. It is that message's only question: any other asked while drawing (dark mode, say) goes on step 2's message. One question on its own, not a form, so a tap is the answer: three titles of 1 to 4 words, then Don't change, which is the pick.
 
 ```ss-blocks
 [
-  {"form": {"id": "title", "submit": "Done", "asks": [
-    {"id": "title", "question": "Rename “Q3 budget”?", "options": ["Winter Talks Flyer", "Harbour Lane Talks", "Library Winter Season", "Don't change"], "pick": "Don't change"}
-  ]}}
+  {"ask": {"id": "title", "question": "Rename “Q3 budget”?", "options": ["Winter Talks Flyer", "Harbour Lane Talks", "Library Winter Season", "Don't change"], "pick": "Don't change"}}
 ]
 ```
 
-The answer comes back as `Rename “Q3 budget”?: <choice>`. On a title, `fold.js title "<choice>"`; on Don't change, nothing. Without a chat form: "Rename “Q3 budget”? a) Winter Talks Flyer b) Harbour Lane Talks c) Library Winter Season d) Don't change (my pick)".
+The answer comes back as the tapped words alone. On a title, `fold.js title "<choice>"`; on Don't change, nothing. Without a chat form: "Rename “Q3 budget”? a) Winter Talks Flyer b) Harbour Lane Talks c) Library Winter Season d) Don't change (my pick)".
