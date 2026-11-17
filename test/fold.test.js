@@ -64,7 +64,15 @@ if (a[0] === "spaces" && a[1] === "screenshot" && process.env.FAKE_SHOT) {
   console.log(JSON.stringify({ png: png.toString("base64"), resource_failures: [] }));
   process.exit(0);
 }
-if (a[0] === "spaces" && a[1] === "get") { console.log("title: Untitled\\n  id: ${SPACE}"); process.exit(0); }
+// FAKE_SLOW_GET: the space's details take 1.5 s, and the times log says when each call started and ended.
+if (process.env.FAKE_SLOW_GET) fs.appendFileSync(path.join(dir, "times.log"), JSON.stringify([a[0], "start", Date.now()]) + "\\n");
+if (a[0] === "spaces" && a[1] === "get" && process.env.FAKE_GET_REFUSED) { console.error("not_found: Nothing by that name or id here."); process.exit(1); }
+if (a[0] === "read" && process.env.FAKE_SLOW_READ) { setTimeout(() => { fs.mkdirSync("work", { recursive: true }); fs.writeFileSync("work/index.html", fs.readFileSync(process.env.FAKE_PAGE)); process.exit(0); }, 1000); return; }
+if (a[0] === "spaces" && a[1] === "get") {
+  const done = () => { if (process.env.FAKE_SLOW_GET) fs.appendFileSync(path.join(dir, "times.log"), JSON.stringify([a[0], "end", Date.now()]) + "\\n"); console.log("title: Untitled\\n  id: ${SPACE}"); process.exit(0); };
+  if (process.env.FAKE_SLOW_GET) setTimeout(done, 1500); else done();
+  return;
+}
 if (a[0] === "read") { fs.mkdirSync("work", { recursive: true }); fs.writeFileSync("work/index.html", fs.readFileSync(process.env.FAKE_PAGE)); console.log("↓ index.html"); process.exit(0); }
 process.exit(0);
 `;
@@ -253,7 +261,44 @@ test("start on a known empty page lays down the starter: an empty file, sheep.ne
   }
 });
 
-// The page is there at once: the canvas and its frame, no direction yet, right after the first status.
+// start waits on nothing it doesn't need: in a new folder the page is read while the space's details come,
+// and in a folder kept for another space nothing is read at all.
+test("start reads the page beside the space's details in a new folder, and reads nothing in a folder kept for another space", () => {
+  const { root, folder, fold, calls, sent } = setup();
+  fs.writeFileSync(path.join(root, "page.html"), "");
+  const r = fold(["start", "https://stage.test/s"], { FAKE_PAGE: path.join(root, "page.html"), FAKE_SLOW_GET: "1" });
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  const times = fs.readFileSync(path.join(root, "times.log"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
+  const at = (name, when) => (times.find((t) => t[0] === name && t[1] === when) || [])[2];
+  assert.ok(at("read", "start") < at("spaces", "end"), "the read began before the space's details came back");
+  assert.ok(sent().some((s) => s.html), "the empty canvas went up");
+  assert.match(r.stdout, /^status: Reading your brief$/m);
+
+  // spaces get refused while the page is still being read: start ends only once the read has landed, so
+  // nothing reaches work/ after it has said it failed (a retry can't race a late write).
+  const refused = setup();
+  fs.writeFileSync(path.join(refused.root, "page.html"), "<!DOCTYPE html><title>late</title>");
+  const g = refused.fold(["start", "https://stage.test/s"], { FAKE_PAGE: path.join(refused.root, "page.html"), FAKE_GET_REFUSED: "1", FAKE_SLOW_READ: "1" });
+  assert.equal(g.status, 1, g.stdout + g.stderr);
+  assert.match(g.stderr, /^start: spaces get https:\/\/stage\.test\/s refused: not_found/m);
+  const late = path.join(refused.folder, "work", "index.html"), landed = fs.existsSync(late) && fs.statSync(late).mtimeMs;
+  assert.ok(landed, "the read had landed when start ended");
+  const until = Date.now() + 1500; while (Date.now() < until);
+  assert.equal(fs.statSync(late).mtimeMs, landed, "nothing written after start ended");
+  assert.ok(!fs.existsSync(path.join(refused.folder, "draw", "space")), "no space kept");
+
+  const other = setup();
+  fs.mkdirSync(path.join(other.folder, "draw"), { recursive: true });
+  fs.writeFileSync(path.join(other.folder, "draw", "space"), "99999999-2222-4333-8444-555555555555");
+  fs.writeFileSync(path.join(other.root, "page.html"), "");
+  const o = other.fold(["start", "https://stage.test/s"], { FAKE_PAGE: path.join(other.root, "page.html") });
+  assert.equal(o.status, 2, o.stdout + o.stderr);
+  assert.match(o.stderr, /this folder is for space 99999999/);
+  assert.ok(!other.calls().some((c) => c[0] === "read"), "nothing read into a folder kept for another space");
+  assert.ok(!fs.existsSync(path.join(other.folder, "work", "index.html")), "work/ untouched");
+});
+
+// The page is there at once: the canvas and its frame, no direction yet, beside the first status.
 test("start puts the starter's empty canvas up at once, on a new space and on a blank page, and never over a design", () => {
   const emptyOf = (sent) => sent.filter((s) => s.html).map((s) => s.html);
   const looks = (html, name) => {
@@ -268,8 +313,10 @@ test("start puts the starter's empty canvas up at once, on a new space and on a 
   assert.equal(pushed.length, 1, "start --new pushes one page");
   looks(pushed[0], "start --new");
   assert.equal(pushed[0].match(/<title>[^<]*<\/title>/g).join(), "<title>Poster $&amp; sale</title>", "the canvas carries the new space's title, $ and all");
-  const log = made.calls(), status = log.findIndex((a) => a[0] === "live" && a.includes("Reading your brief"));
-  assert.ok(status >= 0 && status < log.findIndex((a) => a[0] === "call" && a[1] === "push_live"), "the status goes up first");
+  // The status and the canvas go up side by side, once the space exists: neither waits for the other.
+  const log = made.calls(), made_ = log.findIndex((a) => a[0] === "deploy");
+  const status = log.findIndex((a) => a[0] === "live" && a.includes("Reading your brief")), canvas = log.findIndex((a) => a[0] === "call" && a[1] === "push_live");
+  assert.ok(made_ >= 0 && status > made_ && canvas > made_, "the status and the canvas go up after the space is made");
   for (const [name, page] of Object.entries({ blank: PLATFORM_BLANK, design: '<!DOCTYPE html><title>Poster</title><section class="direction" data-ss-section data-ss-id="direction-bunting"><h1 data-ss-id="bunting-title">Summer Street Party</h1></section>' })) {
     const one = setup();
     fs.writeFileSync(path.join(one.root, "page.html"), page);
@@ -374,7 +421,7 @@ test("focus gives a page from before the meta its focus beside the ss-canvas met
     assert.equal(fs.readFileSync(path.join(folder, ...f), "utf8"), old.replace('<meta name="ss-canvas" content="on">', '<meta name="ss-canvas" content="on">\n<meta name="ss-canvas-focus" content="direction-second">'), f.join("/"));
 });
 
-test("a revision's first status goes up before anything is read: read's words (Reading your design unless given), and start's when given", () => {
+test("a revision's first status: read's words (Reading your design unless given) go up before it reads; start's, when given, go up beside its read, and start pushes no page over the design", () => {
   const { root, folder, fold, calls } = setup();
   const design = BASE.replace("<title>", "<title>Street party · ");
   fs.writeFileSync(path.join(root, "page.html"), design);
@@ -383,8 +430,9 @@ test("a revision's first status goes up before anything is read: read's words (R
   assert.equal(r.status, 0, r.stdout + r.stderr);
   assert.match(r.stdout, /^status: Making Big Day's 18 red$/m);
   let log = calls();
-  const said = log.findIndex((a) => a[0] === "live" && a.includes("Making Big Day's 18 red"));
-  assert.ok(said >= 0 && said < log.findIndex((a) => a[0] === "read"), "start's status came before its read");
+  // start's calls run side by side, so its status isn't ordered against its read; it goes up, and no page does.
+  assert.ok(log.some((a) => a[0] === "live" && a.includes("Making Big Day's 18 red")), "start's status went up");
+  assert.ok(!log.some((a) => a[0] === "call" && a[1] === "push_live"), "start pushed nothing over the design");
   assert.ok(!log.some((a) => a.includes("Reading your brief")), "no brief status on a revision given its own words");
   for (const [args, words] of [[["read", "Making the 18 red"], "Making the 18 red"], [["read"], "Reading your design"]]) {
     const n = calls().length;

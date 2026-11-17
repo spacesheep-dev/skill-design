@@ -8,9 +8,9 @@
 // draw/save.log (a save).
 //
 //   node fold.js -C <folder> start <link> ["<status>"]   a status on the space ("Reading your brief" unless
-//                                               given), its source read into work/ (the starter instead,
-//                                               if its page is blank, and its empty canvas pushed at
-//                                               once), its id kept
+//                                               given) and its source read into work/, side by side (the
+//                                               starter instead, if its page is blank, and its empty
+//                                               canvas pushed once the read is back), its id kept
 //   node fold.js -C <folder> start --new "<title>"   a new space whose first version is a short page saying
 //                                               it is being drawn, then the starter in work/ (below) and
 //                                               its empty canvas pushed at once
@@ -315,6 +315,9 @@ const runAsync = (args) => new Promise((ok) => {
   execFile(cli[0], [...cli.slice(1), ...args], { timeout: t, killSignal: "SIGKILL", maxBuffer: 64 << 20 }, (e, out, err) => ok({ e, out: String(out || ""), err: String(err || "") }));
 });
 const why = (e) => String(e.stderr || e.message).trim().split("\n").slice(-3).join(" ").slice(0, 300);
+// The same for a runAsync answer, and start's status line from one.
+const tail = (r) => (r.err.trim() || String(r.e.message)).split("\n").slice(-3).join(" ").slice(0, 300);
+const statusSaid = (r, words) => { if (r.e) console.error(`status refused: ${tail(r)}`); else { card("up"); console.log(`status: ${words}`); } };
 
 // The one space: from start on, its id is in draw/space, checked as a UUID every time it's read.
 let space = (read("draw/space") || "").trim();
@@ -450,10 +453,11 @@ const titled = (base, title) => base.replace(/<title>[^<]*<\/title>/, () => `<ti
 // The starter with no directions: the canvas and its frame, pushed the moment a blank page is known, before any design.
 const emptyCanvas = (base) => base.replace(/^<section class="direction"[\s\S]*?^<\/section>\n*/gm, "");
 // One space per folder: start never points a folder at a second space.
+// The folder's space, kept in draw/space: false (and said why) when the folder is another space's or can't be written.
 function keep(id) {
   const had = (read("draw/space") || "").trim();
-  if (had && had !== id) { console.error(`start: this folder is for space ${had}; use another folder for ${id}`); process.exit(2); }
-  if (!write("draw/space", id)) process.exit(2);
+  if (had && had !== id) { console.error(`start: this folder is for space ${had}; use another folder for ${id}`); return false; }
+  return write("draw/space", id);
 }
 
 const good = {};
@@ -563,36 +567,56 @@ if (cmd === "start") {
     const j = JSON.parse(out.slice(out.indexOf("{")));
     space = (j.space || {}).id;
     if (!UUID.test(space || "")) { console.error("start: the new space's id isn't in the answer"); process.exit(1); }
-    keep(space);
+    if (!keep(space)) process.exit(2);
     const page = titled(base, title);
     if (!setWork(page) || !write("draw/starter", "1\n")) process.exit(2);
-    try { run(["live", "push", "--space", space, "--status", "Reading your brief"]); card("up"); console.log("status: Reading your brief"); }
-    catch (e) { console.error(`status refused: ${why(e)}`); }
-    console.log(push("--html", emptyCanvas(page)) ? "pushed the empty canvas" : "the empty canvas wasn't pushed (draw/fold.log)");
-    console.log(`made a new space; the starter is in work/index.html: ${(j.space || {}).url || space}\nspace: ${space}\n${NEXT}`);
-    process.exit(0);
+    // The status goes up beside the empty canvas, not before it.
+    const status = runAsync(["live", "push", "--space", space, "--status", "Reading your brief"]);
+    const pushed = push("--html", emptyCanvas(page));
+    (async () => {
+      statusSaid(await status, "Reading your brief");
+      console.log(pushed ? "pushed the empty canvas" : "the empty canvas wasn't pushed (draw/fold.log)");
+      console.log(`made a new space; the starter is in work/index.html: ${(j.space || {}).url || space}\nspace: ${space}\n${NEXT}`);
+      process.exit(0);
+    })();
+    return;
   }
   const link = plain("link", argv[1]), first = (plain("status", argv[2]) || "Reading your brief").slice(0, 200);
   if (!link) { console.error("start: give the space's link, or --new \"<title>\""); process.exit(2); }
-  const got = run(["spaces", "get", link]), title = ((got.match(/^ *title: (.*)$/m) || [])[1] || "").trim();
-  space = ((got.match(/^ *id: (.*)$/m) || [])[1] || "").trim();
-  if (!UUID.test(space)) { console.error(`start: no id in the answer to spaces get ${link}`); process.exit(1); }
-  keep(space);
-  try { run(["live", "push", "--space", space, "--status", first]); card("up"); console.log(`status: ${first}`); }
-  catch (e) { console.error(`status refused: ${why(e)}`); }
   if (!work()) process.exit(2);
-  process.stdout.write(run(["read", space, "-o", "work"]));
-  ours(read("work/index.html") || "");
-  const aside = retire();
-  if (aside) console.log(aside);
-  if (!isDesign(read("work/index.html"))) {
-    const base = titled(fs.readFileSync(path.join(__dirname, "base.html"), "utf8"), title || "Design");
-    if (!setWork(base) || !write("draw/starter", "1\n")) process.exit(2);
-    console.log(push("--html", emptyCanvas(base)) ? "pushed the empty canvas" : "the empty canvas wasn't pushed (draw/fold.log)");
-    console.log(`work/index.html held no design: the starter is in its place\n${NEXT}`);
-  } else remove("draw/starter"); // a revision: section 7, not a new build
-  console.log(`space: ${space}\ntitle: ${title} (the person's: keep it)`);
-  process.exit(0);
+  // The empty canvas is the first thing the person sees, so nothing waits in a row before it: in a folder with no
+  // space yet, the space's details and its page are read at once, the status goes up as soon as its id is known,
+  // and a blank page's empty canvas the moment the read is back. A folder that has a space reads only once
+  // the link is known to be that space.
+  const fresh = !space, reading = fresh ? runAsync(["read", link, "-o", "work"]) : null;
+  (async () => {
+    // A start that ends early lets its read finish first, so nothing lands in work/ after it has said it ended.
+    const fail = async (line, code) => { if (reading) await reading; if (line) console.error(line); process.exit(code); };
+    const got = await runAsync(["spaces", "get", link]);
+    if (got.e) return fail(`start: spaces get ${link} refused: ${tail(got)}`, 1);
+    const title = ((got.out.match(/^ *title: (.*)$/m) || [])[1] || "").trim();
+    space = ((got.out.match(/^ *id: (.*)$/m) || [])[1] || "").trim();
+    if (!UUID.test(space)) return fail(`start: no id in the answer to spaces get ${link}`, 1);
+    if (!keep(space)) return fail("", 2);
+    const status = runAsync(["live", "push", "--space", space, "--status", first]);
+    const r = await (reading || runAsync(["read", space, "-o", "work"]));
+    if (r.e) { console.error(`start: read ${link} refused: ${tail(r)}`); process.exit(1); }
+    process.stdout.write(r.out);
+    ours(read("work/index.html") || "");
+    const aside = retire();
+    if (aside) console.log(aside);
+    let pushed = null;
+    if (!isDesign(read("work/index.html"))) {
+      const base = titled(fs.readFileSync(path.join(__dirname, "base.html"), "utf8"), title || "Design");
+      if (!setWork(base) || !write("draw/starter", "1\n")) process.exit(2);
+      pushed = push("--html", emptyCanvas(base));
+    } else remove("draw/starter"); // a revision: section 7, not a new build
+    statusSaid(await status, first);
+    if (pushed !== null) console.log(`${pushed ? "pushed the empty canvas" : "the empty canvas wasn't pushed (draw/fold.log)"}\nwork/index.html held no design: the starter is in its place\n${NEXT}`);
+    console.log(`space: ${space}\ntitle: ${title} (the person's: keep it)`);
+    process.exit(0);
+  })();
+  return;
 }
 // A new title, only when the person picked one: the space's (as lists and links show it) and the page's <title>.
 if (cmd === "title") {
