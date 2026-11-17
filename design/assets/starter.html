@@ -58,6 +58,16 @@
   html:not(:has(meta[name="ss-canvas"][content="on"])) .direction[data-view-of] { margin-inline: auto; }
   html:not(:has(meta[name="ss-canvas"][content="on"])) .direction[data-view-of][data-ss-frame="phone"] { max-width: 390px; }
   html:not(:has(meta[name="ss-canvas"][content="on"])) .direction[data-view-of][data-ss-frame="tablet"] { max-width: 820px; }
+  /* rounds: start */
+  /* a round's versions sit in a row below, each joined to the direction it came from by a line: one block,
+     [data-round-lines], that fold.js round draws behind the frames. Only the canvas shows it. */
+  [data-round-lines] { z-index: -1; pointer-events: none; outline: none; }
+  [data-round-lines] svg { display: block; overflow: visible; }
+  /* each line is drawn from its version up, and starts 24 px (on screen) above it, clear of the version's label */
+  [data-round-lines] path { fill: none; stroke: light-dark(#9a9aa6, #6b6b78); stroke-width: calc(1.5px / var(--ss-cz, 1)); stroke-linecap: round;
+    stroke-dasharray: 0 min(calc(24px / var(--ss-cz, 1)), 200px) 100000; }
+  html:not(:has(meta[name="ss-canvas"][content="on"])) [data-round-lines] { display: none; }
+  /* rounds: end */
   /* the frame's own controls: Back while a direction is open full page (Esc does the same), the zoom % on the canvas */
   .frame-back, .frame-zoom, .frame-use { flex: none; min-height: 44px; display: inline-flex; align-items: center; padding: 0 14px;
     border: 1px solid var(--bar-line); border-radius: 22px; background: var(--bar-bg); color: var(--bar-ink); font: inherit; white-space: nowrap; }
@@ -72,6 +82,13 @@
   /* on a phone the tabs take a row of their own under Back and the pill, never a squeezed column */
   .switcher { container-type: inline-size; }
   @container (max-width: 40rem) { .switcher-row { flex-wrap: wrap; } .switcher-tabs { order: 1; flex-basis: 100%; } }
+  /* on a phone, once a page has rounds, the tabs are the newest round and the direction it came from: the rest
+     (data-older) stay on the canvas, where their number keys open them, and one open full page keeps its tab.
+     Without the canvas every tab shows, as the tabs are then the only way to a direction. */
+  @container (max-width: 40rem) {
+    html:has(meta[name="ss-canvas"][content="on"]) .switcher-tabs button[data-older] { display: none; }
+    .switcher:has(.frame-back:not([hidden])) .switcher-tabs button[data-older][aria-selected="true"] { display: revert; }
+  }
   .frame-use .chosen, .frame-use[data-chosen] .use { display: none; }
   .frame-use[data-chosen] .chosen { display: inline; }
   .frame-use[data-chosen] { cursor: default; }
@@ -351,6 +368,16 @@ function ssDraw(fn) { fn(); document.addEventListener('ss:live', () => fn()); }
   const label = (d) => d.dataset.ssLabel || d.dataset.name || d.dataset.ssId || '';
   const device = (x) => ({ desktop: 'Desktop', tablet: 'Tablet', phone: 'Phone' })[x.dataset.ssFrame] || (x.dataset.viewOf ? label(x) : 'Desktop');
   const hashOf = (d) => '#' + encodeURIComponent(d.dataset.ssId); // pick decodes it
+  // Once a page has rounds (versions, data-version-of="<parent's slug>", each with its data-round), the newest
+  // round and the direction it came from: on a phone the other tabs are marked data-older, and hide on the canvas.
+  const round = (d) => +d.dataset.round || 2;
+  function newest() {
+    const vs = all().filter((d) => d.dataset.versionOf);
+    if (!vs.length) return null;
+    const top = Math.max(...vs.map(round)), last = vs.filter((d) => round(d) === top);
+    return new Set([...last, ...all().filter((d) => last.some((v) => v.dataset.versionOf === slugOf(d)))]);
+  }
+  const older = (d, keep) => !!keep && !keep.has(d);
   // The view the person wants (its data-ss-frame), kept across tabs; null is the direction itself. Without
   // the canvas, a phone opens on a direction's phone view when it has one.
   const canvas = () => !!document.querySelector('meta[name="ss-canvas"][content="on"]');
@@ -424,12 +451,14 @@ function ssDraw(fn) { fn(); document.addEventListener('ss:live', () => fn()); }
     [...box.children].forEach((b, i) => b.setAttribute('aria-pressed', String(set[i] === (view || cur))));
   }
   function draw() {
+    const keep = newest();
     try { drawn = tabsNow(); if (drawn) drawn.replaceChildren(...all().map((d) => {
       const b = document.createElement('button');
       b.type = 'button';
       b.setAttribute('role', 'tab');
       b.textContent = label(d);
       if (d.hasAttribute('data-chosen')) b.dataset.chosen = '';
+      if (older(d, keep)) b.dataset.older = '';
       goes(b, () => d);
       return b;
     }));
@@ -438,9 +467,9 @@ function ssDraw(fn) { fn(); document.addEventListener('ss:live', () => fn()); }
   // A live push redraws the page from its source, where the tabs are empty, and on a canvas page it puts
   // fresh copies of the tabs and line in place of these: draw them again, into the ones on the page now.
   const stale = () => {
-    const dirs = all(), tabs = tabsNow(), line = lineNow(), box = viewsNow();
+    const dirs = all(), tabs = tabsNow(), line = lineNow(), box = viewsNow(), keep = newest();
     if (tabs !== drawn || (tabs && (tabs.children.length !== dirs.length || dirs.some((d, i) => tabs.children[i].textContent !== label(d)
-      || tabs.children[i].hasAttribute('data-chosen') !== d.hasAttribute('data-chosen'))))
+      || tabs.children[i].hasAttribute('data-chosen') !== d.hasAttribute('data-chosen') || tabs.children[i].hasAttribute('data-older') !== older(d, keep))))
       || !document.contains(cur) || (view && !document.contains(view)) || (line && line.textContent !== (cur.dataset.line || ''))) return true;
     const n = viewsOf(cur).length;
     return box !== devices || (box && box.children.length !== (n ? n + 1 : 0));
@@ -500,7 +529,7 @@ function ssDraw(fn) { fn(); document.addEventListener('ss:live', () => fn()); }
   window.ssPillOf = pillOf;
   // A live push puts fresh pills on the page (the canvas lifts them again): their chosen mark follows.
   const watch = new MutationObserver(() => { if (stale()) draw(); else pills(); });
-  watch.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-ss-label', 'data-name', 'data-line', 'data-ss-id', 'data-view-of', 'data-ss-frame', 'data-chosen'] });
+  watch.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-ss-label', 'data-name', 'data-line', 'data-ss-id', 'data-view-of', 'data-ss-frame', 'data-chosen', 'data-version-of', 'data-round'] });
   addEventListener('hashchange', () => show(...pick()));
   draw();
 })();

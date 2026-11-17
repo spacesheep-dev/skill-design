@@ -69,7 +69,7 @@ if (process.env.FAKE_SLOW_GET) fs.appendFileSync(path.join(dir, "times.log"), JS
 if (a[0] === "spaces" && a[1] === "get" && process.env.FAKE_GET_REFUSED) { console.error("not_found: Nothing by that name or id here."); process.exit(1); }
 if (a[0] === "read" && process.env.FAKE_SLOW_READ) { setTimeout(() => { fs.mkdirSync("work", { recursive: true }); fs.writeFileSync("work/index.html", fs.readFileSync(process.env.FAKE_PAGE)); process.exit(0); }, 1000); return; }
 if (a[0] === "spaces" && a[1] === "get") {
-  const done = () => { if (process.env.FAKE_SLOW_GET) fs.appendFileSync(path.join(dir, "times.log"), JSON.stringify([a[0], "end", Date.now()]) + "\\n"); console.log("title: Untitled\\n  id: ${SPACE}"); process.exit(0); };
+  const done = () => { if (process.env.FAKE_SLOW_GET) fs.appendFileSync(path.join(dir, "times.log"), JSON.stringify([a[0], "end", Date.now()]) + "\\n"); console.log("title: " + (process.env.FAKE_NO_TITLE ? "" : "Untitled") + "\\n  id: ${SPACE}"); process.exit(0); };
   if (process.env.FAKE_SLOW_GET) setTimeout(done, 1500); else done();
   return;
 }
@@ -352,6 +352,15 @@ test("start puts the starter's empty canvas up at once, on a new space and on a 
         "assets/starter.html is base.html without its directions, as start pushes it: after a change to base.html, write it again from base.html");
     }
   }
+});
+
+test("a space with no title gets Untitled in its page, as Spacesheep's starter does, so start's push is the same bytes", () => {
+  const one = setup();
+  fs.writeFileSync(path.join(one.root, "page.html"), PLATFORM_BLANK);
+  assert.equal(one.fold(["start", "https://stage.test/s"], { FAKE_PAGE: path.join(one.root, "page.html"), FAKE_NO_TITLE: "1" }).status, 0);
+  const sent = one.sent().filter((x) => x.html).map((x) => x.html);
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0], STARTER.replace(/<title>[^<]*<\/title>/, "<title>Untitled</title>"));
 });
 
 test("spacesheep.yaml names the starter Spacesheep shows on a blank page, and it is the empty canvas", () => {
