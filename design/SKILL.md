@@ -66,6 +66,7 @@ The frame goes up from the request alone (step 2); the rest is read after it (st
    3. A space of theirs they point to ("like our homepage"), if you can read it.
    4. Nothing. Choose a look on purpose and say which and why in your reply. Set it from who it's for, on four dials: colour mood, type character, density and decoration. A plumber's page is plain, sturdy and quick to scan; a wine bar is dark, fine and spare; a kids' swim club is bright and rounded.
    If they said "our brand" and none of these exist, ask once which they mean, and build in a neutral look meanwhile.
+   Dark mode: clearly wanted (they said dark, or the brand's ground is dark), build every direction dark. Unclear (a product used at night, a dark logo): don't wait; ask in step 2's chat line ("Dark too, or light only?"), build light meanwhile, and make dark a revision on a yes. No sign: light only.
 3. **The space as it is now.** A redesign starts from the space's source, not the starter: it keeps every word, link, form and `data-ss-id` unless the person asked for new ones.
 4. **The kind of design:** a one-pager or landing page, a clickable prototype, something for paper, a deck, or a set of components. Each has a part in section 4.
 5. **A big brief** (a whole app, a site of many pages, a dashboard of many tabs) is narrowed to its one most important screen, drawn in full; name what you left out in your reply. A clickable prototype the person asked for keeps its screens.
