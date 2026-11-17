@@ -181,4 +181,3 @@ Then "The third one, but bolder. Don't touch the words." Change only the type an
 - references/after.md: approval, hand-off, saving a brand and the limits. Read it when one comes up.
 - references/handoff.md: the "For developers" section. Read it before a hand-off.
 - references/coverage.md: background for whoever maintains this skill, not needed for a turn.
-- assets/switcher.html: the switcher on its own, with three demo directions.
