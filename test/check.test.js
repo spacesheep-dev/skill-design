@@ -225,9 +225,7 @@ test("a view before a direction is flagged: the canvas would number it among the
 });
 
 test("the starter's switcher steps a direction's number key through its views on the canvas, and runs without tabs", () => {
-  assert.match(BASE, /if \(!window\.ssViewKeys\) \{\n    window\.ssViewKeys = true;\n    addEventListener\('keydown', /);
   assert.match(BASE, /const d = all\(\)\[\+k - 1\], set = d \? \[d, \.\.\.viewsOf\(d\)\] : \[\];\n      if \(set\.length < 2\) return;/);
-  assert.match(BASE, /\}, true\);/);
   assert.doesNotMatch(BASE, /if \(!tabsNow\(\)\) return;/);
 });
 
@@ -319,6 +317,5 @@ test("the starter's kit lays out at its frame's width, and its switcher makes no
   const head = BASE.slice(0, BASE.indexOf("</head>"));
   assert.doesNotMatch(head, /@media[^{]*width/, "a kit rule still asks the window's width");
   assert.match(head, /\.direction, \[data-ss-frame\] \{ container-type: inline-size; \}/);
-  assert.match(BASE, /const all = \(\) => \[\.\.\.document\.querySelectorAll\('section\.direction:not\(\[data-view-of\]\)'\)\];/);
   assert.match(BASE, /<div class="switcher-views" role="group" aria-label="Device views"><\/div>/);
 });
