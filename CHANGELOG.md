@@ -2,6 +2,17 @@
 
 Each release is a heading with its tag. The release workflow uses the words under it as the release's notes.
 
+## v1.2.20
+
+- Each direction's card has a small ⋯ menu on its canvas label row, at the labels' own type and size, with two items: Use this (`Use <name>`) and Another round (`Another round of <name>`). Each sends its line to the chat through `data-ss-say`, as shown on the button. The chosen card reads `✓ Chosen ⋯`, and its Use this reads Chosen and can't be pressed again. On a touch screen ⋯ takes a 44 px tap.
+- The menu works from the keyboard: Return, Space or ↓ on ⋯ opens it on its first item, ↑ and ↓ move with wrap-around, Esc closes back to ⋯ without leaving the open direction, and Tab closes it. A tap outside or on an item closes it.
+- With a direction open full page, the bar shows Use this · Another round as one pill in two halves, one tap each, beside Back. It fits on Back's row at 390 px.
+- A direction gets a space of its own only when the person asks for it in words: `fold.js copy <slug>` (new) deploys that direction alone, with its device views, as a new private space named after it. `work/` and the current space stay as they are. It is not a menu item.
+- fold.js names each menu after its direction, and a round's versions get one. A page from an older starter keeps its lone pill, still renamed, with no menu put in.
+- SKILL.md's pick, frame and rounds lines say the same. starter.html is made again from base.html.
+- Two new tests (59 in all, one skipped as before).
+- The folder's hash is `59d6e130d6c2`.
+
 ## v1.2.19
 
 - Less code, the same pages: 146 lines of source come out of fold.js, check.js and the starter, with no change to what the skill makes.
