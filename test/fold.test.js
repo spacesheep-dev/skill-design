@@ -872,6 +872,7 @@ test("round puts each version in a row of its own below everything, joined to it
   const again = fs.readFileSync(file, "utf8"), next = sectionsOf(again);
   assert.deepEqual(next.slice(0, 6), all, "the first two rounds are as they were");
   assert.deepEqual(next.slice(6).map((s) => [attr(s, "data-version-of"), attr(s, "data-ss-x"), attr(s, "data-ss-y")]), [["bolder", "-676", "2240"], ["bolder", "676", "2240"]]);
+  assert.deepEqual(next.map((s) => attr(s, "data-round") || null), [null, null, null, "2", "2", "2", "3", "3"], "the directions are round 1, and each round takes the next number");
   assert.equal(again.match(/<div class="no-print" data-round-lines data-ss-id="round-lines" /g).length, 1);
   assert.equal(again.match(/<path /g).length, 5);
 });
@@ -882,12 +883,18 @@ test("the starter carries the lines' rules as round adds them to an older page, 
   assert.match(css, /html:not\(:has\(meta\[name="ss-canvas"\]\[content="on"\]\)\) \[data-round-lines\] \{ display: none; \}/);
   const { folder, fold } = setup();
   assert.equal(fold(["start", "--new", "Poster"]).status, 0);
-  const file = path.join(folder, "work", "index.html"), old = BASE.replace(`${css}\n`, "");
+  // An older starter: no lines' rules, and a switcher script that knows nothing of rounds.
+  const file = path.join(folder, "work", "index.html");
+  const old = BASE.replace(`${css}\n`, "").replace(/  \/\* on a phone, once a page has rounds[\s\S]*?\n  \}\n/, "")
+    .replace(/(<script>[\s\S]*?\/\* switcher: start \*\/)[\s\S]*?(\/\* switcher: end \*\/)/, "$1\n(() => {})();\n$2");
+  assert.ok(!old.includes("function newest()") && !old.includes("[data-older]"), "the older starter's tabs know nothing of rounds");
   fs.writeFileSync(file, old);
   assert.equal(fold(["round", "first", "Lighter"]).status, 0);
   const page = fs.readFileSync(file, "utf8");
   assert.equal(page.match(/\/\* rounds: start \*\//g).length, 1);
   assert.ok(page.indexOf(css) < page.indexOf("</style>"), "in the page's first <style>");
+  assert.ok(page.includes("function newest()") && page.includes(".switcher-tabs button[data-older] { display: none; }"), "round brings in the starter's switcher, so the phone tabs follow the rounds");
+  assert.match(fold(["kit"]).stdout, /^kit: already current$/m);
 });
 
 test("round replaces only its own lines block, never an element of the page's whose class or id starts the same, and gives the block an id no other element has", () => {

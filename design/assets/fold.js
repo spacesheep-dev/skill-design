@@ -775,7 +775,7 @@ function directionsOf(html) {
     const frame = attrOf(m[0], "data-ss-frame"), raw = /^(\d{1,5})x(\d{1,5})$/i.exec(frame || "");
     const size = FRAME_SIZES[frame] || (raw ? [+raw[1], +raw[2]] : [null, null]);
     out.push({ slug: (m[0].match(/data-ss-id="direction-([a-z0-9-]+)"/) || [])[1], start: m.index, end, frame,
-      view: attrOf(m[0], "data-view-of"), of: attrOf(m[0], "data-version-of"), label: attrOf(m[0], "data-ss-label"),
+      view: attrOf(m[0], "data-view-of"), of: attrOf(m[0], "data-version-of"), round: num(attrOf(m[0], "data-round")), label: attrOf(m[0], "data-ss-label"),
       x: num(attrOf(m[0], "data-ss-x")), y: num(attrOf(m[0], "data-ss-y")), w: size[0], h: size[1] });
     open.lastIndex = end;
   }
@@ -830,9 +830,11 @@ function rounded(page, parent, names) {
     if (here(`draw/${slug}`) && !fs.statSync(`draw/${slug}`).isDirectory()) return { error: `round: draw/${slug} is one of fold.js's own files: give "${name}" another name` };
     versions.push({ name, slug });
   }
+  // The page's directions are round 1, and each round after takes the next number (a version without one counts as 2).
+  const n = Math.max(1, ...all.filter((d) => d.of).map((d) => d.round || 2)) + 1;
   const top = Math.max(...all.map((d) => d.y + d.h)) + ROW_GAP, width = names.length * p.w + (names.length - 1) * FRAME_GAP;
   const left = Math.round(p.x + p.w / 2 - width / 2);
-  const sections = versions.map((v, i) => `<section class="direction" data-version-of="${p.slug}" data-ss-frame="${p.frame}" data-ss-section data-ss-id="direction-${v.slug}" data-ss-thing="direction/${v.slug}" data-ss-label="${esc(v.name)}" data-line="What it changes from ${p.label || p.slug}, and what that gives up." data-ss-x="${left + i * (p.w + FRAME_GAP)}" data-ss-y="${top}">
+  const sections = versions.map((v, i) => `<section class="direction" data-version-of="${p.slug}" data-round="${n}" data-ss-frame="${p.frame}" data-ss-section data-ss-id="direction-${v.slug}" data-ss-thing="direction/${v.slug}" data-ss-label="${esc(v.name)}" data-line="What it changes from ${p.label || p.slug}, and what that gives up." data-ss-x="${left + i * (p.w + FRAME_GAP)}" data-ss-y="${top}">
   <button type="button" class="use-this no-print" data-ss-canvas="label" data-ss-say="Use ${esc(v.name)}" title="Use ${esc(v.name)}"><span class="use">Use this design</span><span class="chosen">✓ Chosen</span></button>
   <!-- part:${v.slug} --><div class="drawing" data-ss-id="${v.slug}-drawing"><h2>${esc(v.name)}</h2><p>Being drawn…</p><i></i><i></i><i></i></div><!-- /part:${v.slug} -->
 </section>
@@ -850,6 +852,10 @@ function rounded(page, parent, names) {
         if (decls.length) { tokens = tokens.concat(decls); home = st.index + st[0].lastIndexOf("</style>"); }
       }
   if (home !== null) out = out.slice(0, home) + versions.map((v) => `  [data-ss-id="direction-${v.slug}"] { ${tokens.join(" ")} }\n`).join("") + out.slice(home);
+  // A page made with an older starter gets the starter's switcher (the lines' rules are in it), so its phone tabs
+  // follow the rounds.
+  const kit = kitted(out);
+  if (kit !== null) out = kit;
   if (!/\/\* rounds: start \*\//.test(out)) {
     const head = out.search(/<\/head>/i), style = out.indexOf("</style>");
     if (style < 0 || (head >= 0 && style > head)) return { error: "round: the page has no <style> in its <head> for the lines' rules" };
