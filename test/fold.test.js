@@ -582,11 +582,8 @@ test("a revision's read moves only a part's own files: a part named after fold.j
   const parts = names.map((n) => `<!-- part:${n} --><p>Drawing</p><!-- /part:${n} -->`).join("") + "<!-- part:_old --><!-- /part:_old -->";
   fs.writeFileSync(path.join(folder, "work", "index.html"), `<!DOCTYPE html><title>Poster</title><section class="direction" data-ss-id="direction-programme" data-ss-label="Programme">${parts}</section>`);
   fs.writeFileSync(path.join(folder, "draw", "frame.html"), fs.readFileSync(path.join(folder, "work", "index.html")));
-  // The parts a writer would read: a folder for "old" and "programme", an older page's files for "programme".
+  // The parts a writer would read: a folder for "old" and "programme".
   for (const d of ["old", "programme"]) { fs.mkdirSync(path.join(folder, "draw", d)); fs.writeFileSync(path.join(folder, "draw", d, "01.html"), `<p>${d}: the times</p>\n`); }
-  fs.writeFileSync(path.join(folder, "draw", "programme.html"), "<p>older page</p><!-- end programme -->");
-  fs.writeFileSync(path.join(folder, "draw", "programme.status"), "Programme: the times\n");
-  fs.writeFileSync(path.join(folder, "draw", "space.html"), "<p>a part's older page</p>"); // a file of the part "space", moved
   const own = ["space", "starter"].map((f) => [f, fs.readFileSync(path.join(folder, "draw", f), "utf8")]);
   fs.writeFileSync(path.join(root, "page.html"), fs.readFileSync(path.join(folder, "work", "index.html")));
   for (const round of [1, 2]) { // twice: the second read finds the first one's draw/_old/ and the part "old" already moved
@@ -600,7 +597,7 @@ test("a revision's read moves only a part's own files: a part named after fold.j
   const kept = fs.readdirSync(path.join(folder, "draw", "_old")).sort();
   assert.equal(kept.length, 2, "one folder per read, and draw/_old/ itself never moved");
   const first = path.join(folder, "draw", "_old", kept[0]);
-  assert.deepEqual(fs.readdirSync(first).sort(), ["frame.html", "old", "programme", "programme.html", "programme.status", "space.html"]);
+  assert.deepEqual(fs.readdirSync(first).sort(), ["frame.html", "old", "programme"]);
   assert.equal(fs.readFileSync(path.join(first, "old", "01.html"), "utf8"), "<p>old: the times</p>\n");
   assert.deepEqual(fs.readdirSync(path.join(folder, "draw", "_old", kept[1])), ["frame.html"]);
   // The folder still saves: draw/space is still its space.

@@ -71,7 +71,6 @@
 // and pushes the page and the status whenever they change. A file changed in the last 300 ms waits for
 // the next pass, so a part is never folded half-written. A direction keeps its placeholder below its
 // parts until they show 40 characters of text, so a first part of styles alone never blanks it.
-// (Older pages: draw/<slug>.html ending with `<!-- end <slug> -->`, its status in draw/<slug>.status.)
 // `push`, `save` and `write` name the starter's markers (part:first…) after the slug of the section holding
 // them. A new build saved with no marker left was drawn in work/index.html: its status names the directions.
 // It stops on `stop`, after 5 minutes with no change to any part or the frame (so a session that
@@ -483,10 +482,6 @@ function fold() {
       const parts = names.map((f) => read(`${dir}/${f}`) || "");
       if (!fresh) good[slug] = parts.join("\n"); else waiting = true;
       status = ((parts[parts.length - 1].match(/^\s*<!-- status: (.*?) -->/) || [])[1] || "").trim();
-    } else {
-      const part = read(`draw/${slug}.html`);
-      if (part && part.trimEnd().endsWith(`<!-- end ${slug} -->`)) good[slug] = part;
-      status = (read(`draw/${slug}.status`) || "").trim().split("\n")[0];
     }
     if (status) statuses.push(status);
     const g = good[slug];
@@ -509,9 +504,8 @@ function foldOnce(what) {
 // A revision starts from the page as the space has it. The last build's frame and parts are put aside, in
 // draw/_old/<time>/ (moved, not deleted), so no fold puts them back over the page just read, and a later
 // write takes its frame from that page. Only what fold() reads is moved: the frame, and for each part marker
-// its folder of parts (draw/<slug>/) or an older page's draw/<slug>.html and draw/<slug>.status. fold.js's own
-// files (draw/space, draw/card, draw/stop, the logs…) are never a folder, a .html or a .status, and "_old"
-// can't be a slug, so a part named "space" or "old" moves only its parts.
+// its folder of parts (draw/<slug>/). fold.js's own files (draw/space, draw/card, draw/stop, the logs…) are
+// never a folder, and "_old" can't be a slug, so a part named "space" or "old" moves only its parts.
 function retire() {
   const frame = read("draw/frame.html");
   if (frame === null) return "";
@@ -520,7 +514,7 @@ function retire() {
   const to = `draw/_old/${new Date().toISOString().replace(/[:.]/g, "-")}`;
   mkdir(to);
   const moved = [];
-  for (const [f, folder] of [["draw/frame.html", false], ...[...slugs].flatMap((d) => [[`draw/${d}`, true], [`draw/${d}.html`, false], [`draw/${d}.status`, false]])]) {
+  for (const [f, folder] of [["draw/frame.html", false], ...[...slugs].map((d) => [`draw/${d}`, true])]) {
     if (!is(f, folder)) continue;
     fs.renameSync(f, `${to}/${path.basename(f)}`);
     moved.push(f.slice(5));
