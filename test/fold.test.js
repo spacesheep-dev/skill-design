@@ -317,15 +317,17 @@ test("start reads the page beside the space's details in a new folder, and reads
   assert.ok(!fs.existsSync(path.join(other.folder, "work", "index.html")), "work/ untouched");
 });
 
+const STARTER = fs.readFileSync(path.join(__dirname, "..", "design", "assets", "starter.html"), "utf8");
+const looksEmpty = (html, name = "the starter") => {
+  assert.match(html, /<meta name="ss-canvas" content="on">/, `${name}: the canvas is on`);
+  assert.match(html, /class="frame-back" data-ss-canvas-back/, `${name}: the frame is there`);
+  assert.doesNotMatch(html, /^<section class="direction"/m, `${name}: no direction yet`);
+  assert.match(html, /device views: a direction's phone or tablet view/, `${name}: the starter's styles are whole`);
+};
 // The page is there at once: the canvas and its frame, no direction yet, beside the first status.
 test("start puts the starter's empty canvas up at once, on a new space and on a blank page, and never over a design", () => {
   const emptyOf = (sent) => sent.filter((s) => s.html).map((s) => s.html);
-  const looks = (html, name) => {
-    assert.match(html, /<meta name="ss-canvas" content="on">/, `${name}: the canvas is on`);
-    assert.match(html, /class="frame-back" data-ss-canvas-back/, `${name}: the frame is there`);
-    assert.doesNotMatch(html, /^<section class="direction"/m, `${name}: no direction yet`);
-    assert.match(html, /device views: a direction's phone or tablet view/, `${name}: the starter's styles are whole`);
-  };
+  const looks = looksEmpty;
   const made = setup();
   assert.equal(made.fold(["start", "--new", "Poster $& sale"]).status, 0);
   const pushed = emptyOf(made.sent());
@@ -342,8 +344,20 @@ test("start puts the starter's empty canvas up at once, on a new space and on a 
     assert.equal(one.fold(["start", "https://stage.test/s"], { FAKE_PAGE: path.join(one.root, "page.html") }).status, 0);
     const sent = emptyOf(one.sent());
     if (name === "design") assert.equal(sent.length, 0, "a design gets no empty canvas over it");
-    else { assert.equal(sent.length, 1, name); looks(sent[0], name); assert.match(sent[0], /<title>Untitled<\/title>/, `${name}: the canvas keeps the space's title`); }
+    else {
+      assert.equal(sent.length, 1, name); looks(sent[0], name); assert.match(sent[0], /<title>Untitled<\/title>/, `${name}: the canvas keeps the space's title`);
+      // Spacesheep shows the skill's starter (spacesheep.yaml's starter:) on a blank page before the session is up,
+      // with the space's title: start's empty canvas is the same page, so pushing it again changes nothing.
+      assert.equal(sent[0], STARTER.replace(/<title>[^<]*<\/title>/, "<title>Untitled</title>"),
+        "assets/starter.html is base.html without its directions, as start pushes it: after a change to base.html, write it again from base.html");
+    }
   }
+});
+
+test("spacesheep.yaml names the starter Spacesheep shows on a blank page, and it is the empty canvas", () => {
+  const yaml = fs.readFileSync(path.join(__dirname, "..", "design", "spacesheep.yaml"), "utf8");
+  assert.match(yaml, /^starter: assets\/starter\.html$/m);
+  looksEmpty(STARTER);
 });
 
 // The space's title is the person's: start keeps it, and only `title`, on their pick, changes it.

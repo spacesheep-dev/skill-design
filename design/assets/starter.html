@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<!--
+  The starter page: copy it to index.html.
+  1. Set the title, the directions' tokens and each section's opening tag, one Edit each: each direction's
+     slug (direction-slug, its blocks slug-part), data-ss-label (its name), data-line and tokens.
+  2. Push it: that is the frame. Then assets/fold.js draws each direction in parts, between its
+     part:slug markers, in place of its .drawing block. Leave the markers: fold.js names them after the slug.
+  One design, not directions: keep one section, and drop the switcher's tabs; keep its script (it shows the
+  design, and its views' buttons). Keep the nav while it holds controls (Tweaks, at the right end of its row),
+  the answers line or a view; with none of them, drop it too.
+  Keep the metas, the switcher (the frame: Back, the tabs, Tweaks and the zoom %) and the ids. The person's answers, when you asked: references/questions.md.
+  A direction's phone or tablet view is a section of its own after the last direction, with data-view-of:
+  SKILL.md, section 2.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Design title</title>
+<meta name="ss-chat" content="open">
+<meta name="ss-workspace" content="design">
+<meta name="ss-canvas" content="on">
+<meta name="ss-canvas-focus" content="all">
+<style>
+  /* switcher: start */
+  /* the bar follows light or dark, as Spacesheep's canvas ground does; each direction keeps its own look */
+  :root { color-scheme: light dark; } .direction { color-scheme: light; }
+  :root { --bar-bg: #fff; --bar-ink: #111; --bar-line: #ccc; --bar-muted: #555; }
+  @media (prefers-color-scheme: dark) { :root { --bar-bg: #1d1d22; --bar-ink: #f1f1f4; --bar-line: #45454f; --bar-muted: #a6a6b0; } }
+  .switcher { position: sticky; top: 0; z-index: 10; background: var(--bar-bg); border-bottom: 1px solid var(--bar-line);
+    padding: 8px 12px 6px; font: 15px/1.3 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--bar-ink); }
+  .switcher-row { display: flex; align-items: center; gap: 8px; }
+  .switcher-tabs { flex: 1 1 auto; min-width: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+  .switcher-tabs button { flex: 0 0 auto; min-height: 44px; padding: 0 14px; border: 1px solid var(--bar-line);
+    border-radius: 22px; background: var(--bar-bg); color: var(--bar-ink); font: inherit; cursor: pointer; }
+  .switcher-tabs button[aria-selected="true"] { background: var(--bar-ink); color: var(--bar-bg); border-color: var(--bar-ink); }
+  .switcher:has(.frame-zoom:not([hidden])) .switcher-tabs button[aria-selected="true"] { background: var(--bar-bg); color: var(--bar-ink); border-color: var(--bar-line); }
+  .switcher-tabs button:focus-visible { outline: 3px solid #2563eb; outline-offset: 2px; }
+  .switcher-line { margin: 6px 2px 0; font-size: 13px; color: var(--bar-muted); min-height: 1.3em; }
+  .switcher-answers { margin: 2px 2px 0; font-size: 13px; color: var(--bar-muted); }
+  .switcher-answers:empty { display: none; }
+  html:not(:has(meta[name="ss-canvas"][content="on"])) .direction:not(.on) { display: none; }
+  /* device views: a direction's phone or tablet view, <section class="direction" data-view-of="<slug>"
+     data-ss-frame="phone">, is a frame of its own on the canvas, never a tab. Without the canvas, the device
+     buttons under the tabs show one at a time, at its frame's width, and a phone opens on its phone view.
+     Each direction and frame is a container, and the kit's phone rules are container queries: a frame lays
+     out at its own width, wherever it is drawn and however wide the window is. */
+  .direction, [data-ss-frame] { container-type: inline-size; }
+  .switcher-views { display: flex; gap: 6px; margin-top: 6px; }
+  .switcher-views:empty, html:has(meta[name="ss-canvas"][content="on"]) .switcher-views { display: none; }
+  /* a one-design page's nav that holds only the device row (fold.js kit adds it) shows only when it has buttons */
+  .switcher:has(> .switcher-views:only-child:empty),
+  html:has(meta[name="ss-canvas"][content="on"]) .switcher:has(> .switcher-views:only-child) { display: none; }
+  .switcher-views button { min-height: 44px; padding: 0 14px; border: 1px solid var(--bar-line); border-radius: 8px;
+    background: var(--bar-bg); color: var(--bar-ink); font: inherit; cursor: pointer; }
+  .switcher-views button[aria-pressed="true"] { background: var(--bar-ink); color: var(--bar-bg); border-color: var(--bar-ink); }
+  .switcher-views button:focus-visible { outline: 3px solid #2563eb; outline-offset: 2px; }
+  html:not(:has(meta[name="ss-canvas"][content="on"])) .direction[data-view-of] { margin-inline: auto; }
+  html:not(:has(meta[name="ss-canvas"][content="on"])) .direction[data-view-of][data-ss-frame="phone"] { max-width: 390px; }
+  html:not(:has(meta[name="ss-canvas"][content="on"])) .direction[data-view-of][data-ss-frame="tablet"] { max-width: 820px; }
+  /* the frame's own controls: Back while a direction is open full page (Esc does the same), the zoom % on the canvas */
+  .frame-back, .frame-zoom, .frame-use { flex: none; min-height: 44px; display: inline-flex; align-items: center; padding: 0 14px;
+    border: 1px solid var(--bar-line); border-radius: 22px; background: var(--bar-bg); color: var(--bar-ink); font: inherit; white-space: nowrap; }
+  .frame-back, .frame-use { cursor: pointer; }
+  .frame-back:focus-visible, .frame-use:focus-visible { outline: 3px solid #2563eb; outline-offset: 2px; }
+  .frame-zoom { border-color: transparent; color: var(--bar-muted); font-variant-numeric: tabular-nums; }
+  .frame-back[hidden], .frame-zoom[hidden], .frame-use[hidden] { display: none; }
+  /* "Use this design", at the bar's right end while a direction is open, an outline pill as Back is (a filled one is
+     the open tab): its line ("Use <name>") goes to the chat. The direction the person chose (data-chosen) has its
+     card's edge and its tab marked, and the pill says Chosen. */
+  .frame-zoom, .frame-use { margin-left: auto; }
+  /* on a phone the tabs take a row of their own under Back and the pill, never a squeezed column */
+  .switcher { container-type: inline-size; }
+  @container (max-width: 40rem) { .switcher-row { flex-wrap: wrap; } .switcher-tabs { order: 1; flex-basis: 100%; } }
+  .frame-use .chosen, .frame-use[data-chosen] .use { display: none; }
+  .frame-use[data-chosen] .chosen { display: inline; }
+  .frame-use[data-chosen] { cursor: default; }
+  .switcher-tabs button[data-chosen]::after { content: " \2713"; }
+  /* the chosen edge is the frame's own edge, 2 px at any canvas zoom, so it stays under the label row 3 px above */
+  .direction[data-chosen] { outline: calc(2px / var(--ss-cz, 1)) solid var(--bar-ink); outline-offset: 0; }
+  /* "Use this design" on each direction's card: Spacesheep's canvas draws it at the right end of the card's label
+     row (data-ss-canvas="label"), at screen size and outside the design. Until the canvas lifts it there it shows
+     nowhere; nor with one direction, nor while a direction is open, when the bar's pill is the one. It is a small
+     outline chip in the type of the canvas's own labels (01 · Name) and the edge of its number boxes; on a touch
+     screen it takes a tap 44 px tall, reaching up and down to the card's edge without growing. */
+  .use-this { height: 24px; padding: 0 8px; border: 1px solid; border-radius: 5px; background: transparent; color: var(--bar-ink);
+    font: 500 11px/1.2 ui-monospace, monospace; white-space: nowrap; cursor: pointer; }
+  .use-this:enabled:hover { background: color-mix(in srgb, var(--bar-ink) 8%, transparent); }
+  @media (pointer: coarse) { .use-this::after { content: ""; position: absolute; inset: -18px 0 -4px; } }
+  .use-this:focus-visible { outline: 2px solid #4f46e5; outline-offset: 2px; }
+  .use-this .chosen, .use-this[data-chosen] .use { display: none; }
+  .use-this[data-chosen] .chosen { display: inline; }
+  .use-this[data-chosen] { cursor: default; }
+  section.direction .use-this, html:has(.frame-back:not([hidden])) .use-this,
+  html:not(:has(section.direction:not([data-view-of]) ~ section.direction:not([data-view-of]))) .use-this { display: none; }
+  /* switcher: end */
+
+  /* controls: the pane where Spacesheep's workspace doesn't draw them itself (it hides this one). A button at the
+     right end of the tabs' row, the design's own strip: Spacesheep's round buttons and tools bar hold the
+     screen's bottom corners. Open, its pane drops down over the directions without moving them, and the
+     canvas doesn't count it as part of the pinned row. */
+  .tweaks { position: relative; flex: none; margin-left: auto; color: var(--bar-ink); font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .tweaks[hidden], .tweaks:not(:has(input[data-var])) { display: none; }
+  .tweaks summary { min-height: 44px; display: flex; align-items: center; padding: 0 14px; border: 1px solid var(--bar-line); border-radius: 22px;
+    background: var(--bar-bg); cursor: pointer; font-weight: 600; list-style: none; white-space: nowrap; }
+  .tweaks summary::-webkit-details-marker { display: none; }
+  .tweaks[open] summary { background: var(--bar-ink); color: var(--bar-bg); border-color: var(--bar-ink); }
+  .tweaks summary:focus-visible { outline: 3px solid #2563eb; outline-offset: 2px; }
+  .tweaks-body { position: absolute; right: 0; top: calc(100% + 6px); width: min(300px, calc(100vw - 24px));
+    max-height: calc(50vh - 16px); max-height: calc(50svh - 16px); overflow-y: auto; padding: 14px; display: grid; gap: 10px;
+    background: var(--bar-bg); border: 1px solid var(--bar-line); border-radius: 8px; box-shadow: 0 6px 24px rgba(0,0,0,.14); }
+  .tweaks label { display: grid; grid-template-columns: 1fr auto; gap: 4px 8px; }
+  .tweaks input { grid-column: 1 / -1; width: 100%; min-height: 32px; margin: 0; }
+  .tweaks input[type="color"] { height: 36px; border: 1px solid var(--bar-line); border-radius: 6px; background: var(--bar-bg); }
+  .tweaks output { color: var(--bar-muted); font-variant-numeric: tabular-nums; }
+  .tweaks button { min-height: 44px; border: 0; border-radius: 8px; background: var(--bar-ink); color: var(--bar-bg); font: inherit; cursor: pointer; }
+
+  /* shared: what every direction uses */
+  :root { --space: 8px; --radius: 6px; --step-0: 16px; --step-1: 20px; --step-2: 25px; --step-3: 31px; --step-4: 39px; --step-5: 49px;
+    --ease: cubic-bezier(.2,.7,.2,1); --dur: 240ms; }
+  *, *::before, *::after { box-sizing: border-box; }
+  .direction [hidden] { display: none !important; } /* a part a script hides stays hidden, whatever display it has */
+  body { margin: 0; overflow-wrap: break-word; }
+  img, svg { max-width: 100%; height: auto; }
+  h1, h2, h3 { text-wrap: balance; } p { text-wrap: pretty; }
+  :focus-visible { outline: 3px solid currentColor; outline-offset: 3px; }
+  .direction { background: var(--brand-ground); color: var(--brand-ink); font: var(--step-0)/1.6 var(--font-body); min-height: 70vh; }
+
+  /* phone guard: rows wrap and stack, so nothing scrolls sideways or runs past an edge at 390 px */
+  :where(.direction *) { min-width: 0; }
+  :where(.direction) :where(pre, code, kbd, samp) { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+  /* the kit: finished parts a direction composes and restyles through its tokens.
+     Colour comes in pairs, a surface and the text on it: ground/ink, ground/muted, surface/on-surface,
+     surface/muted, accent/on-accent, and accent as text on ground. Shape and rhythm: --radius, --density,
+     --rule, --shadow, --label-case, --label-track, --display-weight, --measure. Looks sit in :where(),
+     so a direction's own CSS wins; the guards (wrapping, no stray cell, fields that fit) hold. */
+  :where(.direction) {
+    --brand-surface: color-mix(in srgb, var(--brand-ink) 6%, var(--brand-ground));
+    --brand-on-surface: var(--brand-ink);
+    --brand-muted: color-mix(in srgb, var(--brand-ink) 74%, var(--brand-ground));
+    --brand-on-accent: var(--brand-ground);
+    --density: 1; --rule: 1px; --shadow: none; --label-case: none; --label-track: 0; --display-weight: 650; --measure: 62ch;
+    --s1: calc(4px * var(--density)); --s2: calc(8px * var(--density)); --s3: calc(16px * var(--density));
+    --s4: calc(24px * var(--density)); --s5: calc(40px * var(--density)); --s6: calc(64px * var(--density));
+    --step--1: 13px; --line: color-mix(in srgb, currentColor 16%, transparent);
+  }
+  :where(.direction) :where(h1, h2, h3, h4) { font-family: var(--font-display); font-weight: var(--display-weight); line-height: 1.15; }
+  :where(.direction) :where(a) { color: var(--brand-accent); }
+  .k-label { text-transform: var(--label-case); letter-spacing: var(--label-track); font-size: var(--step--1); font-weight: 600; color: var(--brand-muted); }
+
+  /* top bar: logo, nav and a way back; wraps instead of crowding */
+  .k-bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2) var(--s4); }
+  :where(.k-bar) { padding: var(--s3) var(--s4); border-bottom: var(--rule) solid var(--line); }
+  .k-bar :where(nav, ul) { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s3); margin: 0; padding: 0; list-style: none; }
+  :where(.k-bar) :where(a) { color: inherit; text-decoration: none; }
+  :where(.k-bar) :where([aria-current]) { color: var(--brand-accent); font-weight: 600; }
+  .k-bar :where(.k-back) { margin-left: auto; }
+
+  /* hero: a headline that wraps evenly, a line held to a readable width, and its actions */
+  :where(.k-hero) { padding: var(--s6) var(--s4) var(--s5); }
+  :where(.k-hero) :where(h1, h2) { margin: 0 0 var(--s3); font-size: clamp(var(--step-3), 5cqi, var(--step-5)); line-height: 1.05; }
+  .k-hero :where(h1, h2) { max-width: 22ch; text-wrap: balance; }
+  .k-hero :where(p) { max-width: var(--measure); }
+  :where(.k-hero) :where(p) { margin: 0 0 var(--s4); font-size: var(--step-1); }
+  .k-actions { display: flex; flex-wrap: wrap; gap: var(--s2); align-items: center; }
+
+  /* cards: every card the same width; a short last row sits centred, and only a card that would be
+     alone on it takes the whole row (the column count is picked so that is rare) */
+  .k-cards, .cards { --k-cols: 3; display: flex; flex-wrap: wrap; justify-content: center; gap: var(--s3); margin: 0; padding: 0; list-style: none; }
+  .k-cards > *, .cards > * { flex: 0 1 calc((100% - (var(--k-cols) - 1) * var(--s3)) / var(--k-cols)); }
+  :is(.k-cards, .cards) > :last-child:nth-child(3n+1):not(:nth-child(4), :nth-child(7), :nth-child(10), :nth-child(13)) { flex-grow: 1; }
+  :is(.k-cards, .cards):has(> :nth-child(2):last-child) { --k-cols: 2; }
+  :is(.k-cards, .cards):has(> :nth-child(4):last-child, > :nth-child(7):last-child, > :nth-child(8):last-child,
+    > :nth-child(10):last-child, > :nth-child(11):last-child, > :nth-child(12):last-child) { --k-cols: 4; }
+  :is(.k-cards, .cards):has(> :nth-child(13):last-child) { --k-cols: 5; }
+  @container (max-width: 40rem) { .k-cards, .cards { --k-cols: 1; } }
+  :where(.k-card) { display: flex; flex-direction: column; gap: var(--s1); padding: var(--s3); background: var(--brand-surface); color: var(--brand-on-surface);
+    border: var(--rule) solid color-mix(in srgb, var(--brand-on-surface) 14%, transparent); border-radius: var(--radius); box-shadow: var(--shadow); }
+  :where(.k-card) :where(h3, h4) { margin: 0; font-size: var(--step-1); }
+  :where(.k-card) :where(p) { margin: 0; }
+  :where(.k-card .k-meta, .k-meta) { color: var(--brand-muted); font-size: var(--step--1); }
+  :where(.k-card) :where(.k-actions) { margin-top: auto; padding-top: var(--s2); }
+  :where(a.k-card) { text-decoration: none; transition: border-color var(--dur) var(--ease), transform var(--dur) var(--ease); }
+  :where(a.k-card:hover) { border-color: var(--brand-accent); }
+
+  /* table: a real table on a wide screen, labelled rows on a phone (each cell needs data-label) */
+  .k-table, .stack { width: 100%; border-collapse: collapse; }
+  :where(.k-table, .stack) :where(th, td) { padding: var(--s2) var(--s2); text-align: left; border-bottom: var(--rule) solid var(--line); vertical-align: top; }
+  :where(.k-table, .stack) :where(th) { font-size: var(--step--1); font-weight: 600; color: var(--brand-muted); text-transform: var(--label-case); letter-spacing: var(--label-track); }
+  :is(.k-table, .stack) :is(th, td).num { text-align: right; font-variant-numeric: tabular-nums; }
+  @container (max-width: 40rem) {
+    :is(.k-table, .stack), :is(.k-table, .stack) tbody, :is(.k-table, .stack) tr { display: block; }
+    :is(.k-table, .stack) thead { display: none; }
+    :is(.k-table, .stack) tr { padding: var(--space) 0; border-bottom: 1px solid color-mix(in srgb, currentColor 20%, transparent); }
+    :is(.k-table, .stack) td { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: calc(var(--space) * 2); padding: 2px 0; text-align: right; border: 0; }
+    :is(.k-table, .stack) td::before { content: attr(data-label); text-align: left; opacity: .75; }
+    :is(.k-table, .stack) td:first-child { display: block; text-align: left; font-weight: 600; }
+    :is(.k-table, .stack) td:first-child::before { content: none; }
+  }
+
+  /* stat row: even columns, two by two on a phone */
+  .k-stats { --k-cols: 4; display: grid; grid-template-columns: repeat(var(--k-cols), minmax(0, 1fr)); gap: var(--s3); margin: 0; padding: 0; list-style: none; }
+  .k-stats:has(> :nth-child(3):last-child) { --k-cols: 3; } .k-stats:has(> :nth-child(2):last-child) { --k-cols: 2; }
+  @container (max-width: 40rem) { .k-stats { --k-cols: 2; } .k-stats:has(> :nth-child(3):last-child) > :last-child { grid-column: 1 / -1; } }
+  /* density sets the size and the room: a tight direction's figures are small and close, a roomy one's large and open */
+  :where(.k-stat) { display: grid; gap: var(--s1); padding-top: var(--s3); border-top: var(--rule) solid var(--line); }
+  :where(.k-stat) :where(b, strong) { display: block; font: var(--display-weight) clamp(var(--step-2), calc(var(--step-3) + (var(--density) - 1) * 32px), var(--step-5))/1.05 var(--font-display); font-variant-numeric: tabular-nums; }
+  :where(.k-stat) :where(span) { color: var(--brand-muted); font-size: var(--step--1); text-transform: var(--label-case); letter-spacing: var(--label-track); }
+
+  /* chips and tags: wrap, never clip */
+  .k-chips { display: flex; flex-wrap: wrap; gap: var(--s1); margin: 0; padding: 0; list-style: none; }
+  .k-chip { display: inline-flex; align-items: center; max-width: 100%; overflow-wrap: anywhere; }
+  :where(.k-chip) { min-height: 32px; padding: 2px var(--s2); border: var(--rule) solid color-mix(in srgb, currentColor 28%, transparent); border-radius: 999px;
+    background: transparent; color: inherit; font: 500 var(--step--1)/1.3 var(--font-body); }
+  :where(button.k-chip) { cursor: pointer; }
+  :where(.k-chip[aria-pressed="true"], .k-chip.on) { background: var(--brand-accent); border-color: var(--brand-accent); color: var(--brand-on-accent); }
+
+  /* buttons: primary, line and quiet; 44 px to tap */
+  .k-btn { display: inline-flex; align-items: center; justify-content: center; gap: var(--s1); min-height: 44px; max-width: 100%; text-align: center; }
+  :where(.k-btn) { padding: 0 var(--s3); border: var(--rule) solid var(--brand-accent); border-radius: var(--radius); background: var(--brand-accent);
+    color: var(--brand-on-accent); font: 600 var(--step-0)/1.2 var(--font-body); text-decoration: none; cursor: pointer;
+    transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease); }
+  :where(.k-btn:hover) { background: color-mix(in srgb, var(--brand-accent) 86%, var(--brand-ink)); }
+  :where(.k-btn.line) { background: transparent; color: var(--brand-accent); }
+  :where(.k-btn.line:hover) { background: color-mix(in srgb, var(--brand-accent) 10%, transparent); }
+  :where(.k-btn.quiet) { background: transparent; border-color: transparent; color: var(--brand-ink); text-decoration: underline; text-underline-offset: 3px; }
+  :where(.k-btn, .k-chip, .k-tabs [role="tab"]):focus-visible { outline: 3px solid var(--brand-accent); outline-offset: 2px; }
+  :where(.k-btn, .k-chip):is(:disabled, [aria-disabled="true"]) { opacity: .45; cursor: not-allowed; }
+
+  /* search: a labelled field; the placeholder is a hint of at most 20 characters, the label says the rest */
+  .k-search { display: flex; flex-direction: column; gap: var(--s1); width: 100%; max-width: 40rem; }
+  .k-search :where(input, select) { width: 100%; min-width: 0; min-height: 44px; }
+  :where(.k-search) :where(label) { font-weight: 600; font-size: var(--step--1); }
+  :where(.k-search) :where(input, select) { padding: 0 var(--s2); border: var(--rule) solid color-mix(in srgb, currentColor 36%, transparent);
+    border-radius: var(--radius); background: var(--brand-surface); color: var(--brand-on-surface); font: inherit; }
+  :where(.k-search) :where(input)::placeholder { color: var(--brand-muted); opacity: 1; }
+
+  /* tabs wrap; filters fold behind one button on a phone */
+  .k-tabs { display: flex; flex-wrap: wrap; gap: var(--s1); }
+  :where(.k-tabs) { border-bottom: var(--rule) solid var(--line); }
+  :where(.k-tabs) :where([role="tab"]) { min-height: 44px; padding: 0 var(--s2); border: 0; border-bottom: 3px solid transparent; margin-bottom: calc(-1 * var(--rule));
+    background: none; color: inherit; font: inherit; cursor: pointer; }
+  :where(.k-tabs) :where([role="tab"][aria-selected="true"]) { border-bottom-color: var(--brand-accent); font-weight: 600; }
+  .k-filters { display: flex; flex-wrap: wrap; gap: var(--s2); align-items: end; }
+  .k-filters > .k-filters-toggle { display: none; }
+  @container (max-width: 40rem) {
+    .k-filters > .k-filters-toggle { display: inline-flex; }
+    .k-filters:not([data-open]) > :not(.k-filters-toggle) { display: none; }
+    .k-filters > * { flex: 1 1 100%; }
+  }
+
+  /* steps: where you are, how much is left, a step that can wait */
+  .k-steps { display: flex; flex-wrap: wrap; gap: var(--s2); margin: 0; padding: 0; list-style: none; counter-reset: k-step; }
+  .k-steps > li { flex: 1 1 calc(8rem * var(--density)); display: flex; align-items: center; gap: var(--s2); }
+  /* density sets the label size, the marker and the room above it, as on the stat row */
+  :where(.k-steps > li) { counter-increment: k-step; padding-top: var(--s3); border-top: calc(2px + var(--rule)) solid var(--line); color: var(--brand-muted);
+    font-size: clamp(var(--step--1), calc(var(--step-0) + (var(--density) - 1) * 12px), var(--step-1)); line-height: 1.3; }
+  :where(.k-steps > li)::before { content: counter(k-step); display: inline-grid; place-items: center; flex: 0 0 auto; width: calc(12px + 16px * var(--density)); aspect-ratio: 1; border-radius: 50%;
+    border: var(--rule) solid currentColor; font: 600 var(--step--1)/1 var(--font-body); }
+  :where(.k-steps > li[data-state="done"]) { color: var(--brand-ink); border-top-color: var(--brand-accent); }
+  :where(.k-steps > li[data-state="done"])::before { content: "✓"; background: var(--brand-accent); border-color: var(--brand-accent); color: var(--brand-on-accent); }
+  :where(.k-steps > li[aria-current="step"]) { color: var(--brand-ink); font-weight: 600; border-top-color: var(--brand-accent); }
+  :where(.k-steps > li[aria-current="step"])::before { border-width: 2px; border-color: var(--brand-accent); }
+  :where(.k-steps > li[data-state="skipped"]) { font-style: italic; }
+  .k-steps-count { font-size: var(--step--1); color: var(--brand-muted); }
+  @container (max-width: 40rem) {
+    .k-steps > li:not([aria-current="step"]) { flex: 0 0 auto; font-size: 0; gap: 0; }
+    .k-steps > li:not([aria-current="step"])::before { font-size: var(--step--1); }
+    .k-steps > li[aria-current="step"] { flex: 1 1 100%; order: -1; }
+  }
+
+  /* empty: the one way to say "nothing here yet", with one way forward */
+  .k-empty { display: grid; justify-items: center; text-align: center; gap: var(--s2); }
+  :where(.k-empty) { padding: var(--s6) var(--s3); border: var(--rule) dashed color-mix(in srgb, currentColor 30%, transparent); border-radius: var(--radius); color: var(--brand-muted); }
+  :where(.k-empty) :where(h3, h4) { margin: 0; color: var(--brand-ink); }
+  :where(.k-empty) :where(p) { margin: 0; max-width: 40ch; }
+
+  /* being drawn: replaced by the direction itself */
+  .drawing { padding: calc(var(--space) * 6) calc(var(--space) * 3); }
+  .drawing h2 { margin: 0 0 var(--space); font: 600 var(--step-4)/1.1 var(--font-display); }
+  .drawing p { margin: 0 0 calc(var(--space) * 4); opacity: .8; }
+  .drawing i { display: block; height: 14px; margin: 0 0 12px; border-radius: 7px; background: currentColor; opacity: .12;
+    animation: drawing 1.4s var(--ease) infinite alternate; }
+  .drawing i:nth-of-type(2) { width: 80%; } .drawing i:nth-of-type(3) { width: 55%; }
+  @keyframes drawing { to { opacity: .28; } }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+<script>
+/* draw: a direction's script builds what it shows (cards, rows, lists, counts) in one function and passes it
+   to ssDraw, which runs it now and again after every live push: a push puts each part back as the source has
+   it, so what a script drew there is gone until it draws again. */
+function ssDraw(fn) { fn(); document.addEventListener('ss:live', () => fn()); }
+</script>
+</head>
+<body>
+
+<nav data-ss-canvas="pin" class="switcher no-print" aria-label="Design directions" data-ss-react="off">
+  <div class="switcher-row">
+    <button type="button" class="frame-back" data-ss-canvas-back aria-keyshortcuts="Escape" title="Back to all directions (Esc)" hidden>← Back</button>
+    <div class="switcher-tabs" role="tablist"></div>
+    <!-- controls: what the person will likely try, at most 6, each a token every direction sets on its own section.
+         Write a <label>Name <input …></label> per control:
+           colour   <input type="color" data-var="--brand-accent">
+           slider   <input type="range" data-var="--density" min="0.8" max="1.25" step="0.05">  (data-unit="px" for px)
+           switch   <input type="range" data-var="--dark" min="0" max="1" step="1" data-kind="switch">
+           choice   <input type="range" data-var="--hero" min="0" max="2" step="1" data-kind="choice" data-options="Split|Centred|Photo">
+         A choice has 2 to 4 options of at most 14 characters. A switch or choice also shows on each direction as
+         data-dark="1", data-hero="2": style its variants with [data-ss-id="direction-<slug>"][data-hero="2"] … -->
+    <details class="tweaks">
+      <summary>Tweaks</summary>
+      <div class="tweaks-body">
+        <button type="button" data-tweaks-copy>Copy for the chat</button>
+      </div>
+    </details>
+    <output class="frame-zoom" aria-label="Zoom" hidden></output>
+    <button type="button" class="frame-use" data-ss-say="" hidden><span class="use">Use this design</span><span class="chosen">✓ Chosen</span></button>
+  </div>
+  <div class="switcher-views" role="group" aria-label="Device views"></div>
+  <p class="switcher-line" aria-live="polite"></p>
+  <p class="switcher-answers"></p>
+</nav>
+
+<style>
+  /* each direction: its own tokens. Set them here, and each section's slug, name and line on its opening tag */
+  [data-ss-id="direction-first"]  { --brand-ink: #1d2320; --brand-ground: #f3f5f2; --brand-accent: #1f6f50;
+    --font-display: "Iowan Old Style", Palatino, Georgia, serif; --font-body: "Avenir Next", "Segoe UI", sans-serif; }
+  [data-ss-id="direction-second"] { --brand-ink: #f2efe8; --brand-ground: #15171c; --brand-accent: #ffb703;
+    --font-display: "Avenir Next", Futura, "Gill Sans", sans-serif; --font-body: "Avenir Next", "Segoe UI", sans-serif; }
+  [data-ss-id="direction-third"]  { --brand-ink: #10242e; --brand-ground: #e6eef2; --brand-accent: #b4380a;
+    --font-display: ui-monospace, Menlo, monospace; --font-body: Charter, "Iowan Old Style", Georgia, serif; }
+</style>
+
+<script>
+/* Nothing in a script here is declared at its top with const, let or class, only functions and what's inside
+   blocks: a live push that changes a script runs the page's scripts again in the same tab, where a name
+   declared at a script's top a second time stops that whole script before its first line, the switcher too. */
+/* switcher: start */
+(() => {
+  const tabsNow = () => document.querySelector('.switcher-tabs');
+  const lineNow = () => document.querySelector('.switcher-line');
+  const viewsNow = () => document.querySelector('.switcher-views');
+  // One design has no tabs: the script still shows it, and its views' buttons.
+  if (!tabsNow() && !document.querySelector('section.direction')) return;
+  // A direction's device views (data-view-of="<its slug>") are frames of their own, never tabs.
+  const all = () => [...document.querySelectorAll('section.direction:not([data-view-of])')];
+  const views = () => [...document.querySelectorAll('section.direction[data-view-of]')];
+  const slugOf = (d) => (d.dataset.ssId || '').replace(/^direction-/, '');
+  const dirOf = (v) => all().find((d) => slugOf(d) === v.dataset.viewOf);
+  const viewsOf = (d) => views().filter((v) => v.dataset.viewOf === slugOf(d));
+  const label = (d) => d.dataset.ssLabel || d.dataset.name || d.dataset.ssId || '';
+  const device = (x) => ({ desktop: 'Desktop', tablet: 'Tablet', phone: 'Phone' })[x.dataset.ssFrame] || (x.dataset.viewOf ? label(x) : 'Desktop');
+  const hashOf = (d) => '#' + encodeURIComponent(d.dataset.ssId); // pick decodes it
+  // The view the person wants (its data-ss-frame), kept across tabs; null is the direction itself. Without
+  // the canvas, a phone opens on a direction's phone view when it has one.
+  const canvas = () => !!document.querySelector('meta[name="ss-canvas"][content="on"]');
+  let cur = null, view = null, drawn = null, devices = null;
+  let want = !canvas() && matchMedia('(max-width: 40rem)').matches ? 'phone' : null;
+  function pick() {
+    const dirs = all();
+    let id = location.hash.slice(1);
+    try { id = decodeURIComponent(id); } catch {}
+    const named = (x) => x.dataset.ssId === id;
+    const holds = (x) => x.contains(document.getElementById(id) || document.querySelector('[data-ss-id="' + CSS.escape(id) + '"]'));
+    const v = views().find(named) || views().find(holds);
+    if (v && dirOf(v)) { want = v.dataset.ssFrame; return [dirOf(v), v]; }
+    const d = dirs.find(named) || dirs.find(holds) || dirs.find((x) => x.hasAttribute('data-default')) || dirs[0];
+    return [d, (d && want && viewsOf(d).find((x) => x.dataset.ssFrame === want)) || null];
+  }
+  // The one place the address changes: a tab or device button the person clicks.
+  const goes = (b, to, kind) => b.addEventListener('click', () => { if (kind !== undefined) want = kind; history.replaceState(null, '', hashOf(to())); show(...pick()); dispatchEvent(new HashChangeEvent('hashchange')); });
+  function show(d, v) {
+    if (!d) return;
+    cur = d; view = v || null;
+    const tabs = tabsNow(), line = lineNow();
+    all().forEach((x, i) => {
+      x.classList.toggle('on', x === d && !view);
+      if (tabs && tabs.children[i]) tabs.children[i].setAttribute('aria-selected', String(x === d));
+    });
+    views().forEach((x) => x.classList.toggle('on', x === view));
+    if (line) line.textContent = d.dataset.line || '';
+    drawDevices();
+    frame();
+  }
+  // The frame: Back while a frame is open full page, the zoom % in canvas view, from Spacesheep's canvas
+  // (ss.canvas, and its ss:canvas event on each change). Back is data-ss-canvas-back: the canvas takes its click.
+  function frame() {
+    const c = (window.ss && window.ss.canvas) || {}, back = document.querySelector('.frame-back'), zoom = document.querySelector('.frame-zoom');
+    if (back) back.hidden = !c.open;
+    if (zoom) { zoom.hidden = !canvas() || !!c.open || typeof c.zoom !== 'number'; zoom.textContent = Math.round((c.zoom || 1) * 100) + '%'; }
+    // "Use this design" for the direction open full page (a view's own direction), when there are several to choose from.
+    const use = document.querySelector('.frame-use'), at = c.open && (document.getElementById(c.open) || document.querySelector('[data-ss-id="' + CSS.escape(c.open) + '"]'));
+    const d = at && (at.dataset.viewOf ? dirOf(at) : at), on = !!d && all().length > 1 && all().includes(d);
+    if (use) {
+      use.hidden = !on;
+      if (on) { use.dataset.ssSay = use.title = 'Use ' + label(d); use.toggleAttribute('data-chosen', d.hasAttribute('data-chosen')); use.disabled = d.hasAttribute('data-chosen'); }
+    }
+    pills();
+  }
+  // Each card's pill, which the canvas moves out of its section, finds its direction by its line, "Use <name>".
+  const pillOf = (u) => all().find((x) => 'Use ' + label(x) === u.dataset.ssSay);
+  function pills() {
+    document.querySelectorAll('.use-this').forEach((u) => {
+      const d = pillOf(u), on = !!d && d.hasAttribute('data-chosen');
+      u.toggleAttribute('data-chosen', on);
+      u.disabled = on;
+    });
+  }
+  // The device buttons (shown only without the canvas): the direction, then each of its views. The same
+  // set keeps its buttons, so the one just clicked keeps focus.
+  function drawDevices() {
+    const box = viewsNow(), vs = viewsOf(cur), set = [cur, ...vs];
+    devices = box;
+    if (!box) return;
+    if (!vs.length) { if (box.firstChild) box.replaceChildren(); return; }
+    if (box.children.length !== set.length || set.some((x, i) => box.children[i].dataset.for !== x.dataset.ssId)) box.replaceChildren(...set.map((x) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.dataset.for = x.dataset.ssId;
+      b.textContent = device(x);
+      goes(b, () => x, x === cur ? null : x.dataset.ssFrame);
+      return b;
+    }));
+    [...box.children].forEach((b, i) => b.setAttribute('aria-pressed', String(set[i] === (view || cur))));
+  }
+  function draw() {
+    try { drawn = tabsNow(); if (drawn) drawn.replaceChildren(...all().map((d) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.setAttribute('role', 'tab');
+      b.textContent = label(d);
+      if (d.hasAttribute('data-chosen')) b.dataset.chosen = '';
+      goes(b, () => d);
+      return b;
+    }));
+    show(...pick()); } finally { watch.takeRecords(); } // its own changes mustn't call it again
+  }
+  // A live push redraws the page from its source, where the tabs are empty, and on a canvas page it puts
+  // fresh copies of the tabs and line in place of these: draw them again, into the ones on the page now.
+  const stale = () => {
+    const dirs = all(), tabs = tabsNow(), line = lineNow(), box = viewsNow();
+    if (tabs !== drawn || (tabs && (tabs.children.length !== dirs.length || dirs.some((d, i) => tabs.children[i].textContent !== label(d)
+      || tabs.children[i].hasAttribute('data-chosen') !== d.hasAttribute('data-chosen'))))
+      || !document.contains(cur) || (view && !document.contains(view)) || (line && line.textContent !== (cur.dataset.line || ''))) return true;
+    const n = viewsOf(cur).length;
+    return box !== devices || (box && box.children.length !== (n ? n + 1 : 0));
+  };
+  // On the canvas the number keys go to the directions, which the canvas numbers first (views come after them
+  // in the page). A direction's key opens it; pressed again, it steps through the direction's views and back.
+  // The canvas opens the frame the address names; this listener is on the window, so it hears the key before
+  // the canvas's own, and takes it only for a direction with views. A live push runs this script again: the
+  // listener is added once.
+  if (!window.ssViewKeys) {
+    window.ssViewKeys = true;
+    addEventListener('keydown', (e) => {
+      const t = e.target, k = e.key;
+      if (!canvas() || e.metaKey || e.ctrlKey || e.altKey || !/^[1-9]$/.test(k) || document.body.getAttribute('data-ss-edit') === 'paper') return;
+      if (t.closest && !t.closest('[role=tab],[data-ss-canvas-chip]')
+        && t.closest('input,textarea,select,button,summary,a,[role=button],[contenteditable=""],[contenteditable=true],[data-ss-ui]')) return;
+      const d = all()[+k - 1], set = d ? [d, ...viewsOf(d)] : [];
+      if (set.length < 2) return;
+      let id = location.hash.slice(1);
+      try { id = decodeURIComponent(id); } catch {}
+      const i = set.findIndex((x) => x.dataset.ssId === id || (x.id && x.id === id));
+      const to = set[i < 0 ? 0 : (i + 1) % set.length];
+      e.preventDefault(); e.stopImmediatePropagation();
+      history.replaceState(null, '', hashOf(to));
+      dispatchEvent(new HashChangeEvent('hashchange'));
+    }, true);
+  }
+  // The frame's own listeners, behind their own flag, so a tab an older starter set up gets them on its next push.
+  // The canvas's listener, behind a flag of its own, calls the newest script's frame(), so a push that changes the
+  // frame changes what an open tab does; one an older starter added still runs, and this one runs after it.
+  window.ssFrame = frame;
+  if (!window.ssFrameHeard) {
+    window.ssFrameHeard = true;
+    document.addEventListener('ss:canvas', () => window.ssFrame());
+  }
+  if (!window.ssFrameKeys) {
+    window.ssFrameKeys = true;
+    // Esc goes back from full page with focus on a button or link too, which the canvas leaves to the page.
+    addEventListener('keydown', (e) => {
+      const t = e.target, c = window.ss && window.ss.canvas, b = document.querySelector('.frame-back');
+      if (e.key !== 'Escape' || !canvas() || !c || !c.open || !b || !t.closest || !t.closest('button,a,summary,[role=button]')
+        || t.closest('[role=tab],[data-ss-canvas-chip]')) return;
+      e.preventDefault();
+      b.click();
+    }, true);
+  }
+  // A tap on a card's pill opens its direction full page; its line goes to the chat through Spacesheep (data-ss-say).
+  if (!window.ssPillTaps) {
+    window.ssPillTaps = true;
+    document.addEventListener('click', (e) => {
+      const u = e.target.closest && e.target.closest('.use-this'), d = u && window.ssPillOf && window.ssPillOf(u);
+      if (!d) return;
+      history.replaceState(null, '', '#' + encodeURIComponent(d.dataset.ssId));
+      dispatchEvent(new HashChangeEvent('hashchange'));
+    });
+  }
+  window.ssPillOf = pillOf;
+  // A live push puts fresh pills on the page (the canvas lifts them again): their chosen mark follows.
+  const watch = new MutationObserver(() => { if (stale()) draw(); else pills(); });
+  watch.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-ss-label', 'data-name', 'data-line', 'data-ss-id', 'data-view-of', 'data-ss-frame', 'data-chosen'] });
+  addEventListener('hashchange', () => show(...pick()));
+  draw();
+})();
+/* switcher: end */
+/* controls: the inputs in .tweaks are the controls. Spacesheep's workspace reads them and draws its own Tweaks
+   (hiding this pane); a page opened without the workspace shows this pane, whose changes go on the direction
+   on show and stay in this tab. Each switch and choice also shows on every direction as an attribute named
+   for its token, --hero: 2 as data-hero="2", so its variants are plain CSS. That runs on load and whenever a
+   direction's style changes: a Tweaks change, a saved value after a reload, a live push. */
+function ssControls() { return [...document.querySelectorAll('.tweaks input[data-var]')].slice(0, 6); }
+function ssStep(i) { return i.dataset.kind === 'switch' || i.dataset.kind === 'choice'; }
+function ssMirror() {
+  const steps = ssControls().filter(ssStep);
+  if (!steps.length) return;
+  for (const d of [document.documentElement, ...document.querySelectorAll('section.direction')]) {
+    const cs = getComputedStyle(d);
+    for (const i of steps) {
+      const v = cs.getPropertyValue(i.dataset.var).trim(), a = 'data-' + i.dataset.var.slice(2);
+      const n = v === '' ? null : String(Math.round(parseFloat(v)) || 0);
+      if (n === null ? d.hasAttribute(a) : d.getAttribute(a) !== n) n === null ? d.removeAttribute(a) : d.setAttribute(a, n);
+    }
+  }
+}
+(() => {
+  const shown = () => document.querySelector('section.direction.on') || document.documentElement;
+  const said = (i) => {
+    const v = i.type === 'color' ? i.value : String(+i.value), o = i.dataset.options ? i.dataset.options.split('|') : [];
+    return i.dataset.kind === 'switch' ? (+v ? 'on' : 'off') : i.dataset.kind === 'choice' ? (o[+v] || v) : v + (i.type === 'color' ? '' : i.dataset.unit || '');
+  };
+  const name = (i) => (i.closest('label')?.firstChild?.textContent || i.dataset.var).trim();
+  function wire() {
+    for (const i of ssControls()) {
+      if (i.ssWired) continue;
+      i.ssWired = true;
+      const out = i.closest('label')?.querySelector('output') || document.createElement('output');
+      if (!out.isConnected) i.before(out);
+      const show = () => { const t = said(i); if (out.textContent !== t) out.textContent = t; if (ssStep(i)) i.setAttribute('aria-valuetext', t); }; // unchanged text: no mutation to answer
+      i.ssRead = () => { const v = getComputedStyle(shown()).getPropertyValue(i.dataset.var).trim(); if (v) i.value = i.type === 'color' ? v : parseFloat(v); show(); };
+      i.addEventListener('input', () => { shown().style.setProperty(i.dataset.var, i.type === 'color' ? i.value : i.value + (i.dataset.unit || '')); show(); });
+      i.ssRead();
+    }
+  }
+  document.addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-tweaks-copy]');
+    if (!b) return;
+    const d = shown(), who = d.dataset?.ssLabel ? 'for ' + d.dataset.ssLabel : 'for this page';
+    const line = `Keep these ${who}: ` + ssControls().map((i) => `${name(i)} ${said(i)}`).join(', ');
+    try { await navigator.clipboard.writeText(line); b.textContent = 'Copied: paste it in the chat'; } catch { prompt('Copy this into the chat', line); }
+  });
+  const again = () => { wire(); ssMirror(); ssControls().forEach((i) => i.ssRead && i.ssRead()); };
+  new MutationObserver(again).observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class'] });
+  again();
+})();
+/* kit: the filters' fold button on a phone */
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('.k-filters-toggle');
+  if (!b) return;
+  const f = b.closest('.k-filters');
+  f.toggleAttribute('data-open');
+  b.setAttribute('aria-expanded', String(f.hasAttribute('data-open')));
+});
+/* check: start */
+/* check: only when the address has ?ss-check (the save's pictures), never in a person's view. Once the page
+   has loaded, it measures each direction at this width for what a picture can't be trusted to show:
+     narrow  words in a column so thin they run under 4 characters a line
+     wide    words or a control running past the direction's edge
+     cut     words drawn outside a box that hides or scrolls its overflow, past its sides or its top or bottom
+             (up and down, a glyph may overhang its line by a third of the font size: tight display type)
+     redraw  words, parts or their order a live push changes for good: a script drew them once, not through ssDraw
+   It outlines each in red and asks for ss-fault/<slug>/<kind>/<element>.png, which doesn't exist: the
+   picture's answer lists that request, and fold.js prints it as a fault. First the canvas goes off and
+   every direction shows, full width and unscaled, as a person sees it on its own. */
+if (/[?&]ss-check\b/.test(location.search)) {
+  const canvas = document.querySelector('meta[name="ss-canvas"]');
+  if (canvas) canvas.content = 'off';
+  document.head.append(Object.assign(document.createElement('style'), { textContent: 'section.direction { display: block !important; } .switcher { display: none !important; }' }));
+}
+if (/[?&]ss-check\b/.test(location.search)) addEventListener('load', () => (document.fonts ? document.fonts.ready : Promise.resolve()).then(() => {
+  const own = (v) => v && !/^auto-/.test(v) ? v : ''; // the renderer gives unnamed blocks auto- ids
+  const name = (e) => e.tagName.toLowerCase() + (own(e.dataset.ssId) ? `[data-ss-id=${e.dataset.ssId}]` : e.id ? `#${e.id}` : e.classList.length ? `.${[...e.classList].slice(0, 2).join('.')}` : '');
+  const shown = (e) => { for (let x = e; x; x = x.parentElement) { const s = getComputedStyle(x); if (s.display === 'none' || s.visibility === 'hidden') return false; } return true; };
+  const skip = 'script, style, template, svg, [hidden], [aria-hidden=true]';
+  // With controls, each direction is measured with every slider, switch and choice at its lowest, then at its
+  // highest (over any saved value), then as designed, which the picture shows. A fault at an end says which.
+  // (A page whose controls script was taken out is measured as designed only.)
+  const ends = typeof ssControls === 'function' ? ssControls().filter((i) => i.type === 'range') : [];
+  // Each end goes on the section's own style, over anything saved; then each control's own inline value
+  // and priority (or none) go back as they were, so the check leaves the page as it found it.
+  const at = (sec, own, pick) => {
+    for (const i of ends) {
+      const v = i.dataset.var;
+      if (!own.has(v)) own.set(v, [sec.style.getPropertyValue(v), sec.style.getPropertyPriority(v)]);
+      if (pick) sec.style.setProperty(v, pick(i) + (i.dataset.unit || ''), 'important');
+      else if (own.get(v)[0]) sec.style.setProperty(v, own.get(v)[0], own.get(v)[1]);
+      else sec.style.removeProperty(v);
+    }
+    ssMirror();
+  };
+  for (const sec of document.querySelectorAll('section.direction')) {
+    const slug = (sec.dataset.ssId || '').replace(/^direction-/, '');
+    if (!sec.getBoundingClientRect().width || !shown(sec)) continue;
+    const seen = new Set();
+    const fault = (kind, el, text, when) => {
+      const key = kind + name(el) + when;
+      if (seen.has(key) || seen.size >= 8) return;
+      seen.add(key);
+      el.style.outline = '3px solid #e00';
+      const i = new Image();
+      i.src = `ss-fault/${slug}/${kind}/${encodeURIComponent(name(el) + when)}.png?t=${encodeURIComponent(text.replace(/\s+/g, ' ').trim().slice(0, 40))}`;
+    };
+    const measure = (when) => {
+      const box = sec.getBoundingClientRect();
+      const k = box.width / (sec.offsetWidth || box.width); // a canvas may scale the direction
+      const lines = (n) => { const g = document.createRange(); g.selectNodeContents(n); return [...g.getClientRects()].filter((x) => x.width > 0); };
+      const walk = document.createTreeWalker(sec, NodeFilter.SHOW_TEXT);
+      for (let n; (n = walk.nextNode()); ) {
+        const t = n.textContent.replace(/\s+/g, ' ').trim(), el = n.parentElement;
+        if (t.length < 12 || !el || el.closest(skip) || !shown(el)) continue;
+        const tops = new Set(lines(n).map((x) => Math.round(x.top / k / 4)));
+        if (tops.size >= 4 && t.length / tops.size < 4) fault('narrow', el, t, when);
+      }
+      const past = (q) => (q.right - box.right) / k > 2 || (box.left - q.left) / k > 2;
+      const inside = (q) => q.right > box.left + 1 && q.left < box.right - 1;
+      for (const el of sec.querySelectorAll('*')) {
+        if (el.closest(skip) || !shown(el)) continue;
+        const words = [...el.childNodes].filter((n) => n.nodeType === 3 && n.textContent.trim()), control = el.matches('a, button, input, select, textarea, label');
+        if (!words.length && !control) continue; // decoration may bleed off an edge
+        const r = el.getBoundingClientRect();
+        if (r.width <= 1 || r.height <= 1 || getComputedStyle(el).position === 'fixed') continue; // visually hidden, or pinned
+        const spans = words.flatMap(lines), reach = spans.concat(control || !spans.length ? [r] : []);
+        const over = parseFloat(getComputedStyle(el).fontSize) / 3 || 0;
+        for (let x = el; x && x !== sec; x = x.parentElement) {
+          const o = getComputedStyle(x);
+          if (o.overflowX === 'visible' && o.overflowY === 'visible') continue;
+          const c = x.getBoundingClientRect();
+          const side = o.overflowX !== 'visible' && spans.some((q) => (q.right - c.right) / k > 2 || (c.left - q.left) / k > 2);
+          const end = o.overflowY !== 'visible' && spans.some((q) => (q.bottom - c.bottom) / k > Math.max(2, over) || (c.top - q.top) / k > Math.max(2, over));
+          if (side || end) fault('cut', el, el.textContent, when);
+          break;
+        }
+        if (reach.some(inside) && reach.some(past)) fault('wide', el, el.textContent, when);
+      }
+    };
+    if (ends.length) { const own = new Map(); at(sec, own, (i) => i.min); measure(' with every control at its lowest'); at(sec, own, (i) => i.max); measure(' with every control at its highest'); at(sec, own, null); }
+    measure('');
+  }
+  // redraw: then a live push, as it lands on a tab with the page open. Each part a script filled goes back to what
+  // the page's own source holds there, and ss:live fires, as the platform does. A direction whose words or parts
+  // then differ from the fresh load lost them. A part is found in the source by its name, else by the steps down
+  // to it from the nearest named part. Parts holding a script, and form fields' insides, which a push keeps, stay
+  // as they are. The source is the copy this tab just loaded, from the browser's cache, else the server's. A page
+  // whose source can't be read, or holds other directions, isn't measured, and asks for
+  // ss-note/redraw-unmeasured.png with the reason, which fold.js prints as a line of its own.
+  const key = (e) => own(e.dataset.ssId) ? `[data-ss-id="${CSS.escape(e.dataset.ssId)}"]` : e.id ? `#${CSS.escape(e.id)}` : '';
+  const path = (e) => {
+    let p = '';
+    for (let x = e; x; x = x.parentElement) {
+      if (key(x)) return key(x) + p;
+      let i = 1;
+      for (let s = x.previousElementSibling; s; s = s.previousElementSibling) if (s.localName === x.localName) i++;
+      p = ` > ${CSS.escape(x.localName)}:nth-of-type(${i})${p}`;
+    }
+    return '';
+  };
+  const kids = (e) => [...e.childNodes].map((n) => n.nodeType === 1 ? n.tagName + key(n) : n.nodeType === 3 ? n.data.replace(/\s+/g, ' ').trim() : '').filter(Boolean).join('|');
+  const read = (e) => { const c = e.cloneNode(true); c.querySelectorAll('script, style, template').forEach((x) => x.remove()); return `${c.querySelectorAll('*').length} ${c.textContent.replace(/\s+/g, ' ').trim()}`; };
+  const unmeasured = (why) => { new Image().src = `ss-note/redraw-unmeasured.png?t=${encodeURIComponent(String(why).slice(0, 80))}`; };
+  return fetch(location.href, { cache: 'force-cache' }).then((r) => r.ok ? r.text() : Promise.reject(`its source answered ${r.status}`)).then((html) => {
+    const src = new DOMParser().parseFromString(html, 'text/html'), secs = [...document.querySelectorAll('section.direction')], wiped = [];
+    const there = src.querySelectorAll('section.direction').length;
+    if (there !== secs.length) return unmeasured(`its source holds ${there} directions, the page ${secs.length}`);
+    const fresh = secs.map(read);
+    for (const el of document.querySelectorAll('section.direction *')) {
+      if (el.closest('script, style, template, select, textarea') || el.querySelector('script') || wiped.some((w) => w.el.contains(el))) continue;
+      const k = path(el), was = k && src.querySelector(k);
+      if (was && kids(el) !== kids(was)) wiped.push({ el, k, sec: el.closest('section.direction'), was: read(el), text: el.textContent });
+    }
+    for (const w of wiped) w.el.replaceChildren(...[...src.querySelector(w.k).childNodes].map((n) => document.importNode(n, true)));
+    document.dispatchEvent(new CustomEvent('ss:live', { detail: { mode: 'morph', ids: [...document.querySelectorAll('[data-ss-id]')].map((e) => e.dataset.ssId) } }));
+    secs.forEach((sec, i) => {
+      if (read(sec) === fresh[i]) return;
+      const lost = wiped.filter((w) => w.sec === sec && read(sec.querySelector(w.k) || w.el) !== w.was).slice(0, 8);
+      const slug = (sec.dataset.ssId || '').replace(/^direction-/, '');
+      for (const w of lost.length ? lost : [{ el: sec, text: '' }]) {
+        w.el.style.outline = '3px solid #e00';
+        let at = w.el; while (at !== sec && !key(at)) at = at.parentElement; // an unnamed part: say which named part holds it
+        new Image().src = `ss-fault/${slug}/redraw/${encodeURIComponent((at === w.el ? '' : name(at) + ' ') + name(w.el))}.png?t=${encodeURIComponent(w.text.replace(/\s+/g, ' ').trim().slice(0, 40))}`;
+      }
+    });
+  }).catch((e) => unmeasured((e && e.message) || e));
+}));
+/* check: end */
+</script>
+</body>
+</html>
