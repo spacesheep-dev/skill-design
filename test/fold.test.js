@@ -181,8 +181,8 @@ test("start says the next step, and push names the starter's placeholders after 
   fs.writeFileSync(page, edited);
   assert.equal(fold(["push"]).status, 0);
   const named = fs.readFileSync(page, "utf8");
-  // Only the first placeholder changes: its marker, its id and its heading. The one in "second" keeps its names.
-  const expected = edited.replace('<!-- part:first --><div class="drawing" data-ss-id="first-drawing"><h2>First</h2>', '<!-- part:night-watch --><div class="drawing" data-ss-id="night-watch-drawing"><h2>Night &amp; Watch</h2>').replace("<!-- /part:first -->", "<!-- /part:night-watch -->");
+  // Only the first section changes: its pill's line, and its placeholder's marker, id and heading. "second" keeps its names.
+  const expected = edited.replace('data-ss-say="Use First" title="Use First">', 'data-ss-say="Use Night &amp; Watch" title="Use Night &amp; Watch">').replace('<!-- part:first --><div class="drawing" data-ss-id="first-drawing"><h2>First</h2>', '<!-- part:night-watch --><div class="drawing" data-ss-id="night-watch-drawing"><h2>Night &amp; Watch</h2>').replace("<!-- /part:first -->", "<!-- /part:night-watch -->");
   assert.notEqual(expected, edited);
   assert.equal(named, expected);
   assert.equal(sent().at(-1).html, named, "the named page is the one pushed");

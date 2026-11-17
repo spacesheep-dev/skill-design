@@ -107,14 +107,14 @@ test("a Decisions log pinned off the canvas and out of sight passes, and so does
   ]) assert.deepEqual(decisions(log), [], log);
 });
 
-test("the starter's switcher writes the address only when a tab is clicked (or, on the canvas, a number key pressed), never on its own at load", () => {
+test("the starter's switcher writes the address only when a tab or a card's pill is clicked (or, on the canvas, a number key pressed), never on its own at load", () => {
   const SWITCHER = fs.readFileSync(path.join(__dirname, "..", "design", "assets", "switcher.html"), "utf8");
-  for (const [name, src, keys] of [["base.html", BASE, 1], ["switcher.html", SWITCHER, 0]]) {
+  for (const [name, src, keys, clicks] of [["base.html", BASE, 1, 2], ["switcher.html", SWITCHER, 0, 1]]) {
     const writes = src.split("\n").filter((l) => /history\.(replaceState|pushState)|location\.hash\s*=/.test(l));
-    assert.equal(writes.length, 1 + keys, `${name}: ${writes.join(" | ")}`);
+    assert.equal(writes.length, clicks + keys, `${name}: ${writes.join(" | ")}`);
     // Each write is inside the listener of a person's click or key: the nearest addEventListener before it.
     const by = writes.map((w) => { const at = src.indexOf(w) + w.search(/history|location/), from = src.lastIndexOf("addEventListener(", at); return src.slice(from, from + 26); });
-    assert.equal(by.filter((x) => x.startsWith("addEventListener('click'")).length, 1, `${name}: ${by.join(" | ")}`);
+    assert.equal(by.filter((x) => x.startsWith("addEventListener('click'")).length, clicks, `${name}: ${by.join(" | ")}`);
     assert.equal(by.filter((x) => x.startsWith("addEventListener('keydown'")).length, keys, `${name}: ${by.join(" | ")}`);
   }
 });
@@ -182,13 +182,15 @@ function switcherListeners(already) {
 
 test("the frame's listeners go in on a page an older starter set up, whose tab already has the number keys", () => {
   const fresh = switcherListeners({});
-  assert.deepEqual(fresh, ["document ss:canvas", "window hashchange", "window keydown", "window keydown"]);
+  assert.deepEqual(fresh, ["document click", "document ss:canvas", "window hashchange", "window keydown", "window keydown"]);
   // An older starter's tab: its number-key listener is in, so only the frame's are added on the push.
-  assert.deepEqual(switcherListeners({ ssViewKeys: true }), ["document ss:canvas", "window hashchange", "window keydown"]);
+  assert.deepEqual(switcherListeners({ ssViewKeys: true }), ["document click", "document ss:canvas", "window hashchange", "window keydown"]);
   // A tab whose frame listened to the canvas before ssFrameHeard: the canvas's listener that calls the newest frame() goes in.
-  assert.deepEqual(switcherListeners({ ssViewKeys: true, ssFrameKeys: true }), ["document ss:canvas", "window hashchange"]);
+  assert.deepEqual(switcherListeners({ ssViewKeys: true, ssFrameKeys: true }), ["document click", "document ss:canvas", "window hashchange"]);
+  // A tab whose frame came before the cards' pills: the pill's tap goes in on the push.
+  assert.deepEqual(switcherListeners({ ssViewKeys: true, ssFrameKeys: true, ssFrameHeard: true }), ["document click", "window hashchange"]);
   // This starter's tab, pushed again: nothing twice.
-  assert.deepEqual(switcherListeners({ ssViewKeys: true, ssFrameKeys: true, ssFrameHeard: true }), ["window hashchange"]);
+  assert.deepEqual(switcherListeners({ ssViewKeys: true, ssFrameKeys: true, ssFrameHeard: true, ssPillTaps: true }), ["window hashchange"]);
 });
 
 // The switcher's script on a stand-in page with three directions: what its bar's pill and tabs show.

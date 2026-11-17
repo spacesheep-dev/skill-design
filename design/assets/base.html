@@ -79,6 +79,18 @@
   .frame-use[data-chosen] { background: var(--bar-bg); color: var(--bar-ink); border-color: var(--bar-line); cursor: default; }
   .switcher-tabs button[data-chosen]::after { content: " \2713"; }
   .direction[data-chosen] { outline: 2px solid var(--bar-ink); outline-offset: 6px; }
+  /* "Use this design" on each direction's card: Spacesheep's canvas draws it at the right end of the card's label
+     row (data-ss-canvas="label"), at screen size and outside the design. Until the canvas lifts it there it shows
+     nowhere; nor with one direction, nor while a direction is open, when the bar's pill is the one. */
+  .use-this { min-height: 36px; padding: 0 14px; border: 1px solid var(--bar-ink); border-radius: 18px; background: var(--bar-ink);
+    color: var(--bar-bg); font: 600 14px/1 system-ui, -apple-system, "Segoe UI", sans-serif; white-space: nowrap; cursor: pointer; }
+  @media (pointer: coarse) { .use-this { min-height: 44px; } }
+  .use-this:focus-visible { outline: 3px solid #2563eb; outline-offset: 2px; }
+  .use-this .chosen, .use-this[data-chosen] .use { display: none; }
+  .use-this[data-chosen] .chosen { display: inline; }
+  .use-this[data-chosen] { background: var(--bar-bg); color: var(--bar-ink); border-color: var(--bar-line); cursor: default; }
+  section.direction .use-this, html:has(.frame-back:not([hidden])) .use-this,
+  html:not(:has(section.direction:not([data-view-of]) ~ section.direction:not([data-view-of]))) .use-this { display: none; }
   /* switcher: end */
 
   /* controls: the pane where Spacesheep's workspace doesn't draw them itself (it hides this one). A button at the
@@ -318,14 +330,17 @@ function ssDraw(fn) { fn(); document.addEventListener('ss:live', () => fn()); }
 </style>
 
 <section class="direction" data-ss-frame="desktop" data-ss-section data-ss-id="direction-first" data-ss-thing="direction/first" data-ss-label="First" data-line="One line on what it leads with." data-ss-x="0" data-ss-y="0">
+  <button type="button" class="use-this no-print" data-ss-canvas="label" data-ss-say="Use First" title="Use First"><span class="use">Use this design</span><span class="chosen">✓ Chosen</span></button>
   <!-- part:first --><div class="drawing" data-ss-id="first-drawing"><h2>First</h2><p>Being drawn…</p><i></i><i></i><i></i></div><!-- /part:first -->
 </section>
 
 <section class="direction" data-ss-frame="desktop" data-ss-section data-ss-id="direction-second" data-ss-thing="direction/second" data-ss-label="Second" data-line="One line on what it leads with." data-ss-x="1352" data-ss-y="0">
+  <button type="button" class="use-this no-print" data-ss-canvas="label" data-ss-say="Use Second" title="Use Second"><span class="use">Use this design</span><span class="chosen">✓ Chosen</span></button>
   <!-- part:second --><div class="drawing" data-ss-id="second-drawing"><h2>Second</h2><p>Being drawn…</p><i></i><i></i><i></i></div><!-- /part:second -->
 </section>
 
 <section class="direction" data-ss-frame="desktop" data-ss-section data-ss-id="direction-third" data-ss-thing="direction/third" data-ss-label="Third" data-line="One line on what it leads with." data-ss-x="2704" data-ss-y="0">
+  <button type="button" class="use-this no-print" data-ss-canvas="label" data-ss-say="Use Third" title="Use Third"><span class="use">Use this design</span><span class="chosen">✓ Chosen</span></button>
   <!-- part:third --><div class="drawing" data-ss-id="third-drawing"><h2>Third</h2><p>Being drawn…</p><i></i><i></i><i></i></div><!-- /part:third -->
 </section>
 
@@ -393,6 +408,16 @@ function ssDraw(fn) { fn(); document.addEventListener('ss:live', () => fn()); }
       use.hidden = !on;
       if (on) { use.dataset.ssSay = use.title = 'Use ' + label(d); use.toggleAttribute('data-chosen', d.hasAttribute('data-chosen')); use.disabled = d.hasAttribute('data-chosen'); }
     }
+    pills();
+  }
+  // Each card's pill, which the canvas moves out of its section, finds its direction by its line, "Use <name>".
+  const pillOf = (u) => all().find((x) => 'Use ' + label(x) === u.dataset.ssSay);
+  function pills() {
+    document.querySelectorAll('.use-this').forEach((u) => {
+      const d = pillOf(u), on = !!d && d.hasAttribute('data-chosen');
+      u.toggleAttribute('data-chosen', on);
+      u.disabled = on;
+    });
   }
   // The device buttons (shown only without the canvas): the direction, then each of its views. The same
   // set keeps its buttons, so the one just clicked keeps focus.
@@ -475,7 +500,19 @@ function ssDraw(fn) { fn(); document.addEventListener('ss:live', () => fn()); }
       b.click();
     }, true);
   }
-  const watch = new MutationObserver(() => { if (stale()) draw(); });
+  // A tap on a card's pill opens its direction full page; its line goes to the chat through Spacesheep (data-ss-say).
+  if (!window.ssPillTaps) {
+    window.ssPillTaps = true;
+    document.addEventListener('click', (e) => {
+      const u = e.target.closest && e.target.closest('.use-this'), d = u && window.ssPillOf && window.ssPillOf(u);
+      if (!d) return;
+      history.replaceState(null, '', '#' + encodeURIComponent(d.dataset.ssId));
+      dispatchEvent(new HashChangeEvent('hashchange'));
+    });
+  }
+  window.ssPillOf = pillOf;
+  // A live push puts fresh pills on the page (the canvas lifts them again): their chosen mark follows.
+  const watch = new MutationObserver(() => { if (stale()) draw(); else pills(); });
   watch.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-ss-label', 'data-name', 'data-line', 'data-ss-id', 'data-view-of', 'data-ss-frame', 'data-chosen'] });
   addEventListener('hashchange', () => show(...pick()));
   draw();
