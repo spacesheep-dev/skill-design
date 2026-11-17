@@ -81,7 +81,7 @@ The frame goes up from the request alone (step 2); the rest is read after it (st
   - **Its look:** its ids start `<slug>-phone-`, and the direction's token rule lists it beside the direction, `[data-ss-id="direction-<slug>"], [data-view-of="<slug>"] { … }`, as does any of the direction's CSS it shares.
   - **Drawn for its width:** every fact, word, brand value and control of its direction, arranged for a hand: one column, the main action within a thumb's reach, the nav folded into the kit's bar. Never the desktop frame copied or scaled down.
   - **In a new build,** add each view's section in the frame's Edits (step 2) with its own empty `<!-- part:<slug>-phone --><!-- /part:<slug>-phone -->`, and name it in its direction's helper prompt ("Its phone view: `night-watch-phone`"). On a page without the canvas (the client copy), the switcher shows Desktop / Phone buttons for a direction with views, and a phone opens on the phone view.
-- **Name each direction by its idea** in 1 to 3 words ("Harbour Chart", "Night Watch", "Logbook"), never "Option A". Its line says what it is for ("Calm and plain, for owners who check once a month").
+- **Name each direction by its idea** in 1 to 3 words ("Harbour Chart", "Night Watch", "Logbook"), never "Option A". Its line says what it is for and what it gives up ("Calm and plain, for owners who check once a month; no totals at a glance").
 - **When the person picks one** ("go with the third", "the third, but bolder", or "Use Harbour Chart" from a Use this design pill, on its card or in the bar), change only that direction, mark it chosen (`data-chosen` on its section, and on no other), make it the one the space opens on (`data-default`), point the canvas at it (`fold.js focus <slug>`), and record the pick under Decisions (section 6). Keep the others, so they can still compare or come back. Remove them only when the person says so ("drop the others", "just that one").
 
 ## 3. Build it so it works
@@ -133,7 +133,7 @@ Reply in at most five short lines, then, only when step 2 found the title doesn'
 - what you made and its saved version (one design, or three directions by name),
 - the guesses you took (the brand source, any copy you wrote, anything you left out) and what is still rough,
 - how to give feedback: tap a block and comment with @shepherd in it, or say it in this chat,
-- the next step (pick a direction, approve it, or hand it to a developer).
+- the next step: with directions, one decision line ("If you want the due dates first, pick Harbour Chart; every bill at once, Logbook"); else approve it or hand it to a developer.
 
 **Keep a Decisions log on the space.** After the first revision or decision, add it at the very end: `<details class="no-print" data-ss-id="decisions" data-ss-canvas="pin" style="display:none"><summary>Decisions</summary>…</details>`, one line per decision with the date and version ("11 Nov, v4: picked Night Watch; bolder type"). It is the record, read from the source, never shown: the canvas draws any block outside a direction as a frame of its own, so `data-ss-canvas="pin"` keeps it off the canvas, and the check flags a log that would show.
 

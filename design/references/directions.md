@@ -34,7 +34,7 @@ A skeleton is the page's arrangement: one column, a lead item over a list, a gri
 
 - 1 to 3 words that name the idea: "Harbour Chart", "Night Watch", "Logbook", "Paper Lantern".
 - Never "Option A", "Version 2", "Modern" or "Clean": those name nothing.
-- One line under each name gives its skeleton and what it leads with: "A ledger of every bill, due date first; for owners who only open it when one comes." A card grid in new colours is no idea.
+- One line under each name gives its skeleton, what it leads with and what it gives up: "A ledger of every bill, due date first; for owners who only open it when one comes; no totals at a glance." A card grid in new colours is no idea.
 - Name a direction for its idea, never for the product's own name or metaphor: a page called Orbit gets no star charts.
 
 ## Every direction is complete
