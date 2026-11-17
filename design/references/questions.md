@@ -79,3 +79,17 @@ Four quick choices before I draw:
 4. Anything it must have? a) A waitlist (my pick) b) Class reminders, or say what
 Reply go to use my picks.
 ```
+
+## Rename
+
+Only when the space's title clearly doesn't fit the work, and never before drawing: it rides on the frame's message, and drawing goes on. Three titles of 1 to 4 words, then Don't change, which is the pick.
+
+```ss-blocks
+[
+  {"form": {"id": "title", "submit": "Done", "asks": [
+    {"id": "title", "question": "Rename “Q3 budget”?", "options": ["Winter Talks Flyer", "Harbour Lane Talks", "Library Winter Season", "Don't change"], "pick": "Don't change"}
+  ]}}
+]
+```
+
+The answer comes back as `Rename “Q3 budget”?: <choice>`. On a title, `fold.js title "<choice>"`; on Don't change, nothing. Without a chat form: "Rename “Q3 budget”? a) Winter Talks Flyer b) Harbour Lane Talks c) Library Winter Season d) Don't change (my pick)".
