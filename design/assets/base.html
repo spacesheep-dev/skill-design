@@ -8,7 +8,7 @@
   One design, not directions: keep one section, and drop the switcher's tabs; keep its script (it shows the
   design, and its views' buttons). Keep the nav while it holds controls (Tweaks, at the right end of its row),
   the answers line or a view; with none of them, drop it too.
-  Keep the metas, the switcher and the ids. The person's answers, when you asked: references/questions.md.
+  Keep the metas, the switcher (the frame: Back, the tabs, Tweaks and the zoom %) and the ids. The person's answers, when you asked: references/questions.md.
   A direction's phone or tablet view is a section of its own after the last direction, with data-view-of:
   SKILL.md, section 2.
 -->
@@ -54,6 +54,13 @@
   html:not(:has(meta[name="ss-canvas"][content="on"])) .direction[data-view-of] { margin-inline: auto; }
   html:not(:has(meta[name="ss-canvas"][content="on"])) .direction[data-view-of][data-ss-frame="phone"] { max-width: 390px; }
   html:not(:has(meta[name="ss-canvas"][content="on"])) .direction[data-view-of][data-ss-frame="tablet"] { max-width: 820px; }
+  /* the frame's own controls: Back while a direction is open full page (Esc does the same), the zoom % on the canvas */
+  .frame-back, .frame-zoom { flex: none; min-height: 44px; display: inline-flex; align-items: center; padding: 0 14px;
+    border: 1px solid #ccc; border-radius: 22px; background: #fff; color: #111; font: inherit; white-space: nowrap; }
+  .frame-back { cursor: pointer; }
+  .frame-back:focus-visible { outline: 3px solid #2563eb; outline-offset: 2px; }
+  .frame-zoom { border-color: transparent; color: #555; font-variant-numeric: tabular-nums; }
+  .frame-back[hidden], .frame-zoom[hidden] { display: none; }
   /* switcher: end */
 
   /* controls: the pane where Spacesheep's workspace doesn't draw them itself (it hides this one). A button at the
@@ -258,6 +265,7 @@ function ssDraw(fn) { fn(); document.addEventListener('ss:live', () => fn()); }
 
 <nav data-ss-canvas="pin" class="switcher no-print" aria-label="Design directions" data-ss-react="off">
   <div class="switcher-row">
+    <button type="button" class="frame-back" data-ss-canvas-back aria-keyshortcuts="Escape" title="Back to all directions (Esc)" hidden>← Back</button>
     <div class="switcher-tabs" role="tablist"></div>
     <!-- controls: what the person will likely try, at most 6, each a token every direction sets on its own section.
          Write a <label>Name <input …></label> per control:
@@ -273,6 +281,7 @@ function ssDraw(fn) { fn(); document.addEventListener('ss:live', () => fn()); }
         <button type="button" data-tweaks-copy>Copy for the chat</button>
       </div>
     </details>
+    <output class="frame-zoom" aria-label="Zoom" hidden></output>
   </div>
   <div class="switcher-views" role="group" aria-label="Device views"></div>
   <p class="switcher-line" aria-live="polite"></p>
@@ -350,6 +359,14 @@ function ssDraw(fn) { fn(); document.addEventListener('ss:live', () => fn()); }
     views().forEach((x) => x.classList.toggle('on', x === view));
     if (line) line.textContent = d.dataset.line || '';
     drawDevices();
+    frame();
+  }
+  // The frame: Back while a frame is open full page, the zoom % in canvas view, from Spacesheep's canvas
+  // (ss.canvas, and its ss:canvas event on each change). Back is data-ss-canvas-back: the canvas takes its click.
+  function frame() {
+    const c = (window.ss && window.ss.canvas) || {}, back = document.querySelector('.frame-back'), zoom = document.querySelector('.frame-zoom');
+    if (back) back.hidden = !c.open;
+    if (zoom) { zoom.hidden = !canvas() || !!c.open || typeof c.zoom !== 'number'; zoom.textContent = Math.round((c.zoom || 1) * 100) + '%'; }
   }
   // The device buttons (shown only without the canvas): the direction, then each of its views. The same
   // set keeps its buttons, so the one just clicked keeps focus.
@@ -397,6 +414,13 @@ function ssDraw(fn) { fn(); document.addEventListener('ss:live', () => fn()); }
     window.ssViewKeys = true;
     addEventListener('keydown', (e) => {
       const t = e.target, k = e.key;
+      // Esc goes back from full page with focus on a button or link too, which the canvas leaves to the page.
+      if (k === 'Escape' && canvas() && window.ss && window.ss.canvas && window.ss.canvas.open && t.closest
+        && t.closest('button,a,summary,[role=button]') && !t.closest('[role=tab],[data-ss-canvas-chip]')) {
+        const b = document.querySelector('.frame-back');
+        if (b) { e.preventDefault(); b.click(); }
+        return;
+      }
       if (!canvas() || e.metaKey || e.ctrlKey || e.altKey || !/^[1-9]$/.test(k) || document.body.getAttribute('data-ss-edit') === 'paper') return;
       if (t.closest && !t.closest('[role=tab],[data-ss-canvas-chip]')
         && t.closest('input,textarea,select,button,summary,a,[role=button],[contenteditable=""],[contenteditable=true],[data-ss-ui]')) return;
@@ -410,6 +434,7 @@ function ssDraw(fn) { fn(); document.addEventListener('ss:live', () => fn()); }
       history.replaceState(null, '', hashOf(to));
       dispatchEvent(new HashChangeEvent('hashchange'));
     }, true);
+    document.addEventListener('ss:canvas', () => frame());
   }
   const watch = new MutationObserver(() => { if (stale()) draw(); });
   watch.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-ss-label', 'data-name', 'data-line', 'data-ss-id', 'data-view-of', 'data-ss-frame'] });

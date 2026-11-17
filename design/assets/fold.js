@@ -9,9 +9,11 @@
 //
 //   node fold.js -C <folder> start <link> ["<status>"]   a status on the space ("Reading your brief" unless
 //                                               given), its source read into work/ (the starter instead,
-//                                               if its page is blank), its id kept
+//                                               if its page is blank, and its empty canvas pushed at
+//                                               once), its id kept
 //   node fold.js -C <folder> start --new "<title>"   a new space whose first version is a short page saying
-//                                               it is being drawn, then the starter in work/ (below)
+//                                               it is being drawn, then the starter in work/ (below) and
+//                                               its empty canvas pushed at once
 //   node fold.js -C <folder> push                push work/index.html to the space once
 //   node fold.js -C <folder> write               start the page's only writer in the background (below)
 //   node fold.js -C <folder> brief               wait for draw/BRIEF.md to end with `end brief`, print it
@@ -441,6 +443,8 @@ function isBlank(h) {
   return [platformBlank, (t) => firstPage(t, base)].some((make) => knownPage(make).test(page));
 }
 const isDesign = (h) => !isBlank(h);
+// The starter with no directions: the canvas and its frame, pushed the moment a blank page is known, before any design.
+const emptyCanvas = (base) => base.replace(/^<section class="direction"[\s\S]*?^<\/section>\n*/gm, "");
 // One space per folder: start never points a folder at a second space.
 function keep(id) {
   const had = (read("draw/space") || "").trim();
@@ -559,6 +563,7 @@ if (cmd === "start") {
     if (!setWork(base) || !write("draw/starter", "1\n")) process.exit(2);
     try { run(["live", "push", "--space", space, "--status", "Reading your brief"]); card("up"); console.log("status: Reading your brief"); }
     catch (e) { console.error(`status refused: ${why(e)}`); }
+    console.log(push("--html", emptyCanvas(base)) ? "pushed the empty canvas" : "the empty canvas wasn't pushed (draw/fold.log)");
     console.log(`made a new space; the starter is in work/index.html: ${(j.space || {}).url || space}\nspace: ${space}\n${NEXT}`);
     process.exit(0);
   }
@@ -575,7 +580,9 @@ if (cmd === "start") {
   const aside = retire();
   if (aside) console.log(aside);
   if (!isDesign(read("work/index.html"))) {
-    if (!setWork(fs.readFileSync(path.join(__dirname, "base.html"), "utf8")) || !write("draw/starter", "1\n")) process.exit(2);
+    const base = fs.readFileSync(path.join(__dirname, "base.html"), "utf8");
+    if (!setWork(base) || !write("draw/starter", "1\n")) process.exit(2);
+    console.log(push("--html", emptyCanvas(base)) ? "pushed the empty canvas" : "the empty canvas wasn't pushed (draw/fold.log)");
     console.log(`work/index.html held no design: the starter is in its place\n${NEXT}`);
   } else remove("draw/starter"); // a revision: section 7, not a new build
   console.log(`space: ${space}`);
