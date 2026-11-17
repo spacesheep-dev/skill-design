@@ -374,6 +374,12 @@ function deploy(message) {
     return { ok: false, lines: [`no answer from the server in ${s}, and ${v.why || `the space has no version "${message}" newer than its newest before this save`}; save again: if it landed after all, that save makes no second version`] };
   }
   if (r.status !== 0 && !said.filter((l) => !/^[↑=]/.test(l)).length) said.unshift(`the CLI ended (${r.error ? why(r.error) : r.signal || `exit ${r.status}`}) without saying why`);
+  // A deploy the CLI calls failed can still have made its version (its answer cut off by a restart): the
+  // same check as above, so a save that landed is a save, and only one that didn't keeps the CLI's words.
+  if (r.status !== 0) {
+    const v = landed(message, before);
+    if (v.version) return { ok: true, lines: [`Saved as version ${v.version}. The version was made, though the CLI didn't get the server's usual answer.`] };
+  }
   return { ok: r.status === 0, lines: said.slice(0, 8) };
 }
 // The space's history, newest first (at most n versions), or why it can't be read.

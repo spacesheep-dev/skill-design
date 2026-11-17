@@ -34,6 +34,12 @@ if (a[0] === "deploy" && process.env.FAKE_REFUSE) {
 // A deploy the server answers late: with "landed" its version goes on top first; either way it never ends by itself.
 const VERSIONS = path.join(dir, "versions.json");
 const history = () => fs.existsSync(VERSIONS) ? JSON.parse(fs.readFileSync(VERSIONS, "utf8")) : [{ id: "a8a114a8aa44", label: "Big Day, red 18", created_at: new Date(Date.now() - 10000).toISOString() }];
+// A deploy the CLI calls failed (the tool's answer was plain text): with "landed" its version was made first.
+if (a[0] === "deploy" && process.env.FAKE_FAIL) {
+  if (process.env.FAKE_FAIL === "landed") fs.writeFileSync(VERSIONS, JSON.stringify([{ id: "e5f1a2b3c4d5", label: a[a.indexOf("-m") + 1], created_at: new Date().toISOString() }, ...history()]));
+  console.error("deploy failed: Network connection lost.");
+  process.exit(1);
+}
 if (a[0] === "deploy" && process.env.FAKE_HANG) {
   if (process.env.FAKE_HANG === "landed") fs.writeFileSync(VERSIONS, JSON.stringify([{ id: "d4c0834a3907", label: a[a.indexOf("-m") + 1], created_at: new Date().toISOString() }, ...history()]));
   setTimeout(() => process.exit(0), 30000);
@@ -545,6 +551,29 @@ test("a save stopped at its time limit is saved only when a version with its mes
     assert.equal(w.stdout.trim().split("\n").pop().slice(9), `save failed: ${said}`);
     assert.ok(!calls().some((a) => a[0] === "live" && a.includes("Checking details")), "a failed save puts no status back");
   }
+});
+
+test("a save the CLI calls failed is saved when a version with its message is newer than the space's newest before it", () => {
+  // The version was made, then the CLI said "deploy failed": a save, with no word of failure.
+  let { fold, calls } = setup();
+  assert.equal(fold(["start", "--new", "Poster"]).status, 0);
+  assert.equal(fold(["save", "Big Day, red 18", "Checking details"], { FAKE_FAIL: "landed" }).status, 0);
+  let w = fold(["wait"]);
+  assert.equal(w.status, 0, w.stdout + w.stderr);
+  assert.match(w.stdout, /saved: Saved as version 2\. The version was made, though the CLI didn't get the server's usual answer\./);
+  assert.match(w.stdout.trim().split("\n").pop(), /save done$/);
+  assert.doesNotMatch(w.stdout, /fail/i);
+  const log = calls(), deployed = log.findIndex((a) => a[0] === "deploy" && a.includes("Big Day, red 18"));
+  assert.ok(log.findIndex((a, i) => i > deployed && a[0] === "versions") > deployed, "the history was read after the deploy");
+  assert.ok(log.findIndex((a) => a[0] === "live" && a.includes("Checking details")) > deployed, "the save went on to its status");
+  // No version from this save: the CLI's words, as before.
+  ({ fold, calls } = setup());
+  assert.equal(fold(["start", "--new", "Poster"]).status, 0);
+  assert.equal(fold(["save", "Big Day, red 18", "Checking details"], { FAKE_FAIL: "lost" }).status, 0);
+  w = fold(["wait"]);
+  assert.equal(w.status, 1, "wait must fail on a save that didn't land");
+  assert.equal(w.stdout.trim().split("\n").pop().slice(9), "save failed: deploy failed: Network connection lost.");
+  assert.ok(!calls().some((a) => a[0] === "live" && a.includes("Checking details")), "a failed save puts no status back");
 });
 
 // A build drawn as parts and saved: the Programme starts at 2pm, and the writer's frame and part stay in draw/.
