@@ -15,7 +15,6 @@ A direction is a different answer to "what should this feel like, and what shoul
 | Density | A lot of air, few elements | Information-rich, many elements |
 | Shape | Soft: round corners, organic shapes | Hard: square edges, rules and lines |
 | Imagery | Shapes, rules and colour fields drawn in CSS | Type only, no imagery |
-| Voice of the headings | Warm and personal | Crisp and factual |
 
 With a brand given, all three directions use the brand's colours, fonts and logo. They differ in layout, lead, density, shape and how the brand's colours are balanced (mostly ground, mostly accent, mostly ink).
 
@@ -27,19 +26,21 @@ Take each direction from a different source, then give each its own skeleton:
 2. **The brand found in the product:** its own colours, type and habits, pushed further than the product dares.
 3. **A deliberate departure from both:** a structure neither of the others uses, such as one card at a time, a single dense table, a story told in steps, or an editorial front page.
 
+An existing screen or mock (the current page, a screenshot, a sketch) shapes one direction only, the one that keeps its layout; the others take its content and none of its layout.
+
 A skeleton is the page's arrangement: one column, a lead item over a list, a grid, a table, steps, a split screen. Before you write the three lines, check that no two share a skeleton, and rewrite one that does: colour and type alone make one direction.
 
 ## Naming
 
 - 1 to 3 words that name the idea: "Harbour Chart", "Night Watch", "Logbook", "Paper Lantern".
 - Never "Option A", "Version 2", "Modern" or "Clean": those name nothing.
-- One line under each name gives its skeleton and what it leads with: "A ledger of every bill, due date first; for owners who only open it when one comes." A card grid in new colours is no idea.
+- One line under each name gives its skeleton, what it leads with and what it gives up: "A ledger of every bill, due date first; for owners who only open it when one comes; no totals at a glance." A card grid in new colours is no idea.
 - Name a direction for its idea, never for the product's own name or metaphor: a page called Orbit gets no star charts.
 
 ## Every direction is complete
 
 - Every direction keeps its own tokens on its own section (`[data-ss-id="direction-night-watch"] { --brand-accent: …; --font-display: … }`). A revision to one direction changes only its section's tokens.
-- Every fact from the request is in every direction. Don't drop the price from the bold one to make it look cleaner.
+- Every direction shows the same real content: the request's facts and the same headline, words, items and numbers, so the pick is about structure, not copy. Don't drop the price from the bold one to make it look cleaner.
 - Every direction works at 390 px wide and has working links and buttons.
 - Every direction gets its own `data-ss-id` prefix (`chart-hero`, `nightwatch-hero`), so a comment says which one it's about.
 
