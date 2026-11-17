@@ -36,11 +36,11 @@ function within(p) {
   return true;
 }
 const skipped = new Set();
+const skip = (f) => { if (!skipped.has(f)) console.error(`check: skipped ${f}: it is a link or outside ${ROOT}`); skipped.add(f); };
 const read = (f) => {
-  if (!within(f)) { if (!skipped.has(f)) console.error(`check: skipped ${f}: it is a link or outside ${ROOT}`); skipped.add(f); return null; }
+  if (!within(f)) { skip(f); return null; }
   try { return fs.readFileSync(f, "utf8"); } catch { return null; }
 };
-const skip = (f) => { if (!skipped.has(f)) console.error(`check: skipped ${f}: it is a link or outside ${ROOT}`); skipped.add(f); };
 const isDir = (d) => { if (!within(d)) { skip(d); return false; } return fs.existsSync(d) && fs.lstatSync(d).isDirectory(); };
 function htmlIn(d) {
   const all = (isDir(d) ? fs.readdirSync(d, { withFileTypes: true }) : []).filter((e) => e.name.endsWith(".html"));

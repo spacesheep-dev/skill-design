@@ -183,8 +183,7 @@ const rework = (html) => { const clean = isOurs(read("work/index.html")); return
 //   unknown  the record is missing, unreadable, malformed or a link: nothing about it can be told
 // `write` and `save` start a run only after none, done or lapsed; `wait` and `stop` succeed only on done
 // (or none). Unknown stays unknown: no command replaces it or reads it as "none", except a missing record in a
-// folder no run can be going in (adopt, below). draw/<job>.pid is there
-// for a person to look the process up; nothing here decides on it.
+// folder no run can be going in (adopt, below).
 const LIFE = { writer: 31 * 60 * 1000, save: 10 * 60 * 1000 };
 const RUNID = /^[0-9a-f]{16}$/;
 // Whether any process of a group is there: true, false, or null when there's no group to ask about.
@@ -272,7 +271,6 @@ function begin(name, out, first) {
   if (first && !write(out, first(id))) process.exit(2);
   const pid = background(out, id);
   if (!swap(`draw/${name}.run`, `${id} ${deadline} ${pid}\n`)) process.exit(2);
-  write(`draw/${name}.pid`, String(pid));
   return id;
 }
 // A log as text: "" when it doesn't exist yet, null when it can't be trusted (a link, outside).
@@ -942,8 +940,7 @@ function columns(file, tall = 1400, gap = 24) {
     out[y * line] = 0;
     for (let i = 0; i < n; i++) if (i * tall + y < h) px.copy(out, y * line + 1 + i * (w + gap) * bpp, (i * tall + y) * row, (i * tall + y + 1) * row);
   }
-  const crc = crc32;
-  const chunk =(kind, data) => { const b = Buffer.alloc(12 + data.length); b.writeUInt32BE(data.length, 0); b.write(kind, 4, "latin1"); data.copy(b, 8); b.writeUInt32BE(crc(b.subarray(4, 8 + data.length)), 8 + data.length); return b; };
+  const chunk =(kind, data) => { const b = Buffer.alloc(12 + data.length); b.writeUInt32BE(data.length, 0); b.write(kind, 4, "latin1"); data.copy(b, 8); b.writeUInt32BE(crc32(b.subarray(4, 8 + data.length)), 8 + data.length); return b; };
   const head = Buffer.alloc(13); head.writeUInt32BE(W, 0); head.writeUInt32BE(tall, 4); head[8] = 8; head[9] = type;
   fs.writeFileSync(file, Buffer.concat([buf.subarray(0, 8), chunk("IHDR", head), chunk("IDAT", zlib.deflateSync(out)), chunk("IEND", Buffer.alloc(0))]));
 }
@@ -963,7 +960,6 @@ if (cmd === "save") {
   const me = job("save");
   if (me.id !== THIS_RUN) process.exit(2); // not the save on record
   DEADLINE = me.deadline;
-  write("draw/save.pid", String(process.pid));
   process.on("exit", () => ack("save", "ended"));
   const say = (l) => console.log(`${new Date().toISOString().slice(11, 19)} ${l}`);
   const end = (l) => { say(l); ack("save", l); };
@@ -1123,7 +1119,6 @@ if (cmd === "stop") {
 const me = job("writer");
 if (me.id !== THIS_RUN) process.exit(2); // not the writer on record
 DEADLINE = me.deadline;
-write("draw/writer.pid", String(process.pid));
 log(`the writer started (run ${THIS_RUN})`);
 process.on("exit", () => ack("writer", "ended"));
 // The idle clock follows the inputs (the folded parts and frame), whatever the pushes did; five refused
