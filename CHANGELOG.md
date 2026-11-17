@@ -2,6 +2,16 @@
 
 Each release is a heading with its tag. The release workflow uses the words under it as the release's notes.
 
+## v1.2.18
+
+- A starter page Spacesheep can show at once. `spacesheep.yaml` names `assets/starter.html`: `base.html` without its directions, the same empty canvas `fold.js start` pushes on a blank page. A Spacesheep that takes the `starter` key shows it the moment Design is picked on a blank space, before the session has started, and `start`'s own push then changes nothing on screen. A space with no title now gets Untitled in its page (it was Design), as Spacesheep's starter does. A test fails if `starter.html` and `base.html` drift apart.
+- More versions are a new round on the same canvas. `fold.js round <slug> "<Name>"…` (1 to 5 names) adds each version after the last direction. Each version gets its parent's frame and tokens, a pill and an empty part. They sit in a row of their own below everything, each joined to its parent by a line. The lines are one block behind the frames: 1.5 px at any zoom, stopping 24 px above each version's label, shown only on the canvas. Earlier rounds, and their comments, stay as they are. On staging, a comment pinned to a round 1 block stayed on it through two more rounds.
+- On a phone, once a page has rounds, the tabs on the canvas are the newest round and the direction it came from. With eight frames the bar is 151 px of 844, where it was 250. The older ones stay on the canvas under their number keys, and one opened full page keeps its tab until Back. Without the canvas, and on a desktop, every tab shows. `round` numbers each round (`data-round`) and brings an older page's switcher up to date.
+- A save pictures every direction, versions too. On staging, 6 pictures took 16 s, 12 took 32 s and 16 took 42 s.
+- The chosen direction's ring is its frame's own edge (`outline-offset: 0`), 2 px at any canvas zoom, so it no longer runs through the canvas's label row.
+- Seven new tests (57 in all, one skipped as before).
+- The folder's hash is `642b92a710cb`.
+
 ## v1.2.17
 
 - Use this design is quieter. A card's pill is a small outline chip in the canvas labels' type: 11 px mono, 24 px tall, with the number boxes' 1 px edge and 5 px corners, in the page's ink. On a touch screen it takes a 44 px tap without growing. The bar's pill is the same outline pill as Back, so the only filled thing in the bar is the open tab. Chosen keeps the outline and can't be pressed again.
