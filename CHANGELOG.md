@@ -2,6 +2,20 @@
 
 Each release is a heading with its tag. The release workflow uses the words under it as the release's notes.
 
+## v1.2.21
+
+- The design's own bar has Export, the last pill in its row, outlined like Back; on a phone it is its icon alone, with a 44 px tap. Its menu has the four exports a design had in Spacesheep's workspace: a PDF of one direction, a PDF of every direction, that direction as one HTML file, and a prompt for a coding agent. The one-direction items are for the direction open full page, else the chosen one, else the one the tabs show, and each names it.
+- PDFs come from Spacesheep, not the page: each PDF item carries `data-ss-pdf` with the sections' `data-ss-id`, filled when the menu opens, and the viewer makes one sheet per direction at its own size, in page order. A refusal's why is said beside Export.
+- HTML is made in the page from its own source: that direction alone, shown, with the person's Tweaks values, without the bar, the card menus, the round lines, `ss-` metas, or anything after the page's new end mark, `<!-- design: end -->`, which stays the body's last node.
+- The prompt (sign in, read the space, build that section by its id, report what didn't match) is copied inside the tap, and says Copied only once it is; otherwise the prompt is shown to copy by hand.
+- The menu takes the card menu's keys. `fold.js kit` brings Export and the end mark to an older page. SKILL.md's frame line names Export and asks for no download button of the design's own; the paper and flyer lines drop their Download PDF button. starter.html is made again from base.html.
+- On staging, Spacesheep's PDF route given the PDF items' ids made one sheet for one direction and three, in page order, for every direction, each whole at its own size. The tap itself was checked in Chromium, Firefox and WebKit against a stand-in listener, not on staging.
+- Tweaks' button is Keep these, one tap, where it was Copy for the chat. It carries the line `Keep these for <direction>: <Name> <value>, …` as `data-ss-say` and as its title, set again whenever a value or the shown direction changes and as the tap begins, so Spacesheep sends it to the chat as it does Use this's. A page opened outside Spacesheep, with no frame around it, still copies the line. SKILL.md reads the line as before.
+- A chat button's `show-direction` action (`{"emit": {"name": "show-direction", "data": {"id": "direction-<slug>"}}}`) is handled by the page: the switcher opens the direction its id names, as its `#direction-<slug>` link does, and an id the page hasn't got changes nothing. It is in the switcher's script, so `fold.js kit` brings it to an older page.
+- SKILL.md says `ss-workspace` adds Spacesheep's Tweaks; it no longer names a files bar.
+- Three new tests (62 in all, one skipped as before).
+- The folder's hash is `10b0f10a0399`.
+
 ## v1.2.20
 
 - Each direction's card has a small ⋯ menu on its canvas label row, at the labels' own type and size, with two items: Use this (`Use <name>`) and Another round (`Another round of <name>`). Each sends its line to the chat through `data-ss-say`, as shown on the button. The chosen card reads `✓ Chosen ⋯`, and its Use this reads Chosen and can't be pressed again. On a touch screen ⋯ takes a 44 px tap.

@@ -172,14 +172,16 @@ test("a Decisions log pinned off the canvas and out of sight passes, and so does
   ]) assert.deepEqual(decisions(log), [], log);
 });
 
-test("the starter's switcher writes the address only when a tab or a card's pill is clicked (or, on the canvas, a number key pressed), never on its own at load", () => {
-  const src = BASE, keys = 1, clicks = 2;
+test("the starter's switcher writes the address only when a tab or a card's pill is clicked (or, on the canvas, a number key pressed, or a chat button asks for a direction), never on its own at load", () => {
+  const src = BASE, keys = 1, clicks = 2, chat = 1;
   const writes = src.split("\n").filter((l) => /history\.(replaceState|pushState)|location\.hash\s*=/.test(l));
-  assert.equal(writes.length, clicks + keys, writes.join(" | "));
-  // Each write is inside the listener of a person's click or key: the nearest addEventListener before it.
-  const by = writes.map((w) => { const at = src.indexOf(w) + w.search(/history|location/), from = src.lastIndexOf("addEventListener(", at); return src.slice(from, from + 26); });
+  assert.equal(writes.length, clicks + keys + chat, writes.join(" | "));
+  // Each write is inside the listener of a person's click or key, or of the chat button they tapped (show-direction):
+  // the nearest listener before it.
+  const by = writes.map((w) => { const at = src.indexOf(w) + w.search(/history|location/), from = Math.max(src.lastIndexOf("addEventListener(", at), src.lastIndexOf("ss.on(", at)); return src.slice(from, from + 26); });
   assert.equal(by.filter((x) => x.startsWith("addEventListener('click'")).length, clicks, by.join(" | "));
   assert.equal(by.filter((x) => x.startsWith("addEventListener('keydown'")).length, keys, by.join(" | "));
+  assert.equal(by.filter((x) => x.startsWith("ss.on('chat-action'")).length, chat, by.join(" | "));
 });
 
 // A device view: its own frame after its direction, data-view-of naming it, built for its own width.
@@ -333,6 +335,79 @@ test("the starter's Export is last in the bar's row, its PDF items name sections
   assert.match(BASE, /<\/script>\n<!-- design: end -->\n<\/body>\n<\/html>\n?$/);
   const head = BASE.slice(BASE.indexOf("<!--"), BASE.indexOf("-->") + 3);
   assert.ok(BASE.indexOf("<html") > BASE.indexOf(head) + head.length - 1 && !/<!--[\s\S]*<!--/.test(head), "the page's opening comment holds no comment of its own");
+});
+
+// The controls' script run in a stand-in page with two controls on direction First, framed or not.
+function tweaksPage(framed) {
+  const vm = require("vm");
+  const src = BASE.slice(BASE.indexOf("/* controls: the inputs"), BASE.indexOf("/* kit: the filters' fold button"));
+  const listeners = [], copied = [];
+  const section = { dataset: { ssLabel: "First" }, style: { setProperty() {} } };
+  const input = (label, attrs) => {
+    const out = { isConnected: true, textContent: "" }, lab = { firstChild: { textContent: label + " " }, querySelector: () => out };
+    return { ...attrs, closest: (s) => (s === "label" ? lab : null), setAttribute() {}, addEventListener() {} };
+  };
+  const controls = [input("Accent", { type: "color", value: "#112233", dataset: { var: "--brand-accent" } }), input("Density", { type: "range", value: "1", dataset: { var: "--density" } })];
+  const keep = { dataset: { ssSay: "" }, title: "", textContent: "Keep these" };
+  keep.closest = (s) => (s === "[data-tweaks-keep]" ? keep : null);
+  const document = {
+    querySelector: (s) => (s === "section.direction.on" ? section : s === "[data-tweaks-keep]" ? keep : null),
+    querySelectorAll: (s) => (s === ".tweaks input[data-var]" ? controls : []),
+    addEventListener: (n, f, capture) => listeners.push({ n, f, capture }), createElement: () => ({ isConnected: false }), documentElement: {},
+  };
+  const win = { document, getComputedStyle: () => ({ getPropertyValue: (v) => (v === "--brand-accent" ? "#112233" : "1") }), MutationObserver: class { observe() {} },
+    navigator: { clipboard: { writeText: async (t) => { copied.push(t); } } }, prompt() {} };
+  win.window = win;
+  win.parent = framed ? {} : win;
+  const run = () => vm.runInNewContext(src, win);
+  run();
+  return { run, listeners, copied, keep, controls, tap: () => Promise.all(listeners.filter((l) => l.n === "click").map((l) => l.f({ target: keep }))) };
+}
+
+test("Tweaks' Keep these carries its line in data-ss-say, current at the tap; with no frame around the page it copies the line", async () => {
+  assert.match(BASE, /<button type="button" data-tweaks-keep data-ss-say="">Keep these<\/button>/);
+  assert.doesNotMatch(BASE, /data-tweaks-copy|Copy for the chat/);
+  const line = "Keep these for First: Accent #112233, Density 1";
+  const page = tweaksPage(true);
+  assert.deepEqual([page.keep.dataset.ssSay, page.keep.title], [line, line], "the line is on the button from load, as its title too, so Spacesheep's send counts it as shown");
+  page.run();
+  assert.deepEqual(page.listeners.map((l) => [l.n, l.capture]), [["click", true]], "one listener, in the capture phase, however often the script runs");
+  // A value changed with nothing seen yet: the tap's own first step brings the line up to date, before Spacesheep's listener reads it.
+  page.controls[1].value = "1.1";
+  await page.tap();
+  assert.equal(page.keep.dataset.ssSay, "Keep these for First: Accent #112233, Density 1.1");
+  assert.deepEqual(page.copied, [], "in Spacesheep's frame the line goes through data-ss-say, nothing is copied");
+  const alone = tweaksPage(false);
+  await alone.tap();
+  assert.deepEqual(alone.copied, [line], "a page opened outside Spacesheep copies the line");
+  assert.equal(alone.keep.textContent, "Copied: paste it in the chat");
+});
+
+// The switcher's script run in a stand-in page whose Spacesheep SDK is loaded, with a direction "second".
+function switcherChat() {
+  const vm = require("vm");
+  const src = BASE.slice(BASE.indexOf("/* switcher: start */\n(() => {"), BASE.indexOf("/* switcher: end */\n/* controls"));
+  const heard = [], el = () => ({ children: [], replaceChildren() {}, setAttribute() {}, classList: { toggle() {} }, dataset: {} });
+  const tabs = el();
+  const document = { readyState: "complete", querySelector: (s) => (s === ".switcher-tabs" ? tabs : s === 'section.direction[data-ss-id="direction-second"]' ? {} : null), querySelectorAll: () => [], addEventListener() {} };
+  const win = { document, location: { hash: "" }, history: { replaceState() {} }, matchMedia: () => ({ matches: false }), CSS: { escape: (s) => s },
+    MutationObserver: class { observe() {} takeRecords() {} }, HashChangeEvent: class {}, addEventListener() {}, dispatchEvent() {}, ss: { on: (n, f) => heard.push([n, f]) } };
+  win.window = win;
+  const run = () => vm.runInNewContext(src, win);
+  run();
+  return { run, heard, win };
+}
+
+test("a chat button's show-direction opens the direction its id names, as its #direction link does, heard once however often the switcher runs", () => {
+  const page = switcherChat();
+  page.run();
+  assert.deepEqual(page.heard.map((h) => h[0]), ["chat-action"]);
+  const act = page.heard[0][1];
+  act({ name: "show-direction", data: { id: "direction-nope" } });
+  act({ name: "another", data: { id: "direction-second" } });
+  assert.equal(page.win.location.hash, "", "an id the page hasn't got, or another action, changes nothing");
+  act({ name: "show-direction", data: { id: "direction-second" } });
+  assert.equal(page.win.location.hash, "direction-second");
 });
 
 test("the starter's kit lays out at its frame's width, and its switcher makes no tab of a view", () => {

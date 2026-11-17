@@ -364,7 +364,7 @@ function ssDraw(fn) { fn(); document.addEventListener('ss:live', () => fn()); }
     <details class="tweaks">
       <summary>Tweaks</summary>
       <div class="tweaks-body">
-        <button type="button" data-tweaks-copy>Copy for the chat</button>
+        <button type="button" data-tweaks-keep data-ss-say="">Keep these</button>
       </div>
     </details>
     <output class="frame-zoom" aria-label="Zoom" hidden></output>
@@ -567,6 +567,18 @@ function ssDraw(fn) { fn(); document.addEventListener('ss:live', () => fn()); }
     });
   }
   window.ssPillOf = pillOf;
+  // A chat button that asks for a direction, {"emit": {"name": "show-direction", "data": {"id": "direction-<slug>"}}},
+  // opens it as its #direction-<slug> link does. Spacesheep's page SDK (window.ss) loads after this script, so it is
+  // heard once the page has loaded, and only once.
+  const hearChat = () => {
+    if (window.ssChatHeard || !window.ss || typeof window.ss.on !== 'function') return;
+    window.ssChatHeard = true;
+    window.ss.on('chat-action', (a) => {
+      const id = a && a.name === 'show-direction' && a.data && a.data.id;
+      if (typeof id === 'string' && document.querySelector('section.direction[data-ss-id="' + CSS.escape(id) + '"]')) location.hash = id;
+    });
+  };
+  if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', hearChat); addEventListener('load', hearChat); } else hearChat();
   // A card's ⋯ menu: a tap opens or closes it, as does Return or Space (which, with ↓, puts focus on its first item);
   // ↑ ↓ move, Esc closes it back to ⋯, and Tab, a tap outside or on an item closes it.
   if (!window.ssMenus) {
@@ -730,7 +742,7 @@ function ssDraw(fn) { fn(); document.addEventListener('ss:live', () => fn()); }
 /* switcher: end */
 /* controls: the inputs in .tweaks are the controls. Spacesheep's workspace reads them and draws its own Tweaks
    (hiding this pane); a page opened without the workspace shows this pane, whose changes go on the direction
-   on show and stay in this tab. Each switch and choice also shows on every direction as an attribute named
+   on show and stay in this tab until Keep these sends them to the chat. Each switch and choice also shows on every direction as an attribute named
    for its token, --hero: 2 as data-hero="2", so its variants are plain CSS. That runs on load and whenever a
    direction's style changes: a Tweaks change, a saved value after a reload, a live push. */
 function ssControls() { return [...document.querySelectorAll('.tweaks input[data-var]')].slice(0, 6); }
@@ -766,14 +778,21 @@ function ssMirror() {
       i.ssRead();
     }
   }
-  document.addEventListener('click', async (e) => {
-    const b = e.target.closest('[data-tweaks-copy]');
-    if (!b) return;
-    const d = shown(), who = d.dataset?.ssLabel ? 'for ' + d.dataset.ssLabel : 'for this page';
-    const line = `Keep these ${who}: ` + ssControls().map((i) => `${name(i)} ${said(i)}`).join(', ');
-    try { await navigator.clipboard.writeText(line); b.textContent = 'Copied: paste it in the chat'; } catch { prompt('Copy this into the chat', line); }
-  });
-  const again = () => { wire(); ssMirror(); ssControls().forEach((i) => i.ssRead && i.ssRead()); };
+  // Keep these carries its line, "Keep these for <direction>: <Name> <value>, …", as data-ss-say and as its title (the
+  // line the tap shows), so Spacesheep sends it to the chat as it does Use this's. It is set again whenever a value or
+  // the shown direction changes, and as the tap begins, before Spacesheep reads it. A page with no frame around it,
+  // opened outside Spacesheep, copies the line instead. The listener is added once and calls this script's keep().
+  const line = () => { const d = shown(), who = d.dataset?.ssLabel ? 'for ' + d.dataset.ssLabel : 'for this page'; return `Keep these ${who}: ` + ssControls().map((i) => `${name(i)} ${said(i)}`).join(', '); };
+  const keep = () => { const b = document.querySelector('[data-tweaks-keep]'), l = b && line(); if (b && b.dataset.ssSay !== l) { b.dataset.ssSay = l; b.title = l; } return b; };
+  window.ssKeep = async (e) => {
+    const b = e.target.closest && e.target.closest('[data-tweaks-keep]');
+    if (!b || !keep()) return;
+    if (window.parent !== window) return; // Spacesheep's own listener sends it
+    const l = b.dataset.ssSay;
+    try { await navigator.clipboard.writeText(l); b.textContent = 'Copied: paste it in the chat'; } catch { prompt('Copy this into the chat', l); }
+  };
+  if (!window.ssKeepHeard) { window.ssKeepHeard = true; document.addEventListener('click', (e) => window.ssKeep(e), true); }
+  const again = () => { wire(); ssMirror(); ssControls().forEach((i) => i.ssRead && i.ssRead()); keep(); };
   new MutationObserver(again).observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class'] });
   again();
 })();
