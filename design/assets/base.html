@@ -455,9 +455,11 @@ function ssDraw(fn) { fn(); document.addEventListener('ss:live', () => fn()); }
     }, true);
   }
   // The frame's own listeners, behind their own flag, so a tab an older starter set up gets them on its next push.
+  // The zoom's listener calls the newest script's frame(), so a push that changes the frame changes what it does.
+  window.ssFrame = frame;
   if (!window.ssFrameKeys) {
     window.ssFrameKeys = true;
-    document.addEventListener('ss:canvas', () => frame());
+    document.addEventListener('ss:canvas', () => window.ssFrame());
     // Esc goes back from full page with focus on a button or link too, which the canvas leaves to the page.
     addEventListener('keydown', (e) => {
       const t = e.target, c = window.ss && window.ss.canvas, b = document.querySelector('.frame-back');

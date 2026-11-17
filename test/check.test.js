@@ -176,6 +176,7 @@ function switcherListeners(already) {
     MutationObserver: class { observe() {} takeRecords() {} }, HashChangeEvent: class {}, addEventListener: (n) => added.push("window " + n), dispatchEvent() {} };
   win.window = win;
   vm.runInNewContext(src, win);
+  assert.equal(typeof win.ssFrame, "function", "each run leaves its frame() for the zoom's listener");
   return added.sort();
 }
 
