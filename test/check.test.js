@@ -242,7 +242,8 @@ function switcherListeners(already) {
 }
 
 test("the frame's listeners go in on a page an older starter set up, whose tab already has the number keys", () => {
-  const menu = ["document click", "document keydown"], put = (l) => [...l, ...menu].sort();
+  const menu = ["document click", "document keydown"], exp = ["document click", "document keydown", "document ss:pdf-result", "window message"];
+  const put = (l) => [...l, ...menu, ...exp].sort();
   const fresh = switcherListeners({});
   assert.deepEqual(fresh, put(["document click", "document ss:canvas", "window hashchange", "window keydown", "window keydown"]));
   // An older starter's tab: its number-key listener is in, so only the frame's are added on the push.
@@ -253,8 +254,10 @@ test("the frame's listeners go in on a page an older starter set up, whose tab a
   assert.deepEqual(switcherListeners({ ssViewKeys: true, ssFrameKeys: true, ssFrameHeard: true }), put(["document click", "window hashchange"]));
   // A tab from before the cards' menus: the menu's tap and keys go in on the push.
   assert.deepEqual(switcherListeners({ ssViewKeys: true, ssFrameKeys: true, ssFrameHeard: true, ssPillTaps: true }), put(["window hashchange"]));
+  // A tab from before Export: its menu's tap and keys, and Spacesheep's answer to a PDF, go in on the push.
+  assert.deepEqual(switcherListeners({ ssViewKeys: true, ssFrameKeys: true, ssFrameHeard: true, ssPillTaps: true, ssMenus: true }), [...exp, "window hashchange"].sort());
   // This starter's tab, pushed again: nothing twice.
-  assert.deepEqual(switcherListeners({ ssViewKeys: true, ssFrameKeys: true, ssFrameHeard: true, ssPillTaps: true, ssMenus: true }), ["window hashchange"]);
+  assert.deepEqual(switcherListeners({ ssViewKeys: true, ssFrameKeys: true, ssFrameHeard: true, ssPillTaps: true, ssMenus: true, ssExportHeard: true }), ["window hashchange"]);
 });
 
 // The switcher's script on a stand-in page with three directions: what its bar's pill and tabs show.
@@ -316,6 +319,20 @@ test("a width rule on the window, or a size in vw, is flagged with the frame's w
   assert.match(lines[0], /"@media \(min-width: 48rem\)" asks the window's width.*write it as @container \(min-width: 48rem\)/);
   assert.match(lines[1], /write it as @container \(max-width: 30rem\)/);
   assert.match(lines[2], /6vw.*use cqi/);
+});
+
+test("the starter's Export is last in the bar's row, its PDF items name sections by data-ss-id, and the end mark is the body's last node", () => {
+  const row = BASE.slice(BASE.indexOf('<div class="switcher-row">'), BASE.indexOf('<div class="switcher-views"'));
+  assert.match(row, /<div class="export no-print">[\s\S]*<\/p><\/div>\n  <\/div>\n  $/, "Export closes the row");
+  for (const c of ["export-pdf", "export-pdf-all", "export-html", "export-prompt"]) assert.match(row, new RegExp(`class="${c}" role="menuitem"`), c);
+  assert.equal((row.match(/data-ss-pdf=""/g) || []).length, 2, "both PDF items carry data-ss-pdf, filled in when the menu opens");
+  assert.match(BASE, /dataset\.ssPdf = d \? d\.dataset\.ssId : ''/, "this direction: its section's data-ss-id");
+  assert.match(BASE, /dataset\.ssPdf = dirs\.map\(\(v\) => v\.dataset\.ssId\)\.join\(' '\)/, "every direction: their data-ss-id, in page order");
+  // The end mark: once, as the body's last node, and never inside another comment, which it would close.
+  assert.equal(BASE.split("<!-- design: end -->").length, 2);
+  assert.match(BASE, /<\/script>\n<!-- design: end -->\n<\/body>\n<\/html>\n?$/);
+  const head = BASE.slice(BASE.indexOf("<!--"), BASE.indexOf("-->") + 3);
+  assert.ok(BASE.indexOf("<html") > BASE.indexOf(head) + head.length - 1 && !/<!--[\s\S]*<!--/.test(head), "the page's opening comment holds no comment of its own");
 });
 
 test("the starter's kit lays out at its frame's width, and its switcher makes no tab of a view", () => {

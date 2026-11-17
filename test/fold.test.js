@@ -739,15 +739,17 @@ test("kit brings a page made before device views up to the starter's switcher an
     "/* switcher: start */\n(() => { const all = () => [...document.querySelectorAll('section.direction')]; })();\n/* switcher: end */"];
   let i = 0;
   const old = BASE.replace(span, () => was[i++]).replace(/\n *<div class="switcher-views"[^>]*><\/div>/, "")
-    .replace(/@container \(max-width: 40rem\)/g, "@media (max-width: 40rem)").replace("5cqi", "5vw");
+    .replace(/@container \(max-width: 40rem\)/g, "@media (max-width: 40rem)").replace("5cqi", "5vw")
+    .replace(/\n *<div class="export no-print">.*/, "").replace("<!-- design: end -->\n", "");
   assert.equal(i, 2);
+  assert.doesNotMatch(old, /class="export|<!-- design: end -->/, "the page as it was has no Export and no end mark");
   assert.notEqual(old, BASE);
   const page = path.join(folder, "work", "index.html");
   fs.writeFileSync(page, old);
   const n = calls().length;
   const r = fold(["kit"]);
   assert.equal(r.status, 0, r.stderr);
-  assert.match(r.stdout, /^kit: the switcher, the device buttons' row, the kit's phone rules and the layout check are now the starter's; nothing pushed$/m);
+  assert.match(r.stdout, /^kit: the switcher, Export, the device buttons' row, the kit's phone rules and the layout check are now the starter's; nothing pushed$/m);
   assert.equal(fs.readFileSync(page, "utf8"), BASE);
   assert.match(fold(["kit"]).stdout, /^kit: already current$/m);
   assert.equal(calls().length, n, "kit pushes nothing");
@@ -770,10 +772,10 @@ test("kit gives a page with no layout check the starter's, so the save's picture
   const n = calls().length;
   const r = fold(["kit"]);
   assert.equal(r.status, 0, r.stderr);
-  assert.match(r.stdout, /^kit: the switcher, the device buttons' row, the kit's phone rules and the layout check are now the starter's; nothing pushed$/m);
+  assert.match(r.stdout, /^kit: the switcher, Export, the device buttons' row, the kit's phone rules and the layout check are now the starter's; nothing pushed$/m);
   const out = fs.readFileSync(page, "utf8");
   assert.equal(out.split(mark).length, 2, "the starter's check, once");
-  assert.ok(out.includes(`<script>\n${mark}\n</script>\n</body>`), "in a <script> of its own, before </body>");
+  assert.ok(out.includes(`<script>\n${mark}\n</script>\n<!-- design: end -->\n</body>`), "in a <script> of its own, at the page's end");
   assert.match(fold(["kit"]).stdout, /^kit: already current$/m);
   // A marked check from an earlier starter is replaced by the starter's, in place.
   fs.writeFileSync(page, BASE.replace(check, "/* check: start */\nif (false) {}\n/* check: end */"));
@@ -858,8 +860,10 @@ test("kit gives a one-design page that dropped the switcher's tabs, script and n
   assert.equal(r.status, 0, r.stderr);
   const out = fs.readFileSync(page, "utf8");
   assert.deepEqual(out.match(span), [styles, script], "the starter's styles and script, each once");
-  assert.match(out, /<script>\n\/\* switcher: start \*\/[\s\S]*?\/\* switcher: end \*\/\n<\/script>\n<\/body>/, "the script in a <script> of its own, before </body>");
-  assert.match(out, /<body>\n<nav data-ss-canvas="pin" class="switcher no-print" aria-label="Design views" data-ss-react="off">\n  <div class="switcher-views" role="group" aria-label="Device views"><\/div>\n<\/nav>/);
+  assert.match(out, /<script>\n\/\* switcher: start \*\/[\s\S]*?\/\* switcher: end \*\/\n<\/script>\n<!-- design: end -->\n<\/body>/, "the script in a <script> of its own, at the page's end, before its end mark");
+  // Its nav: a row holding Export alone, and the device row.
+  const exp = BASE.match(/<div class="export no-print">.*<\/p><\/div>/)[0];
+  assert.ok(out.includes(`<body>\n<nav data-ss-canvas="pin" class="switcher no-print" aria-label="Design views" data-ss-react="off">\n  <div class="switcher-row">\n    ${exp}\n  </div>\n  <div class="switcher-views" role="group" aria-label="Device views"></div>\n</nav>`), "a nav with Export and the device row");
   assert.doesNotMatch(out, /@media \(max-width: 40rem\)|5vw/);
   // The script runs without tabs, and the nav that holds only the device row shows only with buttons.
   assert.doesNotMatch(script, /if \(!tabsNow\(\)\) return;/);
@@ -895,6 +899,8 @@ test("copy puts one direction alone, its views with it, in a new space named aft
 const sectionsOf = (page) => [...page.matchAll(/^<section class="direction"[^>]*>[\s\S]*?^<\/section>/gm)].map((m) => m[0]);
 const attr = (html, name) => (html.match(new RegExp(`\\s${name}="([^"]*)"`)) || [])[1];
 
+// The round lines' block alone: the paths in it are its lines (the bar's Export icon has one of its own).
+const linesOf = (page) => page.match(/<div class="no-print" data-round-lines[\s\S]*?<\/div>/)[0];
 test("round puts each version in a row of its own below everything, joined to its parent by a line, with its tokens, and changes nothing earlier", () => {
   const { folder, fold, sent } = setup();
   assert.equal(fold(["start", "--new", "Poster"]).status, 0);
@@ -935,7 +941,7 @@ test("round puts each version in a row of its own below everything, joined to it
   assert.deepEqual(next.slice(6).map((s) => [attr(s, "data-version-of"), attr(s, "data-ss-x"), attr(s, "data-ss-y")]), [["bolder", "-676", "2240"], ["bolder", "676", "2240"]]);
   assert.deepEqual(next.map((s) => attr(s, "data-round") || null), [null, null, null, "2", "2", "2", "3", "3"], "the directions are round 1, and each round takes the next number");
   assert.equal(again.match(/<div class="no-print" data-round-lines data-ss-id="round-lines" /g).length, 1);
-  assert.equal(again.match(/<path /g).length, 5);
+  assert.equal(linesOf(again).match(/<path /g).length, 5);
 });
 
 test("the starter carries the lines' rules as round adds them to an older page, shown only on the canvas", () => {
@@ -973,7 +979,7 @@ test("round replaces only its own lines block, never an element of the page's wh
     assert.deepEqual(ids.filter((id, i) => ids.indexOf(id) !== i), [], "no id twice");
     assert.equal(out.match(/ data-round-lines /g).length, 1, "one lines block");
     assert.match(out, /<div class="no-print" data-round-lines data-ss-id="round-lines-2" /, "an id of its own, the same each time it is drawn");
-    assert.equal(out.match(/<path /g).length, n);
+    assert.equal(linesOf(out).match(/<path /g).length, n);
   }
 });
 
