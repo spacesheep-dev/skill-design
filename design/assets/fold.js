@@ -616,7 +616,7 @@ if (cmd === "start") {
     if (aside) console.log(aside);
     let pushed = null;
     if (!isDesign(read("work/index.html"))) {
-      const base = titled(fs.readFileSync(path.join(__dirname, "base.html"), "utf8"), title || "Design");
+      const base = titled(fs.readFileSync(path.join(__dirname, "base.html"), "utf8"), title || "Untitled");
       if (!setWork(base) || !write("draw/starter", "1\n")) process.exit(2);
       pushed = push("--html", emptyCanvas(base));
     } else remove("draw/starter"); // a revision: section 7, not a new build
