@@ -2,6 +2,14 @@
 
 Each release is a heading with its tag. The release workflow uses the words under it as the release's notes.
 
+## v1.2.17
+
+- Use this design is quieter. A card's pill is a small outline chip in the canvas labels' type: 11 px mono, 24 px tall, with the number boxes' 1 px edge and 5 px corners, in the page's ink. On a touch screen it takes a 44 px tap without growing. The bar's pill is the same outline pill as Back, so the only filled thing in the bar is the open tab. Chosen keeps the outline and can't be pressed again.
+- A pick from a Use this design pill carries no reason, so the reply asks once, in words, what made them pick it. An answer goes on the pick's Decisions line; nothing waits for it.
+- Text on text. `check.js` flags display type set under line-height 1 with less than a fifth of its size clear above or below (margin and padding counted together; drop caps and floats aside). Its message says to give the type that room and keep its line-height. SKILL.md says a display stack must look right in every face it names, since a face the picture's renderer lacks can be taller, and the picture's look checks for text on text.
+- One new test (50 in all, one skipped as before).
+- The folder's hash is `a90bb6a4d426`.
+
 ## v1.2.16
 
 - The starter's top bar is the frame, ready-made. While a direction is open full page it shows Back (`data-ss-canvas-back`, which the canvas takes; Esc too). It also has the tabs, Tweaks, and the zoom % in canvas view (`ss.canvas.zoom` and its `ss:canvas` event). There is no Reload button. The bar takes light or dark from the page's colour scheme, and its tabs wrap rather than being cut at a phone's width. In canvas view, with no direction open, no tab is filled.
