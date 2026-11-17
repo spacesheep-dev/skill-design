@@ -208,7 +208,7 @@ function checkUnit(slug, u) {
       if (/^(width|min-width|flex-basis)$/.test(d.prop)) { const px = +(v.match(/^(\d+(?:\.\d+)?)px\b/) || [])[1]; if (px > 390) fail(slug, w, `${d.prop}: ${px}px in "${d.sel}" is wider than a phone (390 px)`); }
       if (d.prop === "grid-template-columns") { const px = [...v.replace(/minmax\([^)]*\)/g, "").matchAll(/(\d+(?:\.\d+)?)px/g)].reduce((t, x) => t + +x[1], 0); if (px > 240) fail(slug, w, `grid columns "${d.value}" in "${d.sel}" fix ${px}px, leaving under ${390 - px}px on a phone: stack them below 40rem`); }
       if (d.prop === "white-space" && v.startsWith("nowrap") && !/sr-only|visually-hidden/.test(d.sel)) fail(slug, w, `white-space: nowrap in "${d.sel}": let it wrap`);
-      if (/^overflow(-x)?$/.test(d.prop) && /(auto|scroll)/.test(v)) fail(slug, w, `${d.prop}: ${v} in "${d.sel}": use the starter's .cards or .stack, not a scroller`);
+      if (/^overflow(-x)?$/.test(d.prop) && /(auto|scroll)/.test(v)) fail(slug, w, `${d.prop}: ${v} in "${d.sel}": use the starter's .k-cards or .k-table, not a scroller`);
     }
     if (d.prop === "font-size") { const px = +(v.match(/^(\d+(?:\.\d+)?)px\b/) || [])[1] || (+(v.match(/^(\d*\.?\d+)rem\b/) || [])[1] * 16); if (px && px < 12) fail(slug, w, `font-size ${d.value} in "${d.sel}" is under 12 px`); }
     for (const c of v.matchAll(/#[0-9a-f]{3,8}\b|rgba?\([^)]*\)|hsla?\([^)]*\)/g)) if (!NEUTRAL.test(c[0])) colours.push({ c: c[0], w });
