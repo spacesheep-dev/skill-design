@@ -15,7 +15,6 @@ A direction is a different answer to "what should this feel like, and what shoul
 | Density | A lot of air, few elements | Information-rich, many elements |
 | Shape | Soft: round corners, organic shapes | Hard: square edges, rules and lines |
 | Imagery | Shapes, rules and colour fields drawn in CSS | Type only, no imagery |
-| Voice of the headings | Warm and personal | Crisp and factual |
 
 With a brand given, all three directions use the brand's colours, fonts and logo. They differ in layout, lead, density, shape and how the brand's colours are balanced (mostly ground, mostly accent, mostly ink).
 
@@ -39,7 +38,7 @@ A skeleton is the page's arrangement: one column, a lead item over a list, a gri
 ## Every direction is complete
 
 - Every direction keeps its own tokens on its own section (`[data-ss-id="direction-night-watch"] { --brand-accent: …; --font-display: … }`). A revision to one direction changes only its section's tokens.
-- Every fact from the request is in every direction. Don't drop the price from the bold one to make it look cleaner.
+- Every direction shows the same real content: the request's facts and the same headline, words, items and numbers, so the pick is about structure, not copy. Don't drop the price from the bold one to make it look cleaner.
 - Every direction works at 390 px wide and has working links and buttons.
 - Every direction gets its own `data-ss-id` prefix (`chart-hero`, `nightwatch-hero`), so a comment says which one it's about.
 
