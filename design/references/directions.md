@@ -26,6 +26,8 @@ Take each direction from a different source, then give each its own skeleton:
 2. **The brand found in the product:** its own colours, type and habits, pushed further than the product dares.
 3. **A deliberate departure from both:** a structure neither of the others uses, such as one card at a time, a single dense table, a story told in steps, or an editorial front page.
 
+An existing screen or mock (the current page, a screenshot, a sketch) shapes one direction only, the one that keeps its layout; the others take its content and none of its layout.
+
 A skeleton is the page's arrangement: one column, a lead item over a list, a grid, a table, steps, a split screen. Before you write the three lines, check that no two share a skeleton, and rewrite one that does: colour and type alone make one direction.
 
 ## Naming
