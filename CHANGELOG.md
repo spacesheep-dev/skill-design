@@ -2,6 +2,18 @@
 
 Each release is a heading with its tag. The release workflow uses the words under it as the release's notes.
 
+## v1.2.16
+
+- The starter's top bar is the frame, ready-made. While a direction is open full page it shows Back (`data-ss-canvas-back`, which the canvas takes; Esc too). It also has the tabs, Tweaks, and the zoom % in canvas view (`ss.canvas.zoom` and its `ss:canvas` event). There is no Reload button. The bar takes light or dark from the page's colour scheme, and its tabs wrap rather than being cut at a phone's width. In canvas view, with no direction open, no tab is filled.
+- Use this design. Each direction's card has a pill on its canvas label row (`data-ss-canvas="label"`), and the bar has one while a direction is open. A tap opens the direction and sends Use <name> to the chat through `data-ss-say`. The chosen direction (`data-chosen`) has its edge and tab marked, and its pill says Chosen and can't be pressed again. fold.js names each pill after its direction.
+- Faster start. `start` reads the page beside the space's details, puts its status up as soon as the id is known, and pushes a blank page's empty canvas the moment the read is back. SKILL.md's first line makes `start` the agent's first action. In one staging run, the empty canvas went up 19 s after the session got the ask (34 s before).
+- The space's title is the person's. `start` keeps it in the page and says so, and step 2 no longer sets one. When it clearly doesn't fit the work, the agent asks once, at the end of its last reply: one question with three titles and Don't change, so a tap is the whole answer. `fold.js title` (new) renames the space and the page on the person's pick.
+- Six prompt rules. Every direction shows the same real content, so the pick is about structure, not copy. An existing screen or mock shapes one direction only. Each direction's line says what it gives up, and the reply ends on one decision line. A big brief is narrowed to its most important screen, and the reply says what was left out. The Decisions log keeps the reason beside each pick and is read before new work. Dark mode is built when clearly wanted. When it's unclear, such as a venue open into the evening, the agent asks while light is drawn. Otherwise the page stays light. In a blind test against v1.2.15 (two people, two requests, one run each), rules 1, 2 and 6 were picked over v1.2.15, and nobody picked v1.2.15's designs.
+- `check.js` passes the ids Spacesheep gives unmarked lines on save (`auto-<tag>-<hash>`), so a revision's check no longer fails on blocks the agent can't rename.
+- Names and titles holding `$&`, `` $` `` or `$'` are written as they are.
+- Seven new tests (49 in all, one skipped as before).
+- The folder's hash is `7cb411fc95b4`.
+
 ## v1.2.15
 
 - Phone and tablet views are part of the design. Spacesheep's Design bar no longer has a Desktop / Tablet / Phone switch. When the person asks for one ("the phone version", "responsive"), the session builds it as a frame of its own (`data-view-of="<slug>"`, `data-ss-frame="phone"` or `"tablet"`), after the last direction and drawn under its own on the canvas. Views are never built by default. The directions keep the canvas's numbers 1 to n, matching the tabs, and a direction's number key, pressed again, steps through its views and back.
