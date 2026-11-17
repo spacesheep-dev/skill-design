@@ -831,3 +831,122 @@ test("kit gives a one-design page that dropped the switcher's tabs, script and n
   assert.match(fold(["kit"]).stdout, /^kit: already current$/m);
   assert.equal(calls().length, n, "kit pushes nothing");
 });
+
+// A round's sections, lines and token rules, read back from the page.
+const sectionsOf = (page) => [...page.matchAll(/^<section class="direction"[^>]*>[\s\S]*?^<\/section>/gm)].map((m) => m[0]);
+const attr = (html, name) => (html.match(new RegExp(`\\s${name}="([^"]*)"`)) || [])[1];
+
+test("round puts each version in a row of its own below everything, joined to its parent by a line, with its tokens, and changes nothing earlier", () => {
+  const { folder, fold, sent } = setup();
+  assert.equal(fold(["start", "--new", "Poster"]).status, 0);
+  const file = path.join(folder, "work", "index.html"), before = fs.readFileSync(file, "utf8"), pushes = sent().length;
+  const r = fold(["round", "second", "Bolder", "Quieter", "Wider"]);
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.match(r.stdout, /^round: Bolder, Quieter and Wider under Second, in a new row joined to it by lines \(bolder, quieter, wider\), each with its tokens; the canvas shows every direction; nothing pushed$/m);
+  const page = fs.readFileSync(file, "utf8"), all = sectionsOf(page);
+  assert.deepEqual(all.slice(0, 3), sectionsOf(before), "the first round's sections are as they were");
+  const versions = all.slice(3);
+  assert.deepEqual(versions.map((s) => [attr(s, "data-ss-id"), attr(s, "data-version-of"), attr(s, "data-ss-frame"), attr(s, "data-ss-label"), attr(s, "data-ss-x"), attr(s, "data-ss-y")]), [
+    ["direction-bolder", "second", "desktop", "Bolder", "0", "1120"],
+    ["direction-quieter", "second", "desktop", "Quieter", "1352", "1120"],
+    ["direction-wider", "second", "desktop", "Wider", "2704", "1120"],
+  ], "a row under the first, 320 px below its bottom, centred under Second");
+  for (const v of ["bolder", "quieter", "wider"]) {
+    const s = versions.find((x) => attr(x, "data-ss-id") === `direction-${v}`);
+    assert.match(s, new RegExp(`data-ss-say="Use ${v[0].toUpperCase()}${v.slice(1)}"[^>]*><span class="use">Use this design</span>`), `${v} has its pill`);
+    assert.match(s, new RegExp(`<!-- part:${v} --><div class="drawing" data-ss-id="${v}-drawing">[\\s\\S]*<!-- /part:${v} -->`), `${v} has its empty part`);
+    assert.ok(page.includes(`  [data-ss-id="direction-${v}"] { --brand-ink: #f2efe8; --brand-ground: #15171c; --brand-accent: #ffb703; --font-display: "Avenir Next", Futura, "Gill Sans", sans-serif; --font-body: "Avenir Next", "Segoe UI", sans-serif; }\n`), `${v} starts from Second's tokens`);
+  }
+  const lines = page.match(/<div class="no-print" data-round-lines data-ss-id="round-lines" aria-hidden="true" data-ss-x="([-\d.]+)" data-ss-y="([-\d.]+)" style="width:([\d.]+)px!important;height:([\d.]+)px!important"><svg[^>]*>((?:<path d="[^"]*"\/>)*)<\/svg><\/div>/);
+  assert.ok(lines, "one lines block");
+  assert.deepEqual(lines.slice(1, 5), ["638", "800", "2708", "320"], "from Second's bottom to the versions' tops");
+  assert.deepEqual([...lines[5].matchAll(/d="([^"]*)"/g)].map((m) => m[1]), [
+    "M2 320V112Q2 96 18 96H1338Q1354 96 1354 80V0", "M1354 320V0", "M2706 320V112Q2706 96 2690 96H1370Q1354 96 1354 80V0",
+  ], "each line from its version's top middle up, across 96 px under Second, and up to Second's bottom middle");
+  assert.ok(sectionsOf(page.slice(page.indexOf(lines[0]))).length === 0, "the lines come after the last direction");
+  assert.equal(page.match(/\/\* rounds: start \*\//g).length, 1, "the lines' rules once");
+  assert.match(page, /<meta name="ss-canvas-focus" content="all">/);
+  assert.equal(sent().length, pushes, "nothing pushed");
+  // A round from a version: a row below that one, and every line drawn again in the one block.
+  assert.equal(fold(["round", "bolder", "Bolder Still", "Plain"]).status, 0);
+  const again = fs.readFileSync(file, "utf8"), next = sectionsOf(again);
+  assert.deepEqual(next.slice(0, 6), all, "the first two rounds are as they were");
+  assert.deepEqual(next.slice(6).map((s) => [attr(s, "data-version-of"), attr(s, "data-ss-x"), attr(s, "data-ss-y")]), [["bolder", "-676", "2240"], ["bolder", "676", "2240"]]);
+  assert.deepEqual(next.map((s) => attr(s, "data-round") || null), [null, null, null, "2", "2", "2", "3", "3"], "the directions are round 1, and each round takes the next number");
+  assert.equal(again.match(/<div class="no-print" data-round-lines data-ss-id="round-lines" /g).length, 1);
+  assert.equal(again.match(/<path /g).length, 5);
+});
+
+test("the starter carries the lines' rules as round adds them to an older page, shown only on the canvas", () => {
+  const css = fs.readFileSync(FOLD, "utf8").match(/const ROUNDS_CSS = `([\s\S]*?)`;/)[1];
+  assert.ok(BASE.includes(css), "base.html's rounds span is fold.js's");
+  assert.match(css, /html:not\(:has\(meta\[name="ss-canvas"\]\[content="on"\]\)\) \[data-round-lines\] \{ display: none; \}/);
+  const { folder, fold } = setup();
+  assert.equal(fold(["start", "--new", "Poster"]).status, 0);
+  // An older starter: no lines' rules, and a switcher script that knows nothing of rounds.
+  const file = path.join(folder, "work", "index.html");
+  const old = BASE.replace(`${css}\n`, "").replace(/  \/\* on a phone, once a page has rounds[\s\S]*?\n  \}\n/, "")
+    .replace(/(<script>[\s\S]*?\/\* switcher: start \*\/)[\s\S]*?(\/\* switcher: end \*\/)/, "$1\n(() => {})();\n$2");
+  assert.ok(!old.includes("function newest()") && !old.includes("[data-older]"), "the older starter's tabs know nothing of rounds");
+  fs.writeFileSync(file, old);
+  assert.equal(fold(["round", "first", "Lighter"]).status, 0);
+  const page = fs.readFileSync(file, "utf8");
+  assert.equal(page.match(/\/\* rounds: start \*\//g).length, 1);
+  assert.ok(page.indexOf(css) < page.indexOf("</style>"), "in the page's first <style>");
+  assert.ok(page.includes("function newest()") && page.includes(".switcher-tabs button[data-older] { display: none; }"), "round brings in the starter's switcher, so the phone tabs follow the rounds");
+  assert.match(fold(["kit"]).stdout, /^kit: already current$/m);
+});
+
+test("round replaces only its own lines block, never an element of the page's whose class or id starts the same, and gives the block an id no other element has", () => {
+  const { folder, fold } = setup();
+  assert.equal(fold(["start", "--new", "Poster"]).status, 0);
+  const file = path.join(folder, "work", "index.html");
+  const note = '<div class="rounds-summary" data-ss-id="first-rounds-summary"><p>Keep this note</p></div>';
+  const mine = '<div class="rounds" data-ss-id="rounds"><p>Round one</p></div><p data-ss-id="round-lines">Lines</p>';
+  const page = fs.readFileSync(file, "utf8").replace("<!-- /part:first -->", () => `${note}${mine}<!-- /part:first -->`);
+  fs.writeFileSync(file, page);
+  for (const [args, n] of [[["round", "first", "Bolder"], 1], [["round", "bolder", "Plain"], 2]]) {
+    assert.equal(fold(args).status, 0, args.join(" "));
+    const out = fs.readFileSync(file, "utf8"), tags = out.replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>|<!--[\s\S]*?-->/gi, "");
+    const ids = [...tags.matchAll(/<[a-z][^>]*\sdata-ss-id="([^"]+)"/g)].map((m) => m[1]);
+    assert.ok(out.includes(`${note}${mine}<!-- /part:first -->`), `the first direction's own elements stay, after round ${n + 1}`);
+    assert.deepEqual(ids.filter((id, i) => ids.indexOf(id) !== i), [], "no id twice");
+    assert.equal(out.match(/ data-round-lines /g).length, 1, "one lines block");
+    assert.match(out, /<div class="no-print" data-round-lines data-ss-id="round-lines-2" /, "an id of its own, the same each time it is drawn");
+    assert.equal(out.match(/<path /g).length, n);
+  }
+});
+
+test("round puts versions before a page's device views, so the views keep the numbers after the directions, and its row below them, in the writer's frame too", () => {
+  const { folder, fold } = setup();
+  assert.equal(fold(["start", "--new", "Poster"]).status, 0);
+  const file = path.join(folder, "work", "index.html"), view = '<section class="direction" data-view-of="first" data-ss-frame="phone" data-ss-section data-ss-id="direction-first-phone" data-ss-thing="direction/first/phone" data-ss-label="First · Phone" data-ss-x="0" data-ss-y="896">\n  <p data-ss-id="first-phone-note">Phone</p>\n</section>\n';
+  const withView = BASE.replace("\n<script>\n/* Nothing in a script", () => `\n${view}\n<script>\n/* Nothing in a script`);
+  fs.writeFileSync(file, withView);
+  fs.writeFileSync(path.join(folder, "draw", "frame.html"), withView);
+  assert.equal(fold(["round", "first", "Calmer", "Louder"]).status, 0);
+  const all = sectionsOf(fs.readFileSync(file, "utf8"));
+  assert.equal(fs.readFileSync(path.join(folder, "draw", "frame.html"), "utf8"), fs.readFileSync(file, "utf8"), "the writer's frame gets the same round");
+  assert.deepEqual(all.map((s) => attr(s, "data-ss-id")), ["direction-first", "direction-second", "direction-third", "direction-calmer", "direction-louder", "direction-first-phone"]);
+  assert.deepEqual(all.slice(3, 5).map((s) => attr(s, "data-ss-y")), ["2060", "2060"], "below the phone view's bottom (896 + 844), 320 px down");
+});
+
+test("round refuses a parent the page hasn't got, a name already taken or one of fold.js's own files, more than five, and a direction with no place, and changes nothing", () => {
+  const { folder, fold } = setup();
+  assert.equal(fold(["start", "--new", "Poster"]).status, 0);
+  const file = path.join(folder, "work", "index.html"), before = fs.readFileSync(file, "utf8");
+  const cases = [
+    [["round", "night-watch", "Bolder"], /round: give the slug of the direction the versions come from \(first, second, third\)/],
+    [["round", "first", "Second"], /round: a direction is already called second: give "Second" another name/],
+    [["round", "first", "Card"], /round: draw\/card is one of fold.js's own files: give "Card" another name/],
+    [["round", "first", "A", "B", "C", "D", "E", "F"], /round: give the direction the versions come from, then each version's name, 1 to 5 of them/],
+    [["round", "first"], /1 to 5 of them/],
+  ];
+  fs.writeFileSync(path.join(folder, "draw", "card"), "down\n");
+  for (const [args, said] of cases) { const r = fold(args); assert.equal(r.status, 2, args.join(" ")); assert.match(r.stderr, said); }
+  fs.writeFileSync(file, before.replace(' data-ss-x="1352" data-ss-y="0"', ""));
+  const r = fold(["round", "first", "Bolder"]);
+  assert.equal(r.status, 2);
+  assert.match(r.stderr, /round: second has no data-ss-frame size or no data-ss-x and data-ss-y/);
+  assert.equal(fs.readFileSync(file, "utf8"), before.replace(' data-ss-x="1352" data-ss-y="0"', ""), "nothing changed");
+});

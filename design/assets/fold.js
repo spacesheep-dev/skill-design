@@ -49,6 +49,11 @@
 //                                               phone rules as container queries, and the layout check
 //                                               the save's pictures run (added if the page has none), in
 //                                               work/index.html; nothing else changes and nothing is pushed
+//   node fold.js -C <folder> round <slug> "<name>"…   a new round: 1 to 5 versions of that direction, each named,
+//                                               in a row of their own below everything on the canvas, each
+//                                               joined to it by a line and starting from its tokens, with a
+//                                               pill and an empty part; the canvas then shows every direction;
+//                                               nothing earlier changes and nothing is pushed
 //
 // A folder from before fold.js kept run records (draw/writer.run, draw/save.run) gets them from start, read,
 // kit, save, write, wait or stop, once no fold.js save or writer is running in it (adopt, below).
@@ -81,7 +86,7 @@ if (argv[0] === "-C") {
   argv.splice(0, 2);
 }
 const cmd = argv[0];
-const COMMANDS = ["start", "push", "write", "brief", "save", "wait", "stop", "read", "focus", "kit", "title"];
+const COMMANDS = ["start", "push", "write", "brief", "save", "wait", "stop", "read", "focus", "kit", "title", "round"];
 if (!COMMANDS.includes(cmd)) {
   console.error(`usage: node fold.js -C <folder> ${COMMANDS.join("|")} …  (the header of ${__filename} says what each does)`);
   process.exit(2);
@@ -730,6 +735,149 @@ if (cmd === "kit") {
     if (set !== p) { if (!(f === "work/index.html" ? rework(set) : swap(f, set))) process.exit(2); changed++; }
   }
   console.log(changed ? "kit: the switcher, the device buttons' row, the kit's phone rules and the layout check are now the starter's; nothing pushed" : "kit: already current");
+  process.exit(0);
+}
+// A new round: versions of one direction in a row of their own below everything on the canvas, each joined to
+// it by a line, so nothing from earlier rounds moves or goes. Each version is a direction as the starter's are
+// (a "Use this design" pill, an empty part, its parent's frame size, and its parent's tokens as a rule of its own)
+// with data-version-of="<its parent's slug>", after the last direction, so views keep the numbers after the
+// directions. The lines are one block, a <div data-round-lines> of fold.js's own, drawn again from every
+// data-version-of on the page and shown only on the canvas, behind the frames. The canvas then shows every
+// direction. It changes work/index.html and the writer's frame, if there is one, and pushes nothing: the versions'
+// Edits come next.
+const ROUNDS_CSS = `  /* rounds: start */
+  /* a round's versions sit in a row below, each joined to the direction it came from by a line: one block,
+     [data-round-lines], that fold.js round draws behind the frames. Only the canvas shows it. */
+  [data-round-lines] { z-index: -1; pointer-events: none; outline: none; }
+  [data-round-lines] svg { display: block; overflow: visible; }
+  /* each line is drawn from its version up, and starts 24 px (on screen) above it, clear of the version's label */
+  [data-round-lines] path { fill: none; stroke: light-dark(#9a9aa6, #6b6b78); stroke-width: calc(1.5px / var(--ss-cz, 1)); stroke-linecap: round;
+    stroke-dasharray: 0 min(calc(24px / var(--ss-cz, 1)), 200px) 100000; }
+  html:not(:has(meta[name="ss-canvas"][content="on"])) [data-round-lines] { display: none; }
+  /* rounds: end */`;
+const FRAME_SIZES = { desktop: [1280, 800], tablet: [820, 1180], phone: [390, 844] };
+const ROW_GAP = 320, FRAME_GAP = 72;
+const attrOf = (tag, name) => { const m = tag.match(new RegExp(`\\s${name}="([^"]*)"`)); return m ? m[1] : null; };
+const num = (v) => (v !== null && v.trim() !== "" && isFinite(+v) ? +v : null);
+// The page with its comments, styles and scripts blanked to spaces, so what's found in it is at the same place in
+// the page (the starter's CSS names a section tag in a comment).
+const blanked = (html) => html.replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>|<!--[\s\S]*?-->/gi, (c) => " ".repeat(c.length));
+// Each direction's section, views too: its slug, attributes, size and place, and where it starts and ends.
+function directionsOf(html) {
+  const page = blanked(html);
+  const out = [], open = /<section\b[^>]*class="[^"]*\bdirection\b[^"]*"[^>]*>/g;
+  for (let m; (m = open.exec(page)); ) {
+    const tags = /<section\b[^>]*>|<\/section>/gi;
+    let depth = 1, end = -1;
+    tags.lastIndex = m.index + m[0].length;
+    for (let t; (t = tags.exec(page)); ) if (!(depth += t[0][1] === "/" ? -1 : 1)) { end = t.index + t[0].length; break; }
+    if (end < 0) break;
+    const frame = attrOf(m[0], "data-ss-frame"), raw = /^(\d{1,5})x(\d{1,5})$/i.exec(frame || "");
+    const size = FRAME_SIZES[frame] || (raw ? [+raw[1], +raw[2]] : [null, null]);
+    out.push({ slug: (m[0].match(/data-ss-id="direction-([a-z0-9-]+)"/) || [])[1], start: m.index, end, frame,
+      view: attrOf(m[0], "data-view-of"), of: attrOf(m[0], "data-version-of"), round: num(attrOf(m[0], "data-round")), label: attrOf(m[0], "data-ss-label"),
+      x: num(attrOf(m[0], "data-ss-x")), y: num(attrOf(m[0], "data-ss-y")), w: size[0], h: size[1] });
+    open.lastIndex = end;
+  }
+  return out;
+}
+// The lines block for the page as it stands: from the top middle of each version up, across and up to its parent's
+// bottom middle, turning 96 px under the parent's row. None, with no versions. The block is the one <div> marked
+// data-round-lines, holding only its picture: nothing else on the page is taken for it or replaced, whatever its
+// class or id, and its id is one no other element has.
+const LINES = /<div\b[^>]*\sdata-round-lines(?=[\s=>])[^>]*>(?:(?!<\/?div\b)[\s\S])*<\/div>\n?/i;
+function withLines(page) {
+  const all = directionsOf(page), by = new Map(all.map((d) => [d.slug, d]));
+  const found = LINES.exec(blanked(page)), rest = found ? page.slice(0, found.index) + page.slice(found.index + found[0].length) : page;
+  const put = (html) => page.slice(0, found.index) + html + page.slice(found.index + found[0].length);
+  const pairs = all.filter((v) => v.of && by.has(v.of)).map((v) => [by.get(v.of), v])
+    .filter((pv) => pv.every((d) => [d.x, d.y, d.w, d.h].every((n) => n !== null)));
+  if (!pairs.length) return found ? put("") : page;
+  const lines = pairs.map(([p, v]) => {
+    const ax = p.x + p.w / 2, ay = p.y + p.h, bx = v.x + v.w / 2, by = v.y;
+    const mid = by - ROW_GAP * 0.7 > ay + 24 ? by - ROW_GAP * 0.7 : (ay + by) / 2;
+    return { ax, ay, bx, by, mid };
+  });
+  const x0 = Math.min(...lines.flatMap((l) => [l.ax, l.bx])) - 2, x1 = Math.max(...lines.flatMap((l) => [l.ax, l.bx])) + 2;
+  const y0 = Math.min(...lines.map((l) => l.ay)), y1 = Math.max(...lines.map((l) => l.by));
+  const n = (v) => +v.toFixed(1);
+  const paths = lines.map(({ ax, ay, bx, by, mid }) => {
+    const [a, b, c, d, m] = [ax - x0, ay - y0, bx - x0, by - y0, mid - y0].map(n), s = Math.sign(c - a), r = n(Math.min(16, Math.abs(c - a) / 2, m - b, d - m));
+    return s ? `<path d="M${c} ${d}V${n(m + r)}Q${c} ${m} ${n(c - s * r)} ${m}H${n(a + s * r)}Q${a} ${m} ${a} ${n(m - r)}V${b}"/>` : `<path d="M${c} ${d}V${b}"/>`;
+  }).join("");
+  const w = n(x1 - x0), h = n(y1 - y0), ids = new Set([...rest.matchAll(/data-ss-id="([^"]+)"/g)].map((m) => m[1]));
+  let id = found ? attrOf(found[0].match(/^<div\b[^>]*>/)[0], "data-ss-id") : null;
+  if (!id || ids.has(id)) { id = "round-lines"; for (let k = 2; ids.has(id); k++) id = `round-lines-${k}`; }
+  const html = `<div class="no-print" data-round-lines data-ss-id="${id}" aria-hidden="true" data-ss-x="${n(x0)}" data-ss-y="${n(y0)}" style="width:${w}px!important;height:${h}px!important"><svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${paths}</svg></div>\n`;
+  if (found) return put(html);
+  const last = all.filter((d) => !d.view).at(-1), at = page.indexOf("\n", last.end) + 1 || last.end;
+  return page.slice(0, at) + html + page.slice(at);
+}
+const slugOf = (name) => name.normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40).replace(/-+$/, "");
+// The page with the new round in it, or { error }.
+function rounded(page, parent, names) {
+  const all = directionsOf(page), p = all.find((d) => d.slug === parent && !d.view);
+  const known = all.filter((d) => !d.view).map((d) => d.slug);
+  if (!p) return { error: `round: give the slug of the direction the versions come from (${known.join(", ") || "the page has none"})` };
+  const unplaced = all.filter((d) => [d.x, d.y, d.w, d.h].some((v) => v === null)).map((d) => d.slug || "a section");
+  if (unplaced.length) return { error: `round: ${unplaced.join(", ")} has no data-ss-frame size or no data-ss-x and data-ss-y, so a row can't go under everything: give each its frame and place first` };
+  const taken = new Set(all.map((d) => d.slug)), ids = new Set([...page.matchAll(/data-ss-id="([^"]+)"/g)].map((m) => m[1]));
+  const versions = [];
+  for (const name of names) {
+    const slug = slugOf(name);
+    if (!slug) return { error: `round: "${name}" makes no slug: name each version in letters or numbers` };
+    if (taken.has(slug) || ids.has(`direction-${slug}`) || versions.some((v) => v.slug === slug)) return { error: `round: a direction is already called ${slug}: give "${name}" another name` };
+    if (here(`draw/${slug}`) && !fs.statSync(`draw/${slug}`).isDirectory()) return { error: `round: draw/${slug} is one of fold.js's own files: give "${name}" another name` };
+    versions.push({ name, slug });
+  }
+  // The page's directions are round 1, and each round after takes the next number (a version without one counts as 2).
+  const n = Math.max(1, ...all.filter((d) => d.of).map((d) => d.round || 2)) + 1;
+  const top = Math.max(...all.map((d) => d.y + d.h)) + ROW_GAP, width = names.length * p.w + (names.length - 1) * FRAME_GAP;
+  const left = Math.round(p.x + p.w / 2 - width / 2);
+  const sections = versions.map((v, i) => `<section class="direction" data-version-of="${p.slug}" data-round="${n}" data-ss-frame="${p.frame}" data-ss-section data-ss-id="direction-${v.slug}" data-ss-thing="direction/${v.slug}" data-ss-label="${esc(v.name)}" data-line="What it changes from ${p.label || p.slug}, and what that gives up." data-ss-x="${left + i * (p.w + FRAME_GAP)}" data-ss-y="${top}">
+  <button type="button" class="use-this no-print" data-ss-canvas="label" data-ss-say="Use ${esc(v.name)}" title="Use ${esc(v.name)}"><span class="use">Use this design</span><span class="chosen">✓ Chosen</span></button>
+  <!-- part:${v.slug} --><div class="drawing" data-ss-id="${v.slug}-drawing"><h2>${esc(v.name)}</h2><p>Being drawn…</p><i></i><i></i><i></i></div><!-- /part:${v.slug} -->
+</section>
+`).join("\n");
+  const last = all.filter((d) => !d.view).at(-1), at = page.indexOf("\n", last.end) + 1 || last.end;
+  let out = page.slice(0, at) + "\n" + sections + page.slice(at);
+  // The parent's tokens, as each version's own rule, in the page's <style> that sets them last (a part's own
+  // <style>, inside its direction, is left as it is).
+  const sel = `[data-ss-id="direction-${p.slug}"]`, inside = directionsOf(out);
+  let tokens = [], home = null;
+  for (const st of out.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/gi))
+    if (!inside.some((d) => st.index > d.start && st.index < d.end)) for (const r of st[1].replace(/\/\*[\s\S]*?\*\//g, "").matchAll(/([^{}]*)\{([^{}]*)\}/g))
+      if (r[1].split(",").some((s) => s.trim() === sel)) {
+        const decls = [...r[2].matchAll(/(--[\w-]+)\s*:\s*([^;]+?)\s*(?:;|$)/g)].map((d) => `${d[1]}: ${d[2]};`);
+        if (decls.length) { tokens = tokens.concat(decls); home = st.index + st[0].lastIndexOf("</style>"); }
+      }
+  if (home !== null) out = out.slice(0, home) + versions.map((v) => `  [data-ss-id="direction-${v.slug}"] { ${tokens.join(" ")} }\n`).join("") + out.slice(home);
+  // A page made with an older starter gets the starter's switcher (the lines' rules are in it), so its phone tabs
+  // follow the rounds.
+  const kit = kitted(out);
+  if (kit !== null) out = kit;
+  if (!/\/\* rounds: start \*\//.test(out)) {
+    const head = out.search(/<\/head>/i), style = out.indexOf("</style>");
+    if (style < 0 || (head >= 0 && style > head)) return { error: "round: the page has no <style> in its <head> for the lines' rules" };
+    out = out.slice(0, style) + ROUNDS_CSS + "\n" + out.slice(style);
+  }
+  const focused = withFocus(withLines(out), "all");
+  if (focused === null) return { error: "round: the page has no <head> to put the canvas's focus in" };
+  return { page: focused, parent: p, versions, tokens: home !== null };
+}
+if (cmd === "round") {
+  const parent = plain("parent", argv[1]) || "", names = argv.slice(2).map((n) => plain("name", n).trim());
+  if (!names.length || names.length > 5 || names.some((n) => !n)) { console.error('round: give the direction the versions come from, then each version\'s name, 1 to 5 of them: round night-watch "Bolder" "Quieter" "Wider"'); process.exit(2); }
+  const page = read("work/index.html");
+  if (page === null) { console.error("round: no work/index.html"); process.exit(2); }
+  const made = rounded(page, parent.replace(/^direction-/, ""), names);
+  if (made.error) { console.error(made.error); process.exit(2); }
+  const frame = read("draw/frame.html"), framed = frame === null ? null : rounded(frame, made.parent.slug, names);
+  if (framed && framed.error) { console.error(`${framed.error} (in draw/frame.html, the writer's frame)`); process.exit(2); }
+  if (!rework(made.page) || (framed && !swap("draw/frame.html", framed.page))) process.exit(2);
+  const list = made.versions.map((v) => v.name);
+  const said = list.length > 1 ? `${list.slice(0, -1).join(", ")} and ${list.at(-1)}` : list[0];
+  console.log(`round: ${said} under ${made.parent.label || made.parent.slug}, in a new row joined to it by lines (${made.versions.map((v) => v.slug).join(", ")}), ${made.tokens ? "each with its tokens" : `with no tokens: the page has no rule for [data-ss-id="direction-${made.parent.slug}"], so set each version's`}; the canvas shows every direction; nothing pushed`);
   process.exit(0);
 }
 if (cmd === "push") {
