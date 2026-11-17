@@ -357,27 +357,33 @@ function push(flag, value) {
 }
 // A save, with everything the CLI says about it (its lines on stderr too: what landed, what merged).
 // A deploy still running at its time limit is stopped, and the space's history says what happened: a
-// version with this save's message, newer than the space's newest version before the deploy, means it
-// landed and only the answer was late, so it counts as saved. No clock: an earlier version with the same
-// message is never this save's. A save that ends any other way without a word says how it ended.
+// version with this save's message, newer than the space's newest version before the deploy and with
+// the page this save sent, means it landed and only the answer was late, so it counts as saved. No clock:
+// an earlier version with the same message is never this save's, and nor is another writer's version
+// with the same message and a different page. A deploy the CLI calls failed gets the same check, unless
+// it was refused on purpose ("Nothing was published"): that save made no version, whatever came after.
+// A save that ends any other way without a word says how it ended.
 const SAVE_MS = Number(process.env.FOLD_SAVE_MS) || 60000; // a test's shorter limit; 60 s otherwise
+const REFUSED = /Nothing was (?:published|deployed)[^.]*\./;
 function deploy(message) {
   if (!work()) return { ok: false, lines: ["work/ holds a link"] };
   const before = history(1);
   const t = allowed(SAVE_MS);
   if (!t) return { ok: false, lines: [`not called: ${lost}`] };
+  let page = null;
+  try { page = fs.readFileSync("work/index.html"); } catch {}
   const r = spawnSync(cli[0], [...cli.slice(1), "deploy", "work", "--space", space, "-m", message], { encoding: "utf8", timeout: t, killSignal: "SIGKILL" });
   const said = `${r.stdout || ""}\n${r.stderr || ""}`.split("\n").map((l) => l.trim()).filter(Boolean).filter((l) => !/^spacesheep /.test(l));
   if (r.error && r.error.code === "ETIMEDOUT") {
-    const s = `${Math.round(t / 1000)} s`, v = landed(message, before);
+    const s = `${Math.round(t / 1000)} s`, v = landed(message, before, page);
     if (v.version) return { ok: true, lines: [`Saved as version ${v.version}. The server answered late: fold.js stopped the CLI at ${s}, after the version was made.`] };
     return { ok: false, lines: [`no answer from the server in ${s}, and ${v.why || `the space has no version "${message}" newer than its newest before this save`}; save again: if it landed after all, that save makes no second version`] };
   }
   if (r.status !== 0 && !said.filter((l) => !/^[↑=]/.test(l)).length) said.unshift(`the CLI ended (${r.error ? why(r.error) : r.signal || `exit ${r.status}`}) without saying why`);
   // A deploy the CLI calls failed can still have made its version (its answer cut off by a restart): the
   // same check as above, so a save that landed is a save, and only one that didn't keeps the CLI's words.
-  if (r.status !== 0) {
-    const v = landed(message, before);
+  if (r.status !== 0 && !REFUSED.test(said.filter((l) => !/^[↑=]/.test(l)).join(" "))) {
+    const v = landed(message, before, page);
     if (v.version) return { ok: true, lines: [`Saved as version ${v.version}. The version was made, though the CLI didn't get the server's usual answer.`] };
   }
   return { ok: r.status === 0, lines: said.slice(0, 8) };
@@ -390,23 +396,43 @@ function history(n) {
   catch (e) { return { why: why(e) }; }
 }
 // This save's version, if the space has one: its message, above the version that was newest before the
-// deploy. Its number when the whole history came in one page, else its id.
-function landed(message, before) {
+// deploy, with this save's page (work/index.html as the deploy started) byte for byte. Its number when the
+// whole history came in one page, else its id.
+function landed(message, before, page) {
   if (before.why) return { why: `the space's history couldn't be read before the save (${before.why})` };
+  if (!page) return { why: "work/index.html couldn't be read before the save" };
   const after = history(200);
   if (after.why) return { why: `the space's history can't be read (${after.why})` };
   const was = before.all[0], top = was ? after.all.findIndex((v) => v.id === was.id) : after.all.length;
   if (top < 0) return { why: `the space's newest version before this save (${was.id}) isn't among its newest ${after.all.length}` };
-  const i = after.all.slice(0, top).findIndex((v) => (v.label || "").trim() === message.trim());
-  if (i < 0) return {};
-  return { version: after.more ? after.all[i].id : String(after.all.length - i) };
+  let named = 0;
+  for (const [i, v] of after.all.slice(0, top).entries()) {
+    if ((v.label || "").trim() !== message.trim()) continue;
+    named++;
+    const p = pageOf(v.id);
+    if (p.why) return { why: p.why };
+    if (p.bytes.equals(page)) return { version: after.more ? v.id : String(after.all.length - i) };
+  }
+  return named ? { why: `the space has a version "${message}" newer than its newest before this save, but not with the page this save sent` } : {};
+}
+// A version's page (its index.html) byte for byte, or why it can't be had.
+function pageOf(id) {
+  const t = allowed(15000);
+  if (!t) return { why: lost };
+  try {
+    const j = JSON.parse(run(["call", "get_file", "-"], { input: JSON.stringify({ space_id: space, file: "index.html", version: id }), timeout: t }));
+    const f = (j && j.file) || {};
+    const bytes = typeof f.data === "string" ? Buffer.from(f.data, "base64") : typeof f.content === "string" ? Buffer.from(f.content, "utf8") : null;
+    if (!bytes || Number(j.next_offset) > 0) return { why: `version ${id}'s page couldn't be read whole` };
+    return { bytes };
+  } catch (e) { return { why: `version ${id}'s page couldn't be read (${why(e)})` }; }
 }
 // The last line of a save that made no version. A refusal on purpose says "Nothing was published" (the
 // platform) or "Nothing was deployed" (the CLI): its words are kept up to there, and its advice is dropped.
 const STOP = "Publish no other way (no create_version, deploy or upload): that skips the pictures and the layout check. Tell the person in one line why, and stop";
 function unsaved(d) {
   const text = d.lines.filter((l) => !/^[↑=]/.test(l)).join(" ");
-  const m = text.match(/Nothing was (?:published|deployed)[^.]*\./);
+  const m = text.match(REFUSED);
   if (!m) return `save failed: ${text.slice(0, 300)}`;
   const words = text.slice(0, m.index + m[0].length);
   return `save refused: ${words.slice(words.lastIndexOf("✗") + 1).trim().slice(-400)} ${STOP}`;
