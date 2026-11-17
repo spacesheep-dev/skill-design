@@ -741,27 +741,30 @@ if (cmd === "kit") {
 // it by a line, so nothing from earlier rounds moves or goes. Each version is a direction as the starter's are
 // (a "Use this design" pill, an empty part, its parent's frame size, and its parent's tokens as a rule of its own)
 // with data-version-of="<its parent's slug>", after the last direction, so views keep the numbers after the
-// directions. The lines are one block, <div class="rounds">, drawn again from every data-version-of on the page
-// and shown only on the canvas, behind the frames. The canvas then shows every direction. It changes
-// work/index.html and the writer's frame, if there is one, and pushes nothing: the versions' Edits come next.
+// directions. The lines are one block, a <div data-round-lines> of fold.js's own, drawn again from every
+// data-version-of on the page and shown only on the canvas, behind the frames. The canvas then shows every
+// direction. It changes work/index.html and the writer's frame, if there is one, and pushes nothing: the versions'
+// Edits come next.
 const ROUNDS_CSS = `  /* rounds: start */
   /* a round's versions sit in a row below, each joined to the direction it came from by a line: one block,
-     .rounds, that fold.js round draws behind the frames. Only the canvas shows it. */
-  .rounds { z-index: -1; pointer-events: none; outline: none; }
-  .rounds svg { display: block; overflow: visible; }
+     [data-round-lines], that fold.js round draws behind the frames. Only the canvas shows it. */
+  [data-round-lines] { z-index: -1; pointer-events: none; outline: none; }
+  [data-round-lines] svg { display: block; overflow: visible; }
   /* each line is drawn from its version up, and starts 24 px (on screen) above it, clear of the version's label */
-  .rounds path { fill: none; stroke: light-dark(#9a9aa6, #6b6b78); stroke-width: calc(1.5px / var(--ss-cz, 1)); stroke-linecap: round;
+  [data-round-lines] path { fill: none; stroke: light-dark(#9a9aa6, #6b6b78); stroke-width: calc(1.5px / var(--ss-cz, 1)); stroke-linecap: round;
     stroke-dasharray: 0 min(calc(24px / var(--ss-cz, 1)), 200px) 100000; }
-  html:not(:has(meta[name="ss-canvas"][content="on"])) .rounds { display: none; }
+  html:not(:has(meta[name="ss-canvas"][content="on"])) [data-round-lines] { display: none; }
   /* rounds: end */`;
 const FRAME_SIZES = { desktop: [1280, 800], tablet: [820, 1180], phone: [390, 844] };
 const ROW_GAP = 320, FRAME_GAP = 72;
 const attrOf = (tag, name) => { const m = tag.match(new RegExp(`\\s${name}="([^"]*)"`)); return m ? m[1] : null; };
 const num = (v) => (v !== null && v.trim() !== "" && isFinite(+v) ? +v : null);
-// Each direction's section, views too: its slug, attributes, size and place, and where it starts and ends. Read
-// with comments, styles and scripts blanked (the starter's CSS names a section tag in a comment).
+// The page with its comments, styles and scripts blanked to spaces, so what's found in it is at the same place in
+// the page (the starter's CSS names a section tag in a comment).
+const blanked = (html) => html.replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>|<!--[\s\S]*?-->/gi, (c) => " ".repeat(c.length));
+// Each direction's section, views too: its slug, attributes, size and place, and where it starts and ends.
 function directionsOf(html) {
-  const page = html.replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>|<!--[\s\S]*?-->/gi, (c) => " ".repeat(c.length));
+  const page = blanked(html);
   const out = [], open = /<section\b[^>]*class="[^"]*\bdirection\b[^"]*"[^>]*>/g;
   for (let m; (m = open.exec(page)); ) {
     const tags = /<section\b[^>]*>|<\/section>/gi;
@@ -779,13 +782,17 @@ function directionsOf(html) {
   return out;
 }
 // The lines block for the page as it stands: from the top middle of each version up, across and up to its parent's
-// bottom middle, turning 96 px under the parent's row. None, with no versions.
+// bottom middle, turning 96 px under the parent's row. None, with no versions. The block is the one <div> marked
+// data-round-lines, holding only its picture: nothing else on the page is taken for it or replaced, whatever its
+// class or id, and its id is one no other element has.
+const LINES = /<div\b[^>]*\sdata-round-lines(?=[\s=>])[^>]*>(?:(?!<\/?div\b)[\s\S])*<\/div>\n?/i;
 function withLines(page) {
   const all = directionsOf(page), by = new Map(all.map((d) => [d.slug, d]));
-  const block = /<div class="rounds[^"]*"[^>]*>[\s\S]*?<\/div>\n?/;
+  const found = LINES.exec(blanked(page)), rest = found ? page.slice(0, found.index) + page.slice(found.index + found[0].length) : page;
+  const put = (html) => page.slice(0, found.index) + html + page.slice(found.index + found[0].length);
   const pairs = all.filter((v) => v.of && by.has(v.of)).map((v) => [by.get(v.of), v])
     .filter((pv) => pv.every((d) => [d.x, d.y, d.w, d.h].every((n) => n !== null)));
-  if (!pairs.length) return page.replace(block, "");
+  if (!pairs.length) return found ? put("") : page;
   const lines = pairs.map(([p, v]) => {
     const ax = p.x + p.w / 2, ay = p.y + p.h, bx = v.x + v.w / 2, by = v.y;
     const mid = by - ROW_GAP * 0.7 > ay + 24 ? by - ROW_GAP * 0.7 : (ay + by) / 2;
@@ -798,9 +805,11 @@ function withLines(page) {
     const [a, b, c, d, m] = [ax - x0, ay - y0, bx - x0, by - y0, mid - y0].map(n), s = Math.sign(c - a), r = n(Math.min(16, Math.abs(c - a) / 2, m - b, d - m));
     return s ? `<path d="M${c} ${d}V${n(m + r)}Q${c} ${m} ${n(c - s * r)} ${m}H${n(a + s * r)}Q${a} ${m} ${a} ${n(m - r)}V${b}"/>` : `<path d="M${c} ${d}V${b}"/>`;
   }).join("");
-  const w = n(x1 - x0), h = n(y1 - y0);
-  const html = `<div class="rounds no-print" data-ss-id="rounds" aria-hidden="true" data-ss-x="${n(x0)}" data-ss-y="${n(y0)}" style="width:${w}px!important;height:${h}px!important"><svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${paths}</svg></div>\n`;
-  if (block.test(page)) return page.replace(block, () => html);
+  const w = n(x1 - x0), h = n(y1 - y0), ids = new Set([...rest.matchAll(/data-ss-id="([^"]+)"/g)].map((m) => m[1]));
+  let id = found ? attrOf(found[0].match(/^<div\b[^>]*>/)[0], "data-ss-id") : null;
+  if (!id || ids.has(id)) { id = "round-lines"; for (let k = 2; ids.has(id); k++) id = `round-lines-${k}`; }
+  const html = `<div class="no-print" data-round-lines data-ss-id="${id}" aria-hidden="true" data-ss-x="${n(x0)}" data-ss-y="${n(y0)}" style="width:${w}px!important;height:${h}px!important"><svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${paths}</svg></div>\n`;
+  if (found) return put(html);
   const last = all.filter((d) => !d.view).at(-1), at = page.indexOf("\n", last.end) + 1 || last.end;
   return page.slice(0, at) + html + page.slice(at);
 }

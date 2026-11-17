@@ -857,7 +857,7 @@ test("round puts each version in a row of its own below everything, joined to it
     assert.match(s, new RegExp(`<!-- part:${v} --><div class="drawing" data-ss-id="${v}-drawing">[\\s\\S]*<!-- /part:${v} -->`), `${v} has its empty part`);
     assert.ok(page.includes(`  [data-ss-id="direction-${v}"] { --brand-ink: #f2efe8; --brand-ground: #15171c; --brand-accent: #ffb703; --font-display: "Avenir Next", Futura, "Gill Sans", sans-serif; --font-body: "Avenir Next", "Segoe UI", sans-serif; }\n`), `${v} starts from Second's tokens`);
   }
-  const lines = page.match(/<div class="rounds no-print" data-ss-id="rounds" aria-hidden="true" data-ss-x="([-\d.]+)" data-ss-y="([-\d.]+)" style="width:([\d.]+)px!important;height:([\d.]+)px!important"><svg[^>]*>((?:<path d="[^"]*"\/>)*)<\/svg><\/div>/);
+  const lines = page.match(/<div class="no-print" data-round-lines data-ss-id="round-lines" aria-hidden="true" data-ss-x="([-\d.]+)" data-ss-y="([-\d.]+)" style="width:([\d.]+)px!important;height:([\d.]+)px!important"><svg[^>]*>((?:<path d="[^"]*"\/>)*)<\/svg><\/div>/);
   assert.ok(lines, "one lines block");
   assert.deepEqual(lines.slice(1, 5), ["638", "800", "2708", "320"], "from Second's bottom to the versions' tops");
   assert.deepEqual([...lines[5].matchAll(/d="([^"]*)"/g)].map((m) => m[1]), [
@@ -872,14 +872,14 @@ test("round puts each version in a row of its own below everything, joined to it
   const again = fs.readFileSync(file, "utf8"), next = sectionsOf(again);
   assert.deepEqual(next.slice(0, 6), all, "the first two rounds are as they were");
   assert.deepEqual(next.slice(6).map((s) => [attr(s, "data-version-of"), attr(s, "data-ss-x"), attr(s, "data-ss-y")]), [["bolder", "-676", "2240"], ["bolder", "676", "2240"]]);
-  assert.equal(again.match(/<div class="rounds/g).length, 1);
+  assert.equal(again.match(/<div class="no-print" data-round-lines data-ss-id="round-lines" /g).length, 1);
   assert.equal(again.match(/<path /g).length, 5);
 });
 
 test("the starter carries the lines' rules as round adds them to an older page, shown only on the canvas", () => {
   const css = fs.readFileSync(FOLD, "utf8").match(/const ROUNDS_CSS = `([\s\S]*?)`;/)[1];
   assert.ok(BASE.includes(css), "base.html's rounds span is fold.js's");
-  assert.match(css, /html:not\(:has\(meta\[name="ss-canvas"\]\[content="on"\]\)\) \.rounds \{ display: none; \}/);
+  assert.match(css, /html:not\(:has\(meta\[name="ss-canvas"\]\[content="on"\]\)\) \[data-round-lines\] \{ display: none; \}/);
   const { folder, fold } = setup();
   assert.equal(fold(["start", "--new", "Poster"]).status, 0);
   const file = path.join(folder, "work", "index.html"), old = BASE.replace(`${css}\n`, "");
@@ -888,6 +888,26 @@ test("the starter carries the lines' rules as round adds them to an older page, 
   const page = fs.readFileSync(file, "utf8");
   assert.equal(page.match(/\/\* rounds: start \*\//g).length, 1);
   assert.ok(page.indexOf(css) < page.indexOf("</style>"), "in the page's first <style>");
+});
+
+test("round replaces only its own lines block, never an element of the page's whose class or id starts the same, and gives the block an id no other element has", () => {
+  const { folder, fold } = setup();
+  assert.equal(fold(["start", "--new", "Poster"]).status, 0);
+  const file = path.join(folder, "work", "index.html");
+  const note = '<div class="rounds-summary" data-ss-id="first-rounds-summary"><p>Keep this note</p></div>';
+  const mine = '<div class="rounds" data-ss-id="rounds"><p>Round one</p></div><p data-ss-id="round-lines">Lines</p>';
+  const page = fs.readFileSync(file, "utf8").replace("<!-- /part:first -->", () => `${note}${mine}<!-- /part:first -->`);
+  fs.writeFileSync(file, page);
+  for (const [args, n] of [[["round", "first", "Bolder"], 1], [["round", "bolder", "Plain"], 2]]) {
+    assert.equal(fold(args).status, 0, args.join(" "));
+    const out = fs.readFileSync(file, "utf8"), tags = out.replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>|<!--[\s\S]*?-->/gi, "");
+    const ids = [...tags.matchAll(/<[a-z][^>]*\sdata-ss-id="([^"]+)"/g)].map((m) => m[1]);
+    assert.ok(out.includes(`${note}${mine}<!-- /part:first -->`), `the first direction's own elements stay, after round ${n + 1}`);
+    assert.deepEqual(ids.filter((id, i) => ids.indexOf(id) !== i), [], "no id twice");
+    assert.equal(out.match(/ data-round-lines /g).length, 1, "one lines block");
+    assert.match(out, /<div class="no-print" data-round-lines data-ss-id="round-lines-2" /, "an id of its own, the same each time it is drawn");
+    assert.equal(out.match(/<path /g).length, n);
+  }
 });
 
 test("round puts versions before a page's device views, so the views keep the numbers after the directions, and its row below them, in the writer's frame too", () => {
