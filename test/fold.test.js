@@ -181,11 +181,30 @@ test("start says the next step, and push names the starter's placeholders after 
   fs.writeFileSync(page, edited);
   assert.equal(fold(["push"]).status, 0);
   const named = fs.readFileSync(page, "utf8");
-  // Only the first placeholder changes: its marker, its id and its heading. The one in "second" keeps its names.
-  const expected = edited.replace('<!-- part:first --><div class="drawing" data-ss-id="first-drawing"><h2>First</h2>', '<!-- part:night-watch --><div class="drawing" data-ss-id="night-watch-drawing"><h2>Night &amp; Watch</h2>').replace("<!-- /part:first -->", "<!-- /part:night-watch -->");
+  // Only the first section changes: its pill's line, and its placeholder's marker, id and heading. "second" keeps its names.
+  const expected = edited.replace('data-ss-say="Use First" title="Use First">', 'data-ss-say="Use Night &amp; Watch" title="Use Night &amp; Watch">').replace('<!-- part:first --><div class="drawing" data-ss-id="first-drawing"><h2>First</h2>', '<!-- part:night-watch --><div class="drawing" data-ss-id="night-watch-drawing"><h2>Night &amp; Watch</h2>').replace("<!-- /part:first -->", "<!-- /part:night-watch -->");
   assert.notEqual(expected, edited);
   assert.equal(named, expected);
   assert.equal(sent().at(-1).html, named, "the named page is the one pushed");
+});
+
+test("push names each pill after its section word for word, a name with $&, $` or $' too", () => {
+  const { folder, fold } = setup();
+  assert.equal(fold(["start", "--new", "Poster"]).status, 0);
+  const page = path.join(folder, "work", "index.html");
+  const names = { first: ["cash-flow", "Cash $& Flow"], second: ["price-tag", "Price $` Tag"], third: ["tip-jar", "Tip $' Jar"] };
+  let edited = BASE;
+  for (const [old, [slug, name]] of Object.entries(names))
+    edited = edited.replace(`data-ss-id="direction-${old}" data-ss-thing="direction/${old}" data-ss-label="${old[0].toUpperCase() + old.slice(1)}"`, () => `data-ss-id="direction-${slug}" data-ss-thing="direction/${slug}" data-ss-label="${name}"`);
+  fs.writeFileSync(page, edited);
+  assert.equal(fold(["push"]).status, 0);
+  const named = fs.readFileSync(page, "utf8");
+  for (const [slug, name] of Object.values(names)) {
+    const section = named.match(new RegExp(`<section\\b[^>]*data-ss-id="direction-${slug}"[\\s\\S]*?</section>`));
+    assert.ok(section, `section ${slug}`);
+    assert.ok(section[0].includes(`data-ss-say="Use ${name}" title="Use ${name}">`), `pill of ${slug}: ${section[0].match(/<button[^>]*class="use-this[^>]*>/)}`);
+    assert.ok(section[0].includes(`<h2>${name}</h2>`), `heading of ${slug}`);
+  }
 });
 
 test("a new build saved with no part marker left gets a status naming its directions, and the log says why", () => {

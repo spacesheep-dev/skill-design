@@ -524,13 +524,17 @@ function retire() {
   return `the last build's frame and parts are put aside in ${to}: edit work/index.html, and a save sends it as it is`;
 }
 // The starter's placeholders keep its names (part:first, part:second, part:third) until fold.js renames each
-// with the slug of the section holding it, and its heading with that section's name. So step 2's Edits stop
-// at the sections' opening tags and never reach a placeholder. Not while a writer owns work/index.html.
+// with the slug of the section holding it, and its heading with that section's name; each section's "Use this
+// design" pill says "Use <its name>". So step 2's Edits stop at the sections' opening tags and never reach a
+// placeholder or a pill. Not while a writer owns work/index.html.
 function nameParts() {
   const page = read("work/index.html");
   if (!page || job("writer").state === "open") return;
   const named = page.replace(/(<section\b[^>]*data-ss-id="direction-([a-z0-9-]+)"[^>]*>)([\s\S]*?)(?=<\/section>)/g, (m, open, slug, body) =>
-    open + body.replace(/<!-- part:(first|second|third) -->([\s\S]*?)<!-- \/part:\1 -->/, (p, old, inner) => old === slug ? p : `<!-- part:${slug} -->${inner
+    open + body.replace(/<button type="button" class="use-this[^"]*"[^>]*>/, (b) => {
+      const l = open.match(/data-ss-label="([^"]*)"/);
+      return l ? b.replace(/ data-ss-say="[^"]*"/, () => ` data-ss-say="Use ${l[1]}"`).replace(/ title="[^"]*"/, () => ` title="Use ${l[1]}"`) : b;
+    }).replace(/<!-- part:(first|second|third) -->([\s\S]*?)<!-- \/part:\1 -->/, (p, old, inner) => old === slug ? p : `<!-- part:${slug} -->${inner
       .replace(`data-ss-id="${old}-drawing"`, `data-ss-id="${slug}-drawing"`)
       .replace(/<h2>[^<]*<\/h2>/, (h) => { const l = open.match(/data-ss-label="([^"]*)"/); return l ? `<h2>${l[1]}</h2>` : h; })}<!-- /part:${slug} -->`));
   if (named !== page) rework(named);
