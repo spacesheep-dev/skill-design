@@ -117,12 +117,13 @@ test("the writer sends a part's status before the page", () => {
   fs.mkdirSync(path.join(folder, "draw", "lift"));
   fs.writeFileSync(path.join(folder, "draw", "lift", "01.html"), '<!-- status: Lift: the dates -->\n<p data-ss-id="lift-dates">The lift is out of service from 18 to 20 November.</p>\n');
   spawnSync("sleep", ["0.5"]); // older than the 300 ms a part waits, so the first pass folds it
+  const started = calls().length; // start's own calls, its empty canvas among them, come before the writer's
   assert.equal(fold(["write"]).status, 0);
   const s = fold(["stop"]);
   assert.equal(s.status, 0, s.stdout + s.stderr);
   const log = calls();
   const status = log.findIndex((a) => a[0] === "live" && a.includes("Lift: the dates"));
-  const page = log.findIndex((a, i) => i > log.findIndex((b) => b[0] === "live" && b.includes("Reading your brief")) && a[0] === "call" && a[1] === "push_live");
+  const page = log.findIndex((a, i) => i >= started && a[0] === "call" && a[1] === "push_live");
   assert.ok(status >= 0, "the part's status was pushed");
   assert.ok(page >= 0, "the page was pushed");
   assert.ok(status < page, `status was call ${status}, page call ${page}`);
@@ -247,6 +248,32 @@ test("start on a known empty page lays down the starter: an empty file, sheep.ne
     assert.equal(work, BASE, `${name}: the starter is in work/`);
     assert.ok(starter, `${name}: draw/starter is written`);
     assert.match(r.stdout, /held no design: the starter is in its place\nnext: /, name);
+  }
+});
+
+// The page is there at once: the canvas and its frame, no direction yet, right after the first status.
+test("start puts the starter's empty canvas up at once, on a new space and on a blank page, and never over a design", () => {
+  const emptyOf = (sent) => sent.filter((s) => s.html).map((s) => s.html);
+  const looks = (html, name) => {
+    assert.match(html, /<meta name="ss-canvas" content="on">/, `${name}: the canvas is on`);
+    assert.match(html, /class="frame-back" data-ss-canvas-back/, `${name}: the frame is there`);
+    assert.doesNotMatch(html, /^<section class="direction"/m, `${name}: no direction yet`);
+    assert.match(html, /device views: a direction's phone or tablet view/, `${name}: the starter's styles are whole`);
+  };
+  const made = setup();
+  assert.equal(made.fold(["start", "--new", "Poster"]).status, 0);
+  const pushed = emptyOf(made.sent());
+  assert.equal(pushed.length, 1, "start --new pushes one page");
+  looks(pushed[0], "start --new");
+  const log = made.calls(), status = log.findIndex((a) => a[0] === "live" && a.includes("Reading your brief"));
+  assert.ok(status >= 0 && status < log.findIndex((a) => a[0] === "call" && a[1] === "push_live"), "the status goes up first");
+  for (const [name, page] of Object.entries({ blank: PLATFORM_BLANK, design: '<!DOCTYPE html><title>Poster</title><section class="direction" data-ss-section data-ss-id="direction-bunting"><h1 data-ss-id="bunting-title">Summer Street Party</h1></section>' })) {
+    const one = setup();
+    fs.writeFileSync(path.join(one.root, "page.html"), page);
+    assert.equal(one.fold(["start", "https://stage.test/s"], { FAKE_PAGE: path.join(one.root, "page.html") }).status, 0);
+    const sent = emptyOf(one.sent());
+    if (name === "design") assert.equal(sent.length, 0, "a design gets no empty canvas over it");
+    else { assert.equal(sent.length, 1, name); looks(sent[0], name); }
   }
 });
 

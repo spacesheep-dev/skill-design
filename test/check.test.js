@@ -166,6 +166,28 @@ test("the starter's switcher steps a direction's number key through its views on
   assert.doesNotMatch(BASE, /if \(!tabsNow\(\)\) return;/);
 });
 
+// The switcher's script run in a stand-in page: which listeners it adds to the window and the document.
+function switcherListeners(already) {
+  const vm = require("vm");
+  const src = BASE.slice(BASE.indexOf("/* switcher: start */\n(() => {"), BASE.indexOf("/* switcher: end */\n/* controls"));
+  const added = [], el = () => ({ children: [], replaceChildren() {}, setAttribute() {}, classList: { toggle() {} }, dataset: {} });
+  const tabs = el(), document = { querySelector: (s) => (s === ".switcher-tabs" ? tabs : null), querySelectorAll: () => [], addEventListener: (n) => added.push("document " + n) };
+  const win = { ...already, document, location: { hash: "" }, history: { replaceState() {} }, matchMedia: () => ({ matches: false }), CSS: { escape: (s) => s },
+    MutationObserver: class { observe() {} takeRecords() {} }, HashChangeEvent: class {}, addEventListener: (n) => added.push("window " + n), dispatchEvent() {} };
+  win.window = win;
+  vm.runInNewContext(src, win);
+  return added.sort();
+}
+
+test("the frame's listeners go in on a page an older starter set up, whose tab already has the number keys", () => {
+  const fresh = switcherListeners({});
+  assert.deepEqual(fresh, ["document ss:canvas", "window hashchange", "window keydown", "window keydown"]);
+  // An older starter's tab: its number-key listener is in, so only the frame's are added on the push.
+  assert.deepEqual(switcherListeners({ ssViewKeys: true }), ["document ss:canvas", "window hashchange", "window keydown"]);
+  // This starter's tab, pushed again: nothing twice.
+  assert.deepEqual(switcherListeners({ ssViewKeys: true, ssFrameKeys: true }), ["window hashchange"]);
+});
+
 test("a width rule on the window, or a size in vw, is flagged with the frame's way to say it", () => {
   const lines = withView({ css: "@media (min-width: 48rem) { .first-phone-top { padding: 2rem; } } @media screen and (max-width: 30rem) { .first-phone-top p { margin: 0; } } .first-phone-top h2 { font-size: clamp(2rem, 6vw, 3rem); }" });
   assert.equal(lines.length, 3, lines.join(" | "));
