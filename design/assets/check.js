@@ -215,6 +215,21 @@ function checkUnit(slug, u) {
     if (d.prop === "font-size") { const px = +(v.match(/^(\d+(?:\.\d+)?)px\b/) || [])[1] || (+(v.match(/^(\d*\.?\d+)rem\b/) || [])[1] * 16); if (px && px < 12) fail(slug, w, `font-size ${d.value} in "${d.sel}" is under 12 px`); }
     for (const c of v.matchAll(/#[0-9a-f]{3,8}\b|rgba?\([^)]*\)|hsla?\([^)]*\)/g)) if (!NEUTRAL.test(c[0])) colours.push({ c: c[0], w });
   }
+  // Display type set tighter than its own height, with too little room around it: a face the stack names but
+  // the picture's renderer lacks (Rockwell on a Mac) can be taller and run into the text beside it.
+  for (const s of styles) {
+    const rules = new Map();
+    for (const d of decls(s.body)) {
+      const k = `${d.sel}\u0000${d.media}`;
+      if (!rules.has(k)) rules.set(k, { sel: d.sel, at: d.at, props: {} });
+      rules.get(k).props[d.prop] = d;
+    }
+    for (const r of rules.values()) {
+      if (/::?(first-letter|first-line|before|after|marker)\b/i.test(r.sel) || /^(left|right|inline-start|inline-end)\b/i.test((r.props.float || {}).value || "")) continue; // a drop cap floats beside its text
+      const said = tight(r.props);
+      if (said) fail(slug, where(s.at + said.at), `display type in "${r.sel}" ${said.text}: a taller face the stack names, one the picture's renderer lacks, can run into the text beside it; give it .2em of margin or padding above and below, or line-height 1`);
+    }
+  }
   if (colours.length) fail(slug, colours[0].w, `colour ${colours[0].c} isn't a token${colours.length > 1 ? ` (${colours.length - 1} more: ${[...new Set(colours.slice(1).map((x) => x.c))].slice(0, 4).join(", ")})` : ""}: use the direction's variables`);
   // Scripts: each one must parse, and run a second time in the same tab, as it does after a live push.
   for (const b of blocks.filter((b) => b.kind === "script")) {
@@ -222,6 +237,32 @@ function checkUnit(slug, u) {
     const name = declaredTwice(b.body);
     if (name) fail(slug, where(b.bodyAt), `the script declares ${name} at its top (const, let or class): a live push runs the page's scripts again in the same tab, where that stops the whole script; put its code inside (() => { … })();`);
   }
+}
+
+// For one rule's declarations: { text, at } when it sets display type (40 px or more, at a 1280 px frame) under
+// line-height 1 with less than a fifth of its size clear above or below it, else null.
+function tight(p) {
+  const font = p.font ? p.font.value.match(/(\S+)\s*\/\s*(\S+)/) : null;
+  const size = p["font-size"] ? p["font-size"].value : font ? font[1] : "";
+  const lhDecl = p["line-height"] || (font && p.font), lh = p["line-height"] ? p["line-height"].value : font ? font[2] : "";
+  const PX = { px: 1, rem: 16, em: 16, cqi: 12.8, cqw: 12.8, vw: 14.4, vh: 9, vmin: 9, vmax: 14.4 };
+  const px = Math.max(0, ...[...size.toLowerCase().matchAll(/(\d*\.?\d+)(px|rem|em|cqi|cqw|vw|vh|vmin|vmax)\b/g)].map((m) => m[1] * PX[m[2]]));
+  if (px < 40 || !lh) return null;
+  const n = lh.trim().toLowerCase().match(/^(\d*\.?\d+)(%|em|px)?$/);
+  if (!n) return null;
+  const ratio = n[2] === "%" ? n[1] / 100 : n[2] === "px" ? n[1] / px : +n[1];
+  if (ratio >= 1) return null;
+  const len = (v) => { const m = (v || "").trim().toLowerCase().match(/^(-?\d*\.?\d+)(em|px|rem)?$/); return !m ? 0 : m[2] === "em" ? m[1] * px : m[2] === "rem" ? m[1] * 16 : +m[1]; };
+  const sides = (prop) => {
+    const all = p[prop] ? p[prop].value.split(/\s+/) : [], block = p[`${prop}-block`] ? p[`${prop}-block`].value.split(/\s+/) : [];
+    const top = p[`${prop}-top`] ? p[`${prop}-top`].value : block[0] ?? all[0];
+    const bottom = p[`${prop}-bottom`] ? p[`${prop}-bottom`].value : block[1] ?? block[0] ?? all[2] ?? all[0];
+    return [len(top), len(bottom)];
+  };
+  const [mt, mb] = sides("margin"), [pt, pb] = sides("padding"), need = px / 5;
+  const short = [Math.max(mt, pt) < need && "above", Math.max(mb, pb) < need && "below"].filter(Boolean);
+  if (!short.length) return null;
+  return { at: lhDecl.at, text: `sets line-height ${lh.trim()} with less than a fifth of its size clear ${short.join(" and ")}` };
 }
 
 // The name a script declares at its top with const, let or class, which a second run in the same window
