@@ -453,10 +453,11 @@ const titled = (base, title) => base.replace(/<title>[^<]*<\/title>/, () => `<ti
 // The starter with no directions: the canvas and its frame, pushed the moment a blank page is known, before any design.
 const emptyCanvas = (base) => base.replace(/^<section class="direction"[\s\S]*?^<\/section>\n*/gm, "");
 // One space per folder: start never points a folder at a second space.
+// The folder's space, kept in draw/space: false (and said why) when the folder is another space's or can't be written.
 function keep(id) {
   const had = (read("draw/space") || "").trim();
-  if (had && had !== id) { console.error(`start: this folder is for space ${had}; use another folder for ${id}`); process.exit(2); }
-  if (!write("draw/space", id)) process.exit(2);
+  if (had && had !== id) { console.error(`start: this folder is for space ${had}; use another folder for ${id}`); return false; }
+  return write("draw/space", id);
 }
 
 const good = {};
@@ -566,7 +567,7 @@ if (cmd === "start") {
     const j = JSON.parse(out.slice(out.indexOf("{")));
     space = (j.space || {}).id;
     if (!UUID.test(space || "")) { console.error("start: the new space's id isn't in the answer"); process.exit(1); }
-    keep(space);
+    if (!keep(space)) process.exit(2);
     const page = titled(base, title);
     if (!setWork(page) || !write("draw/starter", "1\n")) process.exit(2);
     // The status goes up beside the empty canvas, not before it.
@@ -589,12 +590,14 @@ if (cmd === "start") {
   // the link is known to be that space.
   const fresh = !space, reading = fresh ? runAsync(["read", link, "-o", "work"]) : null;
   (async () => {
+    // A start that ends early lets its read finish first, so nothing lands in work/ after it has said it ended.
+    const fail = async (line, code) => { if (reading) await reading; if (line) console.error(line); process.exit(code); };
     const got = await runAsync(["spaces", "get", link]);
-    if (got.e) { console.error(`start: spaces get ${link} refused: ${tail(got)}`); process.exit(1); }
+    if (got.e) return fail(`start: spaces get ${link} refused: ${tail(got)}`, 1);
     const title = ((got.out.match(/^ *title: (.*)$/m) || [])[1] || "").trim();
     space = ((got.out.match(/^ *id: (.*)$/m) || [])[1] || "").trim();
-    if (!UUID.test(space)) { console.error(`start: no id in the answer to spaces get ${link}`); process.exit(1); }
-    keep(space);
+    if (!UUID.test(space)) return fail(`start: no id in the answer to spaces get ${link}`, 1);
+    if (!keep(space)) return fail("", 2);
     const status = runAsync(["live", "push", "--space", space, "--status", first]);
     const r = await (reading || runAsync(["read", space, "-o", "work"]));
     if (r.e) { console.error(`start: read ${link} refused: ${tail(r)}`); process.exit(1); }
