@@ -89,9 +89,6 @@
     html:has(meta[name="ss-canvas"][content="on"]) .switcher-tabs button[data-older] { display: none; }
     .switcher:has(.frame-back:not([hidden])) .switcher-tabs button[data-older][aria-selected="true"] { display: revert; }
   }
-  .frame-use .chosen, .frame-use[data-chosen] .use { display: none; }
-  .frame-use[data-chosen] .chosen { display: inline; }
-  .frame-use[data-chosen] { cursor: default; }
   .switcher-tabs button[data-chosen]::after { content: " \2713"; }
   /* the chosen edge is the frame's own edge, 2 px at any canvas zoom, so it stays under the label row 3 px above */
   .direction[data-chosen] { outline: calc(2px / var(--ss-cz, 1)) solid var(--bar-ink); outline-offset: 0; }
@@ -105,9 +102,9 @@
   .use-this:enabled:hover { background: color-mix(in srgb, var(--bar-ink) 8%, transparent); }
   @media (pointer: coarse) { .use-this::after { content: ""; position: absolute; inset: -18px 0 -4px; } }
   .use-this:focus-visible { outline: 2px solid #4f46e5; outline-offset: 2px; }
-  .use-this .chosen, .use-this[data-chosen] .use { display: none; }
-  .use-this[data-chosen] .chosen { display: inline; }
-  .use-this[data-chosen] { cursor: default; }
+  :is(.frame-use, .use-this) .chosen, :is(.frame-use, .use-this)[data-chosen] .use { display: none; }
+  :is(.frame-use, .use-this)[data-chosen] .chosen { display: inline; }
+  :is(.frame-use, .use-this)[data-chosen] { cursor: default; }
   section.direction .use-this, html:has(.frame-back:not([hidden])) .use-this,
   html:not(:has(section.direction:not([data-view-of]) ~ section.direction:not([data-view-of]))) .use-this { display: none; }
   /* switcher: end */
@@ -184,14 +181,14 @@
 
   /* cards: every card the same width; a short last row sits centred, and only a card that would be
      alone on it takes the whole row (the column count is picked so that is rare) */
-  .k-cards, .cards { --k-cols: 3; display: flex; flex-wrap: wrap; justify-content: center; gap: var(--s3); margin: 0; padding: 0; list-style: none; }
-  .k-cards > *, .cards > * { flex: 0 1 calc((100% - (var(--k-cols) - 1) * var(--s3)) / var(--k-cols)); }
-  :is(.k-cards, .cards) > :last-child:nth-child(3n+1):not(:nth-child(4), :nth-child(7), :nth-child(10), :nth-child(13)) { flex-grow: 1; }
-  :is(.k-cards, .cards):has(> :nth-child(2):last-child) { --k-cols: 2; }
-  :is(.k-cards, .cards):has(> :nth-child(4):last-child, > :nth-child(7):last-child, > :nth-child(8):last-child,
+  .k-cards { --k-cols: 3; display: flex; flex-wrap: wrap; justify-content: center; gap: var(--s3); margin: 0; padding: 0; list-style: none; }
+  .k-cards > * { flex: 0 1 calc((100% - (var(--k-cols) - 1) * var(--s3)) / var(--k-cols)); }
+  .k-cards > :last-child:nth-child(3n+1):not(:nth-child(4), :nth-child(7), :nth-child(10), :nth-child(13)) { flex-grow: 1; }
+  .k-cards:has(> :nth-child(2):last-child) { --k-cols: 2; }
+  .k-cards:has(> :nth-child(4):last-child, > :nth-child(7):last-child, > :nth-child(8):last-child,
     > :nth-child(10):last-child, > :nth-child(11):last-child, > :nth-child(12):last-child) { --k-cols: 4; }
-  :is(.k-cards, .cards):has(> :nth-child(13):last-child) { --k-cols: 5; }
-  @container (max-width: 40rem) { .k-cards, .cards { --k-cols: 1; } }
+  .k-cards:has(> :nth-child(13):last-child) { --k-cols: 5; }
+  @container (max-width: 40rem) { .k-cards { --k-cols: 1; } }
   :where(.k-card) { display: flex; flex-direction: column; gap: var(--s1); padding: var(--s3); background: var(--brand-surface); color: var(--brand-on-surface);
     border: var(--rule) solid color-mix(in srgb, var(--brand-on-surface) 14%, transparent); border-radius: var(--radius); box-shadow: var(--shadow); }
   :where(.k-card) :where(h3, h4) { margin: 0; font-size: var(--step-1); }
@@ -202,18 +199,18 @@
   :where(a.k-card:hover) { border-color: var(--brand-accent); }
 
   /* table: a real table on a wide screen, labelled rows on a phone (each cell needs data-label) */
-  .k-table, .stack { width: 100%; border-collapse: collapse; }
-  :where(.k-table, .stack) :where(th, td) { padding: var(--s2) var(--s2); text-align: left; border-bottom: var(--rule) solid var(--line); vertical-align: top; }
-  :where(.k-table, .stack) :where(th) { font-size: var(--step--1); font-weight: 600; color: var(--brand-muted); text-transform: var(--label-case); letter-spacing: var(--label-track); }
-  :is(.k-table, .stack) :is(th, td).num { text-align: right; font-variant-numeric: tabular-nums; }
+  .k-table { width: 100%; border-collapse: collapse; }
+  :where(.k-table) :where(th, td) { padding: var(--s2) var(--s2); text-align: left; border-bottom: var(--rule) solid var(--line); vertical-align: top; }
+  :where(.k-table) :where(th) { font-size: var(--step--1); font-weight: 600; color: var(--brand-muted); text-transform: var(--label-case); letter-spacing: var(--label-track); }
+  .k-table :is(th, td).num { text-align: right; font-variant-numeric: tabular-nums; }
   @container (max-width: 40rem) {
-    :is(.k-table, .stack), :is(.k-table, .stack) tbody, :is(.k-table, .stack) tr { display: block; }
-    :is(.k-table, .stack) thead { display: none; }
-    :is(.k-table, .stack) tr { padding: var(--space) 0; border-bottom: 1px solid color-mix(in srgb, currentColor 20%, transparent); }
-    :is(.k-table, .stack) td { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: calc(var(--space) * 2); padding: 2px 0; text-align: right; border: 0; }
-    :is(.k-table, .stack) td::before { content: attr(data-label); text-align: left; opacity: .75; }
-    :is(.k-table, .stack) td:first-child { display: block; text-align: left; font-weight: 600; }
-    :is(.k-table, .stack) td:first-child::before { content: none; }
+    .k-table, .k-table tbody, .k-table tr { display: block; }
+    .k-table thead { display: none; }
+    .k-table tr { padding: var(--space) 0; border-bottom: 1px solid color-mix(in srgb, currentColor 20%, transparent); }
+    .k-table td { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: calc(var(--space) * 2); padding: 2px 0; text-align: right; border: 0; }
+    .k-table td::before { content: attr(data-label); text-align: left; opacity: .75; }
+    .k-table td:first-child { display: block; text-align: left; font-weight: 600; }
+    .k-table td:first-child::before { content: none; }
   }
 
   /* stat row: even columns, two by two on a phone */
