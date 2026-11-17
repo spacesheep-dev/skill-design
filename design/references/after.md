@@ -6,7 +6,7 @@ Read the part you need when the person asks for it. Each change is still shown b
 
 When the person wants sign-off ("send it to the client", "get approval", "I need a yes from Noor"):
 
-1. Make a client copy without the `ss-chat`, `ss-workspace`, `ss-canvas` and `ss-canvas-focus` metas and without the Tweaks pane (`<details class="tweaks">`), so it opens on the design alone, one direction at a time (with Desktop / Phone buttons for a direction that has a view), and without the switcher's `switcher-answers` line ("From your answers: …"). Add an approval form near the end; the platform sends it from anyone who can open the space, with or without an account:
+1. Make a client copy without the `ss-chat`, `ss-canvas` and `ss-canvas-focus` metas and without the Tweaks pane (`<details class="tweaks">`), so it opens on the design alone, one direction at a time (with Desktop / Phone buttons for a direction that has a view), and without the switcher's `switcher-answers` line ("From your answers: …"). Add an approval form near the end; the platform sends it from anyone who can open the space, with or without an account:
    ```html
    <form data-ss-form="approvals" class="no-print" aria-label="Approve this design">
      <label>Your name <input name="name" autocomplete="name" required></label>
@@ -43,4 +43,4 @@ When they say "save this look" or "make this our brand": write a design system n
 
 ## Tweaks
 
-The controls (SKILL.md section 3) show as Tweaks beside the design. Closing Tweaks saves the person's values as a new version, in `<style data-ss-id="ss-style">` as `!important` rules for that direction. "Keep these" saves them too and tells the chat which they settled on. When you change one of those tokens yourself, change or remove its rule there. On a page opened without Spacesheep's workspace, the pane shows on the page, and its Keep these sends the same "Keep these for …" line to the chat in one tap, as Use this does (on a page opened outside Spacesheep, it copies the line to paste).
+The controls (SKILL.md section 3) are the frame's Tweaks pane. A change goes on the shown direction and stays in that tab; nothing is saved until the person presses Keep these, which sends the "Keep these for …" line to the chat in one tap, as Use this does (on a page opened outside Spacesheep, it copies the line to paste). Write those values into the direction's tokens. An older page may still hold values Spacesheep's own Tweaks saved, in `<style data-ss-id="ss-style">` as `!important` rules: when you change one of those tokens yourself, change or remove its rule there.

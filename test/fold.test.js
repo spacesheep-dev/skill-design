@@ -99,6 +99,7 @@ test("a new space's first version is a page under 2 KB, and the starter waits in
   assert.ok(Buffer.byteLength(first) < 2048, `first version is ${Buffer.byteLength(first)} bytes`);
   assert.match(first, /<title>Lift &lt;out of service&gt;<\/title>/);
   assert.match(first, /<meta name="ss-chat"/);
+  assert.doesNotMatch(first, /ss-workspace/, "no workspace meta: Spacesheep no longer reads it");
   // Not a design, so `start <link>` on it later puts the starter in work/.
   assert.doesNotMatch(first, /data-ss-id|class="direction/);
   assert.equal(fs.readFileSync(path.join(folder, "work", "index.html"), "utf8"), starterAs("Lift &lt;out of service&gt;"));
@@ -287,6 +288,8 @@ test("start on a known empty page lays down the starter: an empty file, sheep.ne
     "sheep.new": PLATFORM_BLANK,
     "sheep.new, another title": PLATFORM_BLANK.replace("<title>Untitled</title>", "<title>Summer party &amp; street fair</title>"),
     "start --new": fs.readFileSync(path.join(root, "first.html"), "utf8"),
+    // A first version from before v1.2.22 also carried the workspace meta, which Spacesheep no longer reads.
+    "start --new, before v1.2.22": fs.readFileSync(path.join(root, "first.html"), "utf8").replace(/(<meta name="ss-chat"[^>]*>)/, '$1\n<meta name="ss-workspace" content="design">'),
   };
   for (const [name, page] of Object.entries(pages)) {
     const { r, work, starter } = startOn(page);
@@ -336,6 +339,7 @@ test("start reads the page beside the space's details in a new folder, and reads
 const STARTER = fs.readFileSync(path.join(__dirname, "..", "design", "assets", "starter.html"), "utf8");
 const looksEmpty = (html, name = "the starter") => {
   assert.match(html, /<meta name="ss-canvas" content="on">/, `${name}: the canvas is on`);
+  assert.doesNotMatch(html, /ss-workspace/, `${name}: no workspace meta`);
   assert.match(html, /class="frame-back" data-ss-canvas-back/, `${name}: the frame is there`);
   assert.doesNotMatch(html, /^<section class="direction"/m, `${name}: no direction yet`);
   assert.match(html, /device views: a direction's phone or tablet view/, `${name}: the starter's styles are whole`);

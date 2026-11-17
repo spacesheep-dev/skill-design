@@ -2,6 +2,15 @@
 
 Each release is a heading with its tag. The release workflow uses the words under it as the release's notes.
 
+## v1.2.22
+
+- Spacesheep no longer has a Design workspace, so the page no longer declares one: `<meta name="ss-workspace" content="design">` is gone from base.html and starter.html, and from the first version `start --new` puts up. `start` still knows a first version from before, with that meta, as a blank page.
+- The frame's Tweaks pane no longer waits to be hidden by Spacesheep's own Tweaks: it is the design's Tweaks wherever the page opens. Its CSS drops the `[hidden]` checks that were only there for that, and its comments say so.
+- SKILL.md names the starter's two metas, `ss-chat` and `ss-canvas`, and says the bar's Tweaks button opens the controls. references/after.md: values set in Tweaks stay in that tab until Keep these sends them to the chat; nothing saves them on close. An older page's `ss-style` rules from Spacesheep's Tweaks are still changed or removed with their token.
+- `fold.js kit` adds no workspace meta, as before; an older page keeps its own, which nothing reads now.
+- One new test case (an older first version is still blank) and two new checks (no workspace meta in the first version or the starter): 62 tests, one skipped as before.
+- The folder's hash is `2b87dca2e00f`.
+
 ## v1.2.21
 
 - The design's own bar has Export, the last pill in its row, outlined like Back; on a phone it is its icon alone, with a 44 px tap. Its menu has the four exports a design had in Spacesheep's workspace: a PDF of one direction, a PDF of every direction, that direction as one HTML file, and a prompt for a coding agent. The one-direction items are for the direction open full page, else the chosen one, else the one the tabs show, and each names it.

@@ -438,7 +438,7 @@ if (!only) {
   }
 }
 
-// Controls: the inputs in the page's .tweaks pane, which Spacesheep draws as Tweaks. At most 6, each named by its
+// Controls: the inputs in the page's .tweaks pane, its Tweaks. At most 6, each named by its
 // label's first words, each a token the page sets and uses. A switch or choice needs a rule for every value past
 // 0, or that value changes nothing.
 if (!only) {

@@ -405,7 +405,7 @@ function unsaved(d) {
   const words = text.slice(0, m.index + m[0].length);
   return `save refused: ${words.slice(words.lastIndexOf("✗") + 1).trim().slice(-400)} ${STOP}`;
 }
-// A new space's first version: the title, the starter's chat and workspace metas, and one line. It is one
+// A new space's first version: the title, the starter's chat meta, and one line. It is one
 // of the pages isBlank knows, so `start <link>` on it later puts the starter in work/, as for any blank page.
 // The starter, base.html beside this script: read when a command needs it.
 const baseHtml = () => fs.readFileSync(path.join(__dirname, "base.html"), "utf8");
@@ -416,7 +416,7 @@ const firstPage = (title, base) => `<!DOCTYPE html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(title)}</title>
-${(base.match(/<meta name="ss-(?:chat|workspace)"[^>]*>/g) || []).join("\n")}
+${(base.match(/<meta name="ss-chat"[^>]*>/g) || []).join("\n")}
 <style>body { margin: 0; padding: 32px 20px; font: 18px/1.5 system-ui, sans-serif; }</style>
 </head>
 <body>
@@ -451,7 +451,9 @@ function isBlank(h) {
   const page = (h || "").replace(/\r\n/g, "\n").trim();
   if (!page) return true;
   const base = baseHtml();
-  return [platformBlank, (t) => firstPage(t, base)].some((make) => knownPage(make).test(page));
+  // Before v1.2.22 the first version also carried <meta name="ss-workspace" content="design"> after the chat meta.
+  const older = (t) => firstPage(t, base).replace(/(<meta name="ss-chat"[^>]*>)/, '$1\n<meta name="ss-workspace" content="design">');
+  return [platformBlank, (t) => firstPage(t, base), older].some((make) => knownPage(make).test(page));
 }
 // The starter with the space's own title: a design never renames the space unasked (`title` does, on the person's pick).
 const titled = (base, title) => base.replace(/<title>[^<]*<\/title>/, () => `<title>${esc(title)}</title>`);

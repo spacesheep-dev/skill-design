@@ -18,7 +18,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Design title</title>
 <meta name="ss-chat" content="open">
-<meta name="ss-workspace" content="design">
 <meta name="ss-canvas" content="on">
 <meta name="ss-canvas-focus" content="all">
 <style>
@@ -128,7 +127,7 @@
      card menu's does. Open, it is tinted, not filled: a filled pill is the open direction. What it says back (Copied,
      or why a PDF or file wasn't made) is a small card in the same place. */
   .export { position: relative; flex: none; margin-left: auto; font: 14px/1.3 system-ui, -apple-system, "Segoe UI", sans-serif; }
-  .switcher-row > :is(.tweaks:not([hidden]):has(input[data-var]), .frame-zoom:not([hidden]), .frame-use:not([hidden])) ~ .export { margin-left: 0; }
+  .switcher-row > :is(.tweaks:has(input[data-var]), .frame-zoom:not([hidden]), .frame-use:not([hidden])) ~ .export { margin-left: 0; }
   .export-open { min-height: 44px; display: inline-flex; align-items: center; gap: 6px; padding: 0 14px; border: 1px solid var(--bar-line); border-radius: 22px;
     background: var(--bar-bg); color: var(--bar-ink); font: 15px/1.3 system-ui, -apple-system, "Segoe UI", sans-serif; white-space: nowrap; cursor: pointer; }
   .export-open svg { flex: none; width: 16px; height: 16px; }
@@ -149,12 +148,11 @@
   .export-said pre { max-height: 40vh; overflow: auto; margin: 8px 0 0; font: 12px/1.4 ui-monospace, monospace; white-space: pre-wrap; user-select: all; }
   /* switcher: end */
 
-  /* controls: the pane where Spacesheep's workspace doesn't draw them itself (it hides this one). A button at the
-     right end of the tabs' row, the design's own strip: Spacesheep's round buttons and tools bar hold the
-     screen's bottom corners. Open, its pane drops down over the directions without moving them, and the
+  /* controls: the Tweaks pane, a button at the right end of the tabs' row, the design's own strip: Spacesheep's
+     round buttons and tools bar hold the screen's bottom corners. Open, its pane drops down over the directions without moving them, and the
      canvas doesn't count it as part of the pinned row. */
   .tweaks { position: relative; flex: none; margin-left: auto; color: var(--bar-ink); font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
-  .tweaks[hidden], .tweaks:not(:has(input[data-var])) { display: none; }
+  .tweaks:not(:has(input[data-var])) { display: none; }
   .tweaks summary { min-height: 44px; display: flex; align-items: center; padding: 0 14px; border: 1px solid var(--bar-line); border-radius: 22px;
     background: var(--bar-bg); cursor: pointer; font-weight: 600; list-style: none; white-space: nowrap; }
   .tweaks summary::-webkit-details-marker { display: none; }
@@ -740,8 +738,7 @@ function ssDraw(fn) { fn(); document.addEventListener('ss:live', () => fn()); }
   draw();
 })();
 /* switcher: end */
-/* controls: the inputs in .tweaks are the controls. Spacesheep's workspace reads them and draws its own Tweaks
-   (hiding this pane); a page opened without the workspace shows this pane, whose changes go on the direction
+/* controls: the inputs in .tweaks are the controls, shown in this pane, whose changes go on the direction
    on show and stay in this tab until Keep these sends them to the chat. Each switch and choice also shows on every direction as an attribute named
    for its token, --hero: 2 as data-hero="2", so its variants are plain CSS. That runs on load and whenever a
    direction's style changes: a Tweaks change, a saved value after a reload, a live push. */
