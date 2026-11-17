@@ -2,6 +2,17 @@
 
 Each release is a heading with its tag. The release workflow uses the words under it as the release's notes.
 
+## v1.2.19
+
+- Less code, the same pages: 146 lines of source come out of fold.js, check.js and the starter, with no change to what the skill makes.
+- Parts are read only from `draw/<slug>/NN.html`, the form SKILL.md has taught since 14 Nov. fold.js and check.js no longer read the older single file (`draw/<slug>.html` with its `.status`), and a revision's read puts aside only a direction's frame and part folders.
+- `fold.js round` takes the rounds' line rules from base.html, as `kit` already takes the switcher and check spans, so there is one copy and no test comparing two. base.html is read in one place, and only by the commands that need it.
+- fold.js no longer writes `draw/<job>.pid`. Nothing read it: `draw/<job>.run` already holds the run's process group.
+- The starter answers only to the kit's names, `.k-cards` and `.k-table`. The pre-kit `.cards` and `.stack` aliases are gone, and check.js's scroller message names the `k-` classes. Pages made before keep their own CSS, since `kit` replaces only the switcher and check spans. The chosen pill's rules are written once for the bar's pill and the cards' pills. starter.html is made again from base.html.
+- `assets/switcher.html`, the old standalone switcher no step used, is gone, with its line in SKILL.md. Spacesheep's canvas check now starts from base.html.
+- Three test assertions that pinned switcher source text go, each covered by a test that runs the script. Tests: 57 (56 pass, one skipped as before).
+- The folder's hash is `bf47c368a70a`.
+
 ## v1.2.18
 
 - A starter page Spacesheep can show at once. `spacesheep.yaml` names `assets/starter.html`: `base.html` without its directions, the same empty canvas `fold.js start` pushes on a blank page. A Spacesheep that takes the `starter` key shows it the moment Design is picked on a blank space, before the session has started, and `start`'s own push then changes nothing on screen. A space with no title now gets Untitled in its page (it was Design), as Spacesheep's starter does. A test fails if `starter.html` and `base.html` drift apart.
