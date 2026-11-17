@@ -25,8 +25,8 @@
   /* switcher: start */
   /* the bar follows light or dark, as Spacesheep's canvas ground does; each direction keeps its own look */
   :root { color-scheme: light dark; } .direction { color-scheme: light; }
-  .switcher { --bar-bg: #fff; --bar-ink: #111; --bar-line: #ccc; --bar-muted: #555; }
-  @media (prefers-color-scheme: dark) { .switcher { --bar-bg: #1d1d22; --bar-ink: #f1f1f4; --bar-line: #45454f; --bar-muted: #a6a6b0; } }
+  :root { --bar-bg: #fff; --bar-ink: #111; --bar-line: #ccc; --bar-muted: #555; }
+  @media (prefers-color-scheme: dark) { :root { --bar-bg: #1d1d22; --bar-ink: #f1f1f4; --bar-line: #45454f; --bar-muted: #a6a6b0; } }
   .switcher { position: sticky; top: 0; z-index: 10; background: var(--bar-bg); border-bottom: 1px solid var(--bar-line);
     padding: 8px 12px 6px; font: 15px/1.3 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--bar-ink); }
   .switcher-row { display: flex; align-items: center; gap: 8px; }
@@ -63,7 +63,21 @@
   .frame-back { cursor: pointer; }
   .frame-back:focus-visible { outline: 3px solid #2563eb; outline-offset: 2px; }
   .frame-zoom { border-color: transparent; color: var(--bar-muted); font-variant-numeric: tabular-nums; }
-  .frame-back[hidden], .frame-zoom[hidden] { display: none; }
+  .frame-back[hidden], .frame-zoom[hidden], .frame-use[hidden] { display: none; }
+  /* "Use this design", at the bar's right end while a direction is open: its line ("Use <name>") goes to the chat.
+     The direction the person chose (data-chosen) has its card's edge and its tab marked, and the pill says Chosen. */
+  .frame-zoom, .frame-use { margin-left: auto; }
+  /* on a phone the tabs take a row of their own under Back and the pill, never a squeezed column */
+  .switcher { container-type: inline-size; }
+  @container (max-width: 40rem) { .switcher-row { flex-wrap: wrap; } .switcher-tabs { order: 1; flex-basis: 100%; } }
+  .frame-use { flex: none; min-height: 44px; padding: 0 16px; border: 1px solid var(--bar-ink); border-radius: 22px;
+    background: var(--bar-ink); color: var(--bar-bg); font: inherit; font-weight: 600; white-space: nowrap; cursor: pointer; }
+  .frame-use:focus-visible { outline: 3px solid #2563eb; outline-offset: 2px; }
+  .frame-use .chosen, .frame-use[data-chosen] .use { display: none; }
+  .frame-use[data-chosen] .chosen { display: inline; }
+  .frame-use[data-chosen] { background: var(--bar-bg); color: var(--bar-ink); border-color: var(--bar-line); cursor: default; }
+  .switcher-tabs button[data-chosen]::after { content: " \2713"; }
+  .direction[data-chosen] { outline: 2px solid var(--bar-ink); outline-offset: 6px; }
   /* switcher: end */
 
   /* controls: the pane where Spacesheep's workspace doesn't draw them itself (it hides this one). A button at the
@@ -285,6 +299,7 @@ function ssDraw(fn) { fn(); document.addEventListener('ss:live', () => fn()); }
       </div>
     </details>
     <output class="frame-zoom" aria-label="Zoom" hidden></output>
+    <button type="button" class="frame-use" data-ss-say="" hidden><span class="use">Use this design</span><span class="chosen">✓ Chosen</span></button>
   </div>
   <div class="switcher-views" role="group" aria-label="Device views"></div>
   <p class="switcher-line" aria-live="polite"></p>
@@ -370,6 +385,13 @@ function ssDraw(fn) { fn(); document.addEventListener('ss:live', () => fn()); }
     const c = (window.ss && window.ss.canvas) || {}, back = document.querySelector('.frame-back'), zoom = document.querySelector('.frame-zoom');
     if (back) back.hidden = !c.open;
     if (zoom) { zoom.hidden = !canvas() || !!c.open || typeof c.zoom !== 'number'; zoom.textContent = Math.round((c.zoom || 1) * 100) + '%'; }
+    // "Use this design" for the direction open full page (a view's own direction), when there are several to choose from.
+    const use = document.querySelector('.frame-use'), at = c.open && (document.getElementById(c.open) || document.querySelector('[data-ss-id="' + CSS.escape(c.open) + '"]'));
+    const d = at && (at.dataset.viewOf ? dirOf(at) : at), on = !!d && all().length > 1 && all().includes(d);
+    if (use) {
+      use.hidden = !on;
+      if (on) { use.dataset.ssSay = use.title = 'Use ' + label(d); use.toggleAttribute('data-chosen', d.hasAttribute('data-chosen')); use.disabled = d.hasAttribute('data-chosen'); }
+    }
   }
   // The device buttons (shown only without the canvas): the direction, then each of its views. The same
   // set keeps its buttons, so the one just clicked keeps focus.
@@ -394,6 +416,7 @@ function ssDraw(fn) { fn(); document.addEventListener('ss:live', () => fn()); }
       b.type = 'button';
       b.setAttribute('role', 'tab');
       b.textContent = label(d);
+      if (d.hasAttribute('data-chosen')) b.dataset.chosen = '';
       goes(b, () => d);
       return b;
     }));
