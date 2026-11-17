@@ -5,8 +5,8 @@
 //   node check.js -C <folder>          every direction, then the page as a whole
 //   node check.js -C <folder> <slug>   one direction (a helper's closing check)
 //
-// It reads work/index.html, each direction's parts (draw/<slug>/*.html, else draw/<slug>.html, else
-// its section of the page) and draw/BRIEF.md, whose lines `fact: …` must show in every direction,
+// It reads work/index.html, each direction's parts (draw/<slug>/*.html, else its section of the page)
+// and draw/BRIEF.md, whose lines `fact: …` must show in every direction,
 // `not: …` in none, and `ask: …` (the request) never six words in a row; nor may any direction's own
 // line (its data-line, what the direction is for). It prints one line per
 // failure with the file and line to edit, or "all pass". What it can't decide is the look: contrast,
@@ -77,15 +77,13 @@ function directions(text) {
   return out;
 }
 
-// A direction's sources: its part files, else its one file, else its slice of the page.
+// A direction's sources: its part files, else its slice of the page.
 function sources(d) {
   const dir = `draw/${d.slug}`;
   if (isDir(dir)) {
     const files = htmlIn(dir);
     if (files.length) return files.map((f) => ({ file: path.join(dir, f), text: read(path.join(dir, f)) || "", base: 0 }));
   }
-  const one = read(`draw/${d.slug}.html`);
-  if (one) return [{ file: `draw/${d.slug}.html`, text: one, base: 0 }];
   return [{ file: "work/index.html", text: page.slice(d.start, d.end), base: lineAt(page, d.start) - 1 }];
 }
 
