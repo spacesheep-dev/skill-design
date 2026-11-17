@@ -11,7 +11,7 @@ const FOLD = path.join(__dirname, "..", "design", "assets", "fold.js");
 const BASE = fs.readFileSync(path.join(__dirname, "..", "design", "assets", "base.html"), "utf8");
 const SPACE = "11111111-2222-4333-8444-555555555555";
 // The starter as start lays it: with the space's own title, never a new one.
-const starterAs = (title) => BASE.replace(/<title>[^<]*<\/title>/, `<title>${title}</title>`);
+const starterAs = (title) => BASE.replace(/<title>[^<]*<\/title>/, () => `<title>${title}</title>`);
 
 const CLI = `#!/usr/bin/env node
 const fs = require("fs"), path = require("path");
@@ -263,10 +263,11 @@ test("start puts the starter's empty canvas up at once, on a new space and on a 
     assert.match(html, /device views: a direction's phone or tablet view/, `${name}: the starter's styles are whole`);
   };
   const made = setup();
-  assert.equal(made.fold(["start", "--new", "Poster"]).status, 0);
+  assert.equal(made.fold(["start", "--new", "Poster $& sale"]).status, 0);
   const pushed = emptyOf(made.sent());
   assert.equal(pushed.length, 1, "start --new pushes one page");
   looks(pushed[0], "start --new");
+  assert.equal(pushed[0].match(/<title>[^<]*<\/title>/g).join(), "<title>Poster $&amp; sale</title>", "the canvas carries the new space's title, $ and all");
   const log = made.calls(), status = log.findIndex((a) => a[0] === "live" && a.includes("Reading your brief"));
   assert.ok(status >= 0 && status < log.findIndex((a) => a[0] === "call" && a[1] === "push_live"), "the status goes up first");
   for (const [name, page] of Object.entries({ blank: PLATFORM_BLANK, design: '<!DOCTYPE html><title>Poster</title><section class="direction" data-ss-section data-ss-id="direction-bunting"><h1 data-ss-id="bunting-title">Summer Street Party</h1></section>' })) {
@@ -275,7 +276,7 @@ test("start puts the starter's empty canvas up at once, on a new space and on a 
     assert.equal(one.fold(["start", "https://stage.test/s"], { FAKE_PAGE: path.join(one.root, "page.html") }).status, 0);
     const sent = emptyOf(one.sent());
     if (name === "design") assert.equal(sent.length, 0, "a design gets no empty canvas over it");
-    else { assert.equal(sent.length, 1, name); looks(sent[0], name); }
+    else { assert.equal(sent.length, 1, name); looks(sent[0], name); assert.match(sent[0], /<title>Untitled<\/title>/, `${name}: the canvas keeps the space's title`); }
   }
 });
 
@@ -289,10 +290,10 @@ test("start keeps the space's own title in the page and says so; title renames t
   const page = path.join(folder, "work", "index.html"), before = fs.readFileSync(page, "utf8");
   assert.equal(before, starterAs("Untitled"));
   assert.ok(!calls().some((a) => a[0] === "spaces" && a[1] === "update"), "start renames nothing");
-  const t = fold(["title", "Winter Talks <2026>"]);
+  const t = fold(["title", "Winter Talks <2026> $& $' $`"]);
   assert.equal(t.status, 0, t.stderr);
-  assert.deepEqual(calls().filter((a) => a[0] === "spaces" && a[1] === "update"), [["spaces", "update", SPACE, "--title", "Winter Talks <2026>"]]);
-  assert.equal(fs.readFileSync(page, "utf8"), before.replace("<title>Untitled</title>", "<title>Winter Talks &lt;2026&gt;</title>"));
+  assert.deepEqual(calls().filter((a) => a[0] === "spaces" && a[1] === "update"), [["spaces", "update", SPACE, "--title", "Winter Talks <2026> $& $' $`"]]);
+  assert.equal(fs.readFileSync(page, "utf8"), before.replace("<title>Untitled</title>", () => "<title>Winter Talks &lt;2026&gt; $&amp; $' $`</title>"));
   assert.equal(fold(["title"]).status, 2, "a title is needed");
 });
 

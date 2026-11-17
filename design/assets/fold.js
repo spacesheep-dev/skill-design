@@ -446,7 +446,7 @@ function isBlank(h) {
 }
 const isDesign = (h) => !isBlank(h);
 // The starter with the space's own title: a design never renames the space unasked (`title` does, on the person's pick).
-const titled = (base, title) => base.replace(/<title>[^<]*<\/title>/, `<title>${esc(title)}</title>`);
+const titled = (base, title) => base.replace(/<title>[^<]*<\/title>/, () => `<title>${esc(title)}</title>`);
 // The starter with no directions: the canvas and its frame, pushed the moment a blank page is known, before any design.
 const emptyCanvas = (base) => base.replace(/^<section class="direction"[\s\S]*?^<\/section>\n*/gm, "");
 // One space per folder: start never points a folder at a second space.
@@ -564,10 +564,11 @@ if (cmd === "start") {
     space = (j.space || {}).id;
     if (!UUID.test(space || "")) { console.error("start: the new space's id isn't in the answer"); process.exit(1); }
     keep(space);
-    if (!setWork(titled(base, title)) || !write("draw/starter", "1\n")) process.exit(2);
+    const page = titled(base, title);
+    if (!setWork(page) || !write("draw/starter", "1\n")) process.exit(2);
     try { run(["live", "push", "--space", space, "--status", "Reading your brief"]); card("up"); console.log("status: Reading your brief"); }
     catch (e) { console.error(`status refused: ${why(e)}`); }
-    console.log(push("--html", emptyCanvas(base)) ? "pushed the empty canvas" : "the empty canvas wasn't pushed (draw/fold.log)");
+    console.log(push("--html", emptyCanvas(page)) ? "pushed the empty canvas" : "the empty canvas wasn't pushed (draw/fold.log)");
     console.log(`made a new space; the starter is in work/index.html: ${(j.space || {}).url || space}\nspace: ${space}\n${NEXT}`);
     process.exit(0);
   }
