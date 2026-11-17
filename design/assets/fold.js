@@ -43,9 +43,9 @@
 //                                               person picks a new title (start keeps the one it has)
 //   node fold.js -C <folder> focus <all|slug>    what the canvas shows: every direction, or the one named
 //                                               (its <meta name="ss-canvas-focus">), then push the page
-//   node fold.js -C <folder> kit                 before a page's first device view: its switcher (styles and
-//                                               script, the script added if the page dropped it) as the
-//                                               starter has it now, the device buttons' row, the kit's
+//   node fold.js -C <folder> kit                 before a page's first device view, or Export on an older page: its
+//                                               switcher (styles and script, the script added if the page
+//                                               dropped it) as the starter has it now, Export, the device buttons' row, the kit's
 //                                               phone rules as container queries, and the layout check
 //                                               the save's pictures run (added if the page has none), in
 //                                               work/index.html; nothing else changes and nothing is pushed
@@ -684,12 +684,13 @@ if (cmd === "focus") {
   process.exit(ok ? 0 : 1);
 }
 // A page made before device views has a switcher that would make a view a tab, kit rules that follow the
-// window, and maybe no layout check: `kit` puts in the starter's switcher spans (each /* switcher: start */ … /* switcher: end */, the
+// window, and maybe no layout check or Export: `kit` puts in the starter's switcher spans (each /* switcher: start */ … /* switcher: end */, the
 // styles' in a <style>, the script's in a <script>), the script's in a <script> of its own when the page has
 // none (one design, whose script was dropped), the device buttons' row (before the switcher's line, else at
 // the end of the switcher, else in a nav of its own, shown only when it has buttons), and container queries
 // for the kit's phone rules in the starter's own <style>, and the starter's layout check (/* check: start */ …
-// /* check: end */) for the page's marked one, or in a <script> of its own on a page with none. It changes work/index.html and the writer's frame,
+// /* check: end */) for the page's marked one, or in a <script> of its own on a page with none, and Export last in the
+// bar's row (a bar with no row gets none) with the page's end mark. It changes work/index.html and the writer's frame,
 // if there is one, and pushes nothing: the view's own Edits come next.
 function kitted(page) {
   const span = /\/\* switcher: start \*\/[\s\S]*?\/\* switcher: end \*\//g;
@@ -700,29 +701,35 @@ function kitted(page) {
   const had = [...page.matchAll(span)].map((m) => kind(page, m.index));
   if (!had.includes("style")) return null;
   let out = page.replace(span, (m, at) => now[kind(page, at)]);
-  if (!had.includes("script")) {
-    const body = out.lastIndexOf("</body>"), add = `<script>\n${now.script}\n</script>\n`;
-    out = body >= 0 ? out.slice(0, body) + add + out.slice(body) : out + "\n" + add;
-  }
+  // What kit adds at the page's end goes before its end mark (<!-- design: end -->), else before </body>.
+  const atEnd = (add) => { const end = out.lastIndexOf("<!-- design: end -->"), body = end >= 0 ? end : out.lastIndexOf("</body>"); out = body >= 0 ? out.slice(0, body) + add + out.slice(body) : out + "\n" + add; };
+  if (!had.includes("script")) atEnd(`<script>\n${now.script}\n</script>\n`);
   const row = '<div class="switcher-views" role="group" aria-label="Device views"></div>';
   if (!/class="switcher-views"/.test(out)) {
     if (/<p class="switcher-line"/.test(out)) out = out.replace(/([ \t]*)<p class="switcher-line"/, (m, pad) => `${pad}${row}\n${m}`);
     else if (/<nav\b[^>]*class="[^"]*\bswitcher\b[^"]*"[^>]*>/.test(out)) out = out.replace(/(<nav\b[^>]*class="[^"]*\bswitcher\b[^"]*"[^>]*>[\s\S]*?)(\n?[ \t]*<\/nav>)/, (m, a, b) => `${a}\n  ${row}${b}`);
-    else out = out.replace(/<body\b[^>]*>/, (m) => `${m}\n<nav data-ss-canvas="pin" class="switcher no-print" aria-label="Design views" data-ss-react="off">\n  ${row}\n</nav>`);
+    else out = out.replace(/<body\b[^>]*>/, (m) => `${m}\n<nav data-ss-canvas="pin" class="switcher no-print" aria-label="Design views" data-ss-react="off">\n  <div class="switcher-row">\n  </div>\n  ${row}\n</nav>`);
     if (!/class="switcher-views"/.test(out)) return null;
   }
+  // Export, last in the bar's row (whose end is the </div> that closes its <div class="switcher-row">), and the
+  // page's end mark before </body>, after which Export's HTML file leaves out what the platform adds.
+  if (!/class="export[ "]/.test(out)) {
+    const row = /<div class="switcher-row">/.exec(out), tags = /<(\/?)div\b[^>]*>/g;
+    if (row) {
+      tags.lastIndex = row.index + row[0].length;
+      for (let depth = 1, m; (m = tags.exec(out)); ) if (!(depth += m[1] ? -1 : 1)) { out = out.slice(0, m.index) + "  " + base.match(/<div class="export no-print">[\s\S]*?<\/p><\/div>/)[0] + "\n  " + out.slice(m.index); break; }
+    }
+  }
+  if (!out.includes("<!-- design: end -->") && out.includes("</body>")) atEnd("<!-- design: end -->\n");
   const first = [...out.matchAll(span)].find((m) => kind(out, m.index) === "style"), at = first ? first.index : -1;
   const open = out.lastIndexOf("<style", at), close = out.indexOf("</style>", at);
   if (at >= 0 && open >= 0 && close > at) out = out.slice(0, open) + out.slice(open, close).replace(/@media \(max-width: 40rem\)/g, "@container (max-width: 40rem)")
     .replace(/clamp\(var\(--step-3\), 5vw, var\(--step-5\)\)/g, "clamp(var(--step-3), 5cqi, var(--step-5))") + out.slice(close);
   // The layout check the save's pictures run (?ss-check): the starter's in place of the page's own marked one,
-  // or in a <script> of its own before </body> when the page has none, so its pictures are measured.
+  // or in a <script> of its own at the page's end when the page has none, so its pictures are measured.
   const check = /\/\* check: start \*\/[\s\S]*?\/\* check: end \*\//, nowCheck = base.match(check)[0];
   if (check.test(out)) out = out.replace(check, () => nowCheck);
-  else if (!out.includes("ss-fault/")) {
-    const body = out.lastIndexOf("</body>"), add = `<script>\n${nowCheck}\n</script>\n`;
-    out = body >= 0 ? out.slice(0, body) + add + out.slice(body) : out + "\n" + add;
-  }
+  else if (!out.includes("ss-fault/")) atEnd(`<script>\n${nowCheck}\n</script>\n`);
   return out;
 }
 if (cmd === "kit") {
@@ -736,7 +743,7 @@ if (cmd === "kit") {
     if (set === null) { console.error(`kit: ${f} has no starter switcher to bring up to date (no /* switcher: start */ span in a <style>, or no <body> for its device row); its views still show on the canvas, with no device buttons without it`); process.exit(2); }
     if (set !== p) { if (!(f === "work/index.html" ? rework(set) : swap(f, set))) process.exit(2); changed++; }
   }
-  console.log(changed ? "kit: the switcher, the device buttons' row, the kit's phone rules and the layout check are now the starter's; nothing pushed" : "kit: already current");
+  console.log(changed ? "kit: the switcher, Export, the device buttons' row, the kit's phone rules and the layout check are now the starter's; nothing pushed" : "kit: already current");
   process.exit(0);
 }
 // A new round: versions of one direction in a row of their own below everything on the canvas, each joined to

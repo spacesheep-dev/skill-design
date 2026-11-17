@@ -6,8 +6,8 @@
   2. Push it: that is the frame. Then assets/fold.js draws each direction in parts, between its
      part:slug markers, in place of its .drawing block. Leave the markers: fold.js names them after the slug.
   One design, not directions: keep one section, and drop the switcher's tabs; keep its script (it shows the
-  design, and its views' buttons). Keep the nav while it holds controls (Tweaks, at the right end of its row),
-  the answers line or a view; with none of them, drop it too.
+  design, and its views' buttons) and the nav, which holds Export (and Tweaks, with controls).
+  Keep the end mark, the comment that says design: end, last in the body: what Spacesheep adds comes after it.
   Keep the metas, the switcher (the frame: Back, the tabs, Tweaks and the zoom %) and the ids. The person's answers, when you asked: references/questions.md.
   A direction's phone or tablet view is a section of its own after the last direction, with data-view-of:
   SKILL.md, section 2.
@@ -124,6 +124,29 @@
   @media (pointer: coarse) { .menu-open::after { content: ""; position: absolute; inset: -18px -10px -4px; } .card-menu .menu > button { height: 44px; } }
   section.direction :is(.use-this, .card-menu), html:has(.frame-back:not([hidden])) :is(.use-this, .card-menu),
   html:not(:has(section.direction:not([data-view-of]) ~ section.direction:not([data-view-of]))) :is(.use-this, .card-menu) { display: none; }
+  /* Export, last in the bar's row: an outline pill (on a phone its icon alone, 44 px), whose menu drops under it as the
+     card menu's does. Open, it is tinted, not filled: a filled pill is the open direction. What it says back (Copied,
+     or why a PDF or file wasn't made) is a small card in the same place. */
+  .export { position: relative; flex: none; margin-left: auto; font: 14px/1.3 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .switcher-row > :is(.tweaks:not([hidden]):has(input[data-var]), .frame-zoom:not([hidden]), .frame-use:not([hidden])) ~ .export { margin-left: 0; }
+  .export-open { min-height: 44px; display: inline-flex; align-items: center; gap: 6px; padding: 0 14px; border: 1px solid var(--bar-line); border-radius: 22px;
+    background: var(--bar-bg); color: var(--bar-ink); font: 15px/1.3 system-ui, -apple-system, "Segoe UI", sans-serif; white-space: nowrap; cursor: pointer; }
+  .export-open svg { flex: none; width: 16px; height: 16px; }
+  .export-open:hover, .export-open[aria-expanded="true"] { background: color-mix(in srgb, var(--bar-ink) 8%, var(--bar-bg)); }
+  .export-open:focus-visible { outline: 3px solid #2563eb; outline-offset: 2px; }
+  @container (max-width: 40rem) { .export-open { width: 44px; padding: 0; justify-content: center; } .export-word { display: none; } }
+  .export .menu, .export-said { position: absolute; z-index: 1; top: calc(100% + 6px); right: 0; background: var(--bar-bg); color: var(--bar-ink);
+    border: 1px solid var(--bar-line); border-radius: 8px; box-shadow: 0 6px 24px rgba(0,0,0,.16); }
+  .export .menu { display: grid; min-width: 240px; padding: 4px; }
+  .export .menu[hidden], .export .menu > [hidden], .export-said:empty { display: none; }
+  .export .menu > button { min-height: 36px; padding: 0 10px; border: 0; border-radius: 5px; background: transparent; color: inherit; font: inherit;
+    text-align: left; white-space: nowrap; cursor: pointer; }
+  .export .menu > button:hover { background: color-mix(in srgb, var(--bar-ink) 8%, transparent); }
+  .export .menu > button:focus-visible { outline: 2px solid #4f46e5; outline-offset: -2px; }
+  .export .menu > hr { width: 100%; margin: 4px 0; border: 0; border-top: 1px solid var(--bar-line); }
+  @media (pointer: coarse) { .export .menu > button { min-height: 44px; } }
+  .export-said { width: max-content; max-width: min(320px, calc(100vw - 24px)); margin: 0; padding: 8px 12px; font-size: 13px; }
+  .export-said pre { max-height: 40vh; overflow: auto; margin: 8px 0 0; font: 12px/1.4 ui-monospace, monospace; white-space: pre-wrap; user-select: all; }
   /* switcher: end */
 
   /* controls: the pane where Spacesheep's workspace doesn't draw them itself (it hides this one). A button at the
@@ -347,6 +370,7 @@ function ssDraw(fn) { fn(); document.addEventListener('ss:live', () => fn()); }
     <output class="frame-zoom" aria-label="Zoom" hidden></output>
     <button type="button" class="frame-use" data-ss-say="" hidden><span class="use">Use this</span><span class="chosen">✓ Chosen</span></button>
     <button type="button" class="frame-round" data-ss-say="" hidden>Another round</button>
+    <div class="export no-print"><button type="button" class="export-open" aria-haspopup="menu" aria-expanded="false" aria-label="Export" title="Export"><svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2.5v7.5M4.75 6.75 8 10l3.25-3.25M2.5 11v2.5h11V11"/></svg><span class="export-word">Export</span></button><div class="menu" role="menu" aria-label="Export" hidden><button type="button" class="export-pdf" role="menuitem" data-ss-pdf="" hidden>PDF</button><button type="button" class="export-pdf-all" role="menuitem" data-ss-pdf="" hidden>PDF of every direction</button><button type="button" class="export-html" role="menuitem">HTML</button><hr><button type="button" class="export-prompt" role="menuitem">Copy prompt for a coding agent</button></div><p class="export-said" role="status"></p></div>
   </div>
   <div class="switcher-views" role="group" aria-label="Device views"></div>
   <p class="switcher-line" aria-live="polite"></p>
@@ -527,7 +551,7 @@ function ssDraw(fn) { fn(); document.addEventListener('ss:live', () => fn()); }
     addEventListener('keydown', (e) => {
       const t = e.target, c = window.ss && window.ss.canvas, b = document.querySelector('.frame-back');
       if (e.key !== 'Escape' || !canvas() || !c || !c.open || !b || !t.closest || !t.closest('button,a,summary,[role=button]')
-        || t.closest('[role=tab],[data-ss-canvas-chip]')) return;
+        || t.closest('[role=tab],[data-ss-canvas-chip]') || document.querySelector('.export .menu:not([hidden])')) return;
       e.preventDefault();
       b.click();
     }, true);
@@ -565,6 +589,137 @@ function ssDraw(fn) { fn(); document.addEventListener('ss:live', () => fn()); }
       else if (m && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) { e.preventDefault(); const l = items(m); l[(l.indexOf(t) + (e.key === 'ArrowDown' ? 1 : l.length - 1)) % l.length].focus(); }
       else if (m && e.key === 'Tab') shut(m);
     }, true);
+  }
+  // Export: a PDF of one direction, or of every one with a sheet each at its own size (Spacesheep makes it from the
+  // tapped item's data-ss-pdf, the sections' data-ss-id, and says why when it can't: ss-pdf-result); that
+  // direction alone as one HTML file, made here from the page's own source; and a prompt that has a coding agent read
+  // the space and build it, copied. The one-direction items are for the direction open full page (a view's own), else
+  // the chosen one, else the one the tabs show, and say which. Its menu takes the card menu's keys. Its listeners are
+  // added once and call this script's functions, so a push that changes them changes what an open tab does.
+  const box = () => document.querySelector('.export');
+  function aim() {
+    const c = (window.ss && window.ss.canvas) || {}, dirs = all(), at = c.open && (document.getElementById(c.open) || document.querySelector('[data-ss-id="' + CSS.escape(c.open) + '"]'));
+    const d = at && (at.dataset.viewOf ? dirOf(at) : at);
+    return (dirs.includes(d) && d) || dirs.find((x) => x.hasAttribute('data-chosen')) || (dirs.includes(cur) && cur) || dirs[0] || null;
+  }
+  function paint() {
+    const x = box(), d = aim(), dirs = all(), many = dirs.length > 1, name = d ? '“' + label(d) + '”' : '';
+    const one = x.querySelector('.export-pdf'), every = x.querySelector('.export-pdf-all'), html = x.querySelector('.export-html');
+    if (one) { one.hidden = !d; one.dataset.ssPdf = d ? d.dataset.ssId : ''; one.textContent = many ? 'PDF of ' + name : 'PDF'; }
+    if (every) { every.hidden = !many; every.dataset.ssPdf = dirs.map((v) => v.dataset.ssId).join(' '); every.textContent = 'PDF of all ' + dirs.length + ' directions'; }
+    if (html) { html.hidden = !d; html.textContent = many ? 'HTML of ' + name : 'HTML'; }
+  }
+  // What it says back: a line, gone after a while, or with the prompt to copy by hand when the copy was refused.
+  let quiet = 0;
+  function say(line, text) {
+    const p = box() && box().querySelector('.export-said');
+    if (!p) return;
+    p.textContent = line;
+    if (text) p.append(Object.assign(document.createElement('pre'), { textContent: text }));
+    clearTimeout(quiet);
+    if (line && !text) quiet = setTimeout(() => { p.textContent = ''; }, 6000);
+  }
+  let source = null;
+  function read() {
+    source = fetch(location.href, { cache: 'no-cache' }).then((r) => r.ok ? r.text() : Promise.reject(new Error('the page answered ' + r.status)));
+    source.catch(() => {}); // said only if the file is asked for
+    return source;
+  }
+  const slugOfText = (s) => String(s || '').toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60);
+  // One file: the page's source with only this direction, shown, no bar, card menus or round lines, and nothing the
+  // platform put after the page's end mark (the comment design: end) or marked as its own (data-ss-chrome). The values
+  // the person set in Tweaks come with it, as on screen.
+  function file(html, d) {
+    const x = new DOMParser().parseFromString(html, 'text/html'), w = x.createTreeWalker(x.body, NodeFilter.SHOW_COMMENT);
+    for (let n; (n = w.nextNode()); ) if (n.data.trim() === 'design: end') { while (n.nextSibling) n.nextSibling.remove(); break; }
+    x.querySelectorAll('[data-ss-chrome], nav.switcher, .card-menu, .use-this, [data-round-lines], meta[name^="ss-"]').forEach((e) => e.remove());
+    x.querySelectorAll('section.direction').forEach((e) => { if (e.dataset.ssId !== d.dataset.ssId) e.remove(); });
+    const s = x.querySelector('section.direction');
+    if (!s) throw new Error('it isn’t in the saved page yet');
+    s.classList.add('on');
+    s.removeAttribute('data-chosen');
+    for (const p of d.style) if (p.startsWith('--')) s.style.setProperty(p, d.style.getPropertyValue(p));
+    for (const a of d.getAttributeNames()) if (/^data-/.test(a) && !s.hasAttribute(a) && typeof ssControls === 'function' && ssControls().some((i) => 'data-' + i.dataset.var.slice(2) === a)) s.setAttribute(a, d.getAttribute(a));
+    x.title = label(d) + (x.title && all().length > 1 ? ' · ' + x.title : '');
+    return '<!DOCTYPE html>\n' + x.documentElement.outerHTML;
+  }
+  function save(d) {
+    const name = (all().length > 1 ? [slugOfText(document.title), slugOfText(label(d))] : [slugOfText(document.title)]).filter(Boolean).join('-') || 'design';
+    (source || read()).then((html) => {
+      const a = document.createElement('a'), u = URL.createObjectURL(new Blob([file(html, d)], { type: 'text/html' }));
+      a.href = u; a.download = name + '.html'; a.hidden = true;
+      document.body.append(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(u), 60000);
+    }).catch((e) => say('No HTML: ' + ((e && e.message) || 'the page couldn’t be read')));
+  }
+  // The prompt names the space by its link: Spacesheep's address (the page's parent), /space/, and the space's id in this page's address.
+  function prompt(d) {
+    const id = (location.href.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i) || [])[0];
+    let app = 'https://spacesheep.dev';
+    try { app = (location.ancestorOrigins && location.ancestorOrigins[0]) || (document.referrer && new URL(document.referrer).origin) || app; } catch {}
+    const link = id ? app + '/space/' + id : location.href.split('#')[0], cli = 'npx -y spacesheep@latest', many = all().length > 1;
+    const dev = document.querySelector('[data-ss-id="for-developers"]');
+    return ['Build my Spacesheep design “' + ((document.title || '').trim() || 'Untitled') + '”' + (many && d ? ', the direction “' + label(d) + '”' : '') + ' (' + link + ').',
+      '1. Run `' + cli + ' whoami`. If this computer isn’t signed in, run `' + cli + ' login` and ask me to approve it in the browser.',
+      '2. Get the design’s files: `' + cli + ' read ' + link + ' -o design/`.',
+      '3. Build it in this project from design/index.html' + (many && d ? ', the section with data-ss-id="' + d.dataset.ssId + '"' : '') + '. '
+        + (dev ? 'Its folded “For developers” section lists the tokens, components, screens and decisions: use' : 'Use') + ' the tokens as they are, and build from the HTML, never from screenshots.',
+      '4. Tell me what you built and anything you couldn’t match.'].join('\n');
+  }
+  // Copied inside the tap (execCommand first, the clipboard API after), and "Copied" only once it is.
+  function copy(text) {
+    const t = Object.assign(document.createElement('textarea'), { value: text });
+    t.setAttribute('readonly', '');
+    t.style.cssText = 'position:fixed;top:0;left:0;opacity:0;pointer-events:none';
+    document.body.append(t); t.select();
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch {}
+    t.remove();
+    return ok ? Promise.resolve() : navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject();
+  }
+  const opener = () => box() && box().querySelector('.export-open');
+  function shut(focus) {
+    const m = box() && box().querySelector('.menu');
+    if (!m || m.hidden) return;
+    m.hidden = true; opener().setAttribute('aria-expanded', 'false');
+    if (focus) opener().focus();
+  }
+  const items = () => [...box().querySelectorAll('.menu > button:not([hidden])')];
+  function click(e) {
+    const x = box(), t = e.target;
+    if (!x || !t.closest) return;
+    const m = x.querySelector('.menu'), item = t.closest('.export .menu > button');
+    if (t.closest('.export-open')) {
+      if (!m.hidden) return shut(false);
+      paint(); say(''); read();
+      m.hidden = false; opener().setAttribute('aria-expanded', 'true');
+      if (!e.detail) (items()[0] || opener()).focus(); else opener().focus({ preventScroll: true });
+    } else if (item) {
+      const d = aim();
+      if (item.matches('.export-html') && d) save(d);
+      if (item.matches('.export-prompt')) { const text = prompt(d); copy(text).then(() => say('Copied: paste it into your coding agent.'), () => say('Couldn’t copy here. Select it and copy it:', text)); }
+      setTimeout(() => shut(true)); // after the tap reaches Spacesheep's own listener (data-ss-pdf)
+    } else if (!x.contains(t)) shut(false);
+  }
+  function key(e) {
+    const x = box(), t = e.target, m = x && x.querySelector('.menu');
+    if (!m) return;
+    if (e.key === 'Escape' && !m.hidden) { e.preventDefault(); e.stopPropagation(); return shut(true); }
+    if (!x.contains(t)) return;
+    const l = items(), i = l.indexOf(t);
+    if (t === opener() && e.key === 'ArrowDown') { e.preventDefault(); if (m.hidden) t.click(); else (l[0] || t).focus(); }
+    else if (i >= 0 && /^(ArrowDown|ArrowUp|Home|End)$/.test(e.key)) { e.preventDefault(); l[e.key === 'Home' ? 0 : e.key === 'End' ? l.length - 1 : (i + (e.key === 'ArrowDown' ? 1 : l.length - 1)) % l.length].focus(); }
+    else if (i >= 0 && e.key === 'Tab') shut(false);
+  }
+  // A PDF Spacesheep refused says why, here (its message to the page, or its event on the item).
+  const refused = (r) => { if (r && r.ok === false) say('No PDF: ' + String(r.why || 'Spacesheep couldn’t make it').slice(0, 160)); };
+  window.ssExport = { click, key, refused };
+  if (!window.ssExportHeard) {
+    window.ssExportHeard = true;
+    document.addEventListener('click', (e) => window.ssExport.click(e), true);
+    document.addEventListener('keydown', (e) => window.ssExport.key(e), true);
+    addEventListener('message', (e) => { if (e.source === window.parent && e.data && e.data.type === 'ss-pdf-result') window.ssExport.refused(e.data); });
+    document.addEventListener('ss:pdf-result', (e) => window.ssExport.refused(e.detail));
   }
   // A live push puts fresh pills on the page (the canvas lifts them again): their chosen mark follows.
   const watch = new MutationObserver(() => { if (stale()) draw(); else pills(); });
@@ -762,5 +917,6 @@ if (/[?&]ss-check\b/.test(location.search)) addEventListener('load', () => (docu
 }));
 /* check: end */
 </script>
+<!-- design: end -->
 </body>
 </html>
