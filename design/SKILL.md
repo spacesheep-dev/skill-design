@@ -68,6 +68,7 @@ The frame goes up from the request alone (step 2); the rest is read after it (st
    If they said "our brand" and none of these exist, ask once which they mean, and build in a neutral look meanwhile.
 3. **The space as it is now.** A redesign starts from the space's source, not the starter: it keeps every word, link, form and `data-ss-id` unless the person asked for new ones.
 4. **The kind of design:** a one-pager or landing page, a clickable prototype, something for paper, a deck, or a set of components. Each has a part in section 4.
+5. **A big brief** (a whole app, a site of many pages, a dashboard of many tabs) is narrowed to its one most important screen, drawn in full; name what you left out in your reply. A clickable prototype the person asked for keeps its screens.
 
 **Ask once, before drawing,** only when the brief is new or vague and the answers would change the result. Ask nothing for a full brief, a revision or follow-up, or a small change; when the person said to just go, not to ask or not to wait; or when no answer can reach you (no question tool and no chat that answers, as in `claude -p`). Then make your best guesses, build, and name them in your reply. At most 4 questions with 2 to 4 choices each, your pick first (a chat form's `pick`; elsewhere labelled "<choice> (my pick)"), and `other: true` where a free answer helps. The form, where it goes and the answers: references/questions.md.
 
