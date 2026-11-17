@@ -34,6 +34,7 @@
   .switcher-tabs button { flex: 0 0 auto; min-height: 44px; padding: 0 14px; border: 1px solid var(--bar-line);
     border-radius: 22px; background: var(--bar-bg); color: var(--bar-ink); font: inherit; cursor: pointer; }
   .switcher-tabs button[aria-selected="true"] { background: var(--bar-ink); color: var(--bar-bg); border-color: var(--bar-ink); }
+  .switcher:has(.frame-zoom:not([hidden])) .switcher-tabs button[aria-selected="true"] { background: var(--bar-bg); color: var(--bar-ink); border-color: var(--bar-line); }
   .switcher-tabs button:focus-visible { outline: 3px solid #2563eb; outline-offset: 2px; }
   .switcher-line { margin: 6px 2px 0; font-size: 13px; color: var(--bar-muted); min-height: 1.3em; }
   .switcher-answers { margin: 2px 2px 0; font-size: 13px; color: var(--bar-muted); }
