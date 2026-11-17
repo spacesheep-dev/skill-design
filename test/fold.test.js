@@ -181,8 +181,9 @@ test("start says the next step, and push names the starter's placeholders after 
   fs.writeFileSync(page, edited);
   assert.equal(fold(["push"]).status, 0);
   const named = fs.readFileSync(page, "utf8");
-  // Only the first section changes: its pill's line, and its placeholder's marker, id and heading. "second" keeps its names.
-  const expected = edited.replace('data-ss-say="Use First" title="Use First">', 'data-ss-say="Use Night &amp; Watch" title="Use Night &amp; Watch">').replace('<!-- part:first --><div class="drawing" data-ss-id="first-drawing"><h2>First</h2>', '<!-- part:night-watch --><div class="drawing" data-ss-id="night-watch-drawing"><h2>Night &amp; Watch</h2>').replace("<!-- /part:first -->", "<!-- /part:night-watch -->");
+  // Only the first section changes: its menu's name and lines, and its placeholder's marker, id and heading. "second" keeps its names.
+  const expected = edited.replace('aria-label="Menu for First"', 'aria-label="Menu for Night &amp; Watch"').replace('data-ss-say="Use First" title="Use First">', 'data-ss-say="Use Night &amp; Watch" title="Use Night &amp; Watch">')
+    .replace('data-ss-say="Another round of First" title="Another round of First">', 'data-ss-say="Another round of Night &amp; Watch" title="Another round of Night &amp; Watch">').replace('<!-- part:first --><div class="drawing" data-ss-id="first-drawing"><h2>First</h2>', '<!-- part:night-watch --><div class="drawing" data-ss-id="night-watch-drawing"><h2>Night &amp; Watch</h2>').replace("<!-- /part:first -->", "<!-- /part:night-watch -->");
   assert.notEqual(expected, edited);
   assert.equal(named, expected);
   assert.equal(sent().at(-1).html, named, "the named page is the one pushed");
@@ -202,9 +203,24 @@ test("push names each pill after its section word for word, a name with $&, $` o
   for (const [slug, name] of Object.values(names)) {
     const section = named.match(new RegExp(`<section\\b[^>]*data-ss-id="direction-${slug}"[\\s\\S]*?</section>`));
     assert.ok(section, `section ${slug}`);
-    assert.ok(section[0].includes(`data-ss-say="Use ${name}" title="Use ${name}">`), `pill of ${slug}: ${section[0].match(/<button[^>]*class="use-this[^>]*>/)}`);
+    assert.ok(section[0].includes(`data-ss-say="Use ${name}" title="Use ${name}">`), `Use this of ${slug}: ${section[0].match(/<button[^>]*class="use-this[^>]*>/)}`);
+    assert.ok(section[0].includes(`data-ss-say="Another round of ${name}" title="Another round of ${name}">`) && section[0].includes(`aria-label="Menu for ${name}"`), `menu of ${slug}`);
     assert.ok(section[0].includes(`<h2>${name}</h2>`), `heading of ${slug}`);
   }
+});
+
+test("push still names an older page's lone Use this design pill, and puts no menu in its place", () => {
+  const { folder, fold } = setup();
+  assert.equal(fold(["start", "--new", "Poster"]).status, 0);
+  const page = path.join(folder, "work", "index.html");
+  const pill = (n) => `<button type="button" class="use-this no-print" data-ss-canvas="label" data-ss-say="Use ${n}" title="Use ${n}"><span class="use">Use this design</span><span class="chosen">✓ Chosen</span></button>`;
+  const old = BASE.replace(/<div class="card-menu no-print"[\s\S]*?<\/div><\/div>/g, (m) => pill(m.match(/aria-label="Menu for ([^"]*)"/)[1]))
+    .replace('data-ss-id="direction-first" data-ss-thing="direction/first" data-ss-label="First"', 'data-ss-id="direction-first" data-ss-thing="direction/first" data-ss-label="Night Watch"');
+  fs.writeFileSync(page, old);
+  assert.equal(fold(["push"]).status, 0);
+  const named = fs.readFileSync(page, "utf8");
+  assert.ok(named.includes(pill("Night Watch")) && named.includes(pill("Second")), "each pill says its section's name");
+  assert.ok(!named.includes('<div class="card-menu no-print"'), "no menu put in");
 });
 
 test("a new build saved with no part marker left gets a status naming its directions, and the log says why", () => {
@@ -852,6 +868,29 @@ test("kit gives a one-design page that dropped the switcher's tabs, script and n
   assert.equal(calls().length, n, "kit pushes nothing");
 });
 
+test("copy puts one direction alone, its views with it, in a new space named after it, and leaves this space as it was", () => {
+  const { folder, fold, calls } = setup();
+  assert.equal(fold(["start", "--new", "Poster"]).status, 0);
+  assert.equal(fold(["round", "second", "Bolder"]).status, 0);
+  const file = path.join(folder, "work", "index.html"), rounded = fs.readFileSync(file, "utf8"), end = rounded.lastIndexOf("</section>") + 11;
+  const view = (of) => `<section class="direction" data-view-of="${of}" data-ss-frame="phone" data-ss-section data-ss-id="${of}-phone" data-ss-label="Phone"><p>${of} on a phone</p></section>\n`;
+  fs.writeFileSync(file, rounded.slice(0, end) + view("first") + view("second") + rounded.slice(end));
+  const before = fs.readFileSync(file, "utf8"), n = calls().length;
+  const r = fold(["copy", "second"]);
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /^copy: Second alone in a new space, private: https:\/\/stage\.test\/s; this space is as it was$/m);
+  assert.deepEqual(calls().slice(n), [["deploy", "draw/_copy/second", "--title", "Second", "--json"]], "one deploy, of the copy, as a new space");
+  assert.equal(fs.readFileSync(file, "utf8"), before, "work/index.html as it was");
+  const copy = fs.readFileSync(path.join(folder, "draw", "_copy", "second", "index.html"), "utf8");
+  assert.deepEqual([...copy.matchAll(/<section class="direction"[^>]*data-ss-id="([a-z-]+)"/g)].map((m) => m[1]), ["direction-second", "second-phone"]);
+  assert.match(copy, /<title>Second<\/title>/);
+  assert.match(copy, /<meta name="ss-canvas-focus" content="direction-second">/);
+  assert.ok(before.includes("data-round-lines data-ss-id") && !copy.includes("data-round-lines data-ss-id"), "no lines to directions that aren't there");
+  const wrong = fold(["copy", "fourth"]);
+  assert.equal(wrong.status, 2);
+  assert.match(wrong.stderr, /^copy: give a direction on the page \(first, second, third, bolder\)$/m);
+});
+
 // A round's sections, lines and token rules, read back from the page.
 const sectionsOf = (page) => [...page.matchAll(/^<section class="direction"[^>]*>[\s\S]*?^<\/section>/gm)].map((m) => m[0]);
 const attr = (html, name) => (html.match(new RegExp(`\\s${name}="([^"]*)"`)) || [])[1];
@@ -873,7 +912,9 @@ test("round puts each version in a row of its own below everything, joined to it
   ], "a row under the first, 320 px below its bottom, centred under Second");
   for (const v of ["bolder", "quieter", "wider"]) {
     const s = versions.find((x) => attr(x, "data-ss-id") === `direction-${v}`);
-    assert.match(s, new RegExp(`data-ss-say="Use ${v[0].toUpperCase()}${v.slice(1)}"[^>]*><span class="use">Use this design</span>`), `${v} has its pill`);
+    const n = v[0].toUpperCase() + v.slice(1);
+    assert.ok(s.includes(`<div class="card-menu no-print" data-ss-canvas="label"><button type="button" class="menu-open" aria-haspopup="menu" aria-expanded="false" aria-label="Menu for ${n}">⋯</button>`) &&
+      s.includes(`data-ss-say="Use ${n}" title="Use ${n}"><span class="use">Use this</span>`) && s.includes(`data-ss-say="Another round of ${n}" title="Another round of ${n}">Another round</button>`), `${v} has its menu`);
     assert.match(s, new RegExp(`<!-- part:${v} --><div class="drawing" data-ss-id="${v}-drawing">[\\s\\S]*<!-- /part:${v} -->`), `${v} has its empty part`);
     assert.ok(page.includes(`  [data-ss-id="direction-${v}"] { --brand-ink: #f2efe8; --brand-ground: #15171c; --brand-accent: #ffb703; --font-display: "Avenir Next", Futura, "Gill Sans", sans-serif; --font-body: "Avenir Next", "Segoe UI", sans-serif; }\n`), `${v} starts from Second's tokens`);
   }

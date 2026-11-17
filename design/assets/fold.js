@@ -52,8 +52,10 @@
 //   node fold.js -C <folder> round <slug> "<name>"…   a new round: 1 to 5 versions of that direction, each named,
 //                                               in a row of their own below everything on the canvas, each
 //                                               joined to it by a line and starting from its tokens, with a
-//                                               pill and an empty part; the canvas then shows every direction;
+//                                               ⋯ menu and an empty part; the canvas then shows every direction;
 //                                               nothing earlier changes and nothing is pushed
+//   node fold.js -C <folder> copy <slug>         its own space, only when asked: that direction alone, its views
+//                                               with it, in a new private space named after it; this one stays
 //
 // A folder from before fold.js kept run records (draw/writer.run, draw/save.run) gets them from start, read,
 // kit, save, write, wait or stop, once no fold.js save or writer is running in it (adopt, below).
@@ -85,7 +87,7 @@ if (argv[0] === "-C") {
   argv.splice(0, 2);
 }
 const cmd = argv[0];
-const COMMANDS = ["start", "push", "write", "brief", "save", "wait", "stop", "read", "focus", "kit", "title", "round"];
+const COMMANDS = ["start", "push", "write", "brief", "save", "wait", "stop", "read", "focus", "kit", "title", "round", "copy"];
 if (!COMMANDS.includes(cmd)) {
   console.error(`usage: node fold.js -C <folder> ${COMMANDS.join("|")} …  (the header of ${__filename} says what each does)`);
   process.exit(2);
@@ -521,17 +523,24 @@ function retire() {
   log(`a revision: the last build (${moved.join(", ")}) put aside in ${to}`);
   return `the last build's frame and parts are put aside in ${to}: edit work/index.html, and a save sends it as it is`;
 }
+// A direction card's ⋯ menu, for a name as it is written in the section's data-ss-label: Use this ("Use <name>")
+// and Another round ("Another round of <name>"), each said in the chat as the person.
+function cardMenu(n) {
+  return `<div class="card-menu no-print" data-ss-canvas="label"><button type="button" class="menu-open" aria-haspopup="menu" aria-expanded="false" aria-label="Menu for ${n}">⋯</button>` +
+  `<div class="menu" role="menu" hidden><button type="button" class="use-this" role="menuitem" data-ss-say="Use ${n}" title="Use ${n}"><span class="use">Use this</span><span class="chosen">✓ Chosen</span></button>` +
+  `<button type="button" class="round" role="menuitem" data-ss-say="Another round of ${n}" title="Another round of ${n}">Another round</button></div></div>`;
+}
 // The starter's placeholders keep its names (part:first, part:second, part:third) until fold.js renames each
-// with the slug of the section holding it, and its heading with that section's name; each section's "Use this
-// design" pill says "Use <its name>". So step 2's Edits stop at the sections' opening tags and never reach a
-// placeholder or a pill. Not while a writer owns work/index.html.
+// with the slug of the section holding it, and its heading with that section's name; each section's menu (or an
+// older page's "Use this design" pill) says its name. So step 2's Edits stop at the sections' opening tags and
+// never reach a placeholder or a menu. Not while a writer owns work/index.html.
 function nameParts() {
   const page = read("work/index.html");
   if (!page || job("writer").state === "open") return;
   const named = page.replace(/(<section\b[^>]*data-ss-id="direction-([a-z0-9-]+)"[^>]*>)([\s\S]*?)(?=<\/section>)/g, (m, open, slug, body) =>
-    open + body.replace(/<button type="button" class="use-this[^"]*"[^>]*>/, (b) => {
+    open + body.replace(/<div class="card-menu[^"]*" data-ss-canvas="label">[\s\S]*?<\/div><\/div>|<button type="button" class="use-this[^"]*"[^>]*>/, (b) => {
       const l = open.match(/data-ss-label="([^"]*)"/);
-      return l ? b.replace(/ data-ss-say="[^"]*"/, () => ` data-ss-say="Use ${l[1]}"`).replace(/ title="[^"]*"/, () => ` title="Use ${l[1]}"`) : b;
+      return !l ? b : b.startsWith("<div") ? cardMenu(l[1]) : b.replace(/ data-ss-say="[^"]*"/, () => ` data-ss-say="Use ${l[1]}"`).replace(/ title="[^"]*"/, () => ` title="Use ${l[1]}"`);
     }).replace(/<!-- part:(first|second|third) -->([\s\S]*?)<!-- \/part:\1 -->/, (p, old, inner) => old === slug ? p : `<!-- part:${slug} -->${inner
       .replace(`data-ss-id="${old}-drawing"`, `data-ss-id="${slug}-drawing"`)
       .replace(/<h2>[^<]*<\/h2>/, (h) => { const l = open.match(/data-ss-label="([^"]*)"/); return l ? `<h2>${l[1]}</h2>` : h; })}<!-- /part:${slug} -->`));
@@ -732,7 +741,7 @@ if (cmd === "kit") {
 }
 // A new round: versions of one direction in a row of their own below everything on the canvas, each joined to
 // it by a line, so nothing from earlier rounds moves or goes. Each version is a direction as the starter's are
-// (a "Use this design" pill, an empty part, its parent's frame size, and its parent's tokens as a rule of its own)
+// (a ⋯ menu, an empty part, its parent's frame size, and its parent's tokens as a rule of its own)
 // with data-version-of="<its parent's slug>", after the last direction, so views keep the numbers after the
 // directions. The lines are one block, a <div data-round-lines> of fold.js's own, drawn again from every
 // data-version-of on the page and shown only on the canvas, behind the frames. The canvas then shows every
@@ -818,7 +827,7 @@ function rounded(page, parent, names) {
   const top = Math.max(...all.map((d) => d.y + d.h)) + ROW_GAP, width = names.length * p.w + (names.length - 1) * FRAME_GAP;
   const left = Math.round(p.x + p.w / 2 - width / 2);
   const sections = versions.map((v, i) => `<section class="direction" data-version-of="${p.slug}" data-round="${n}" data-ss-frame="${p.frame}" data-ss-section data-ss-id="direction-${v.slug}" data-ss-thing="direction/${v.slug}" data-ss-label="${esc(v.name)}" data-line="What it changes from ${p.label || p.slug}, and what that gives up." data-ss-x="${left + i * (p.w + FRAME_GAP)}" data-ss-y="${top}">
-  <button type="button" class="use-this no-print" data-ss-canvas="label" data-ss-say="Use ${esc(v.name)}" title="Use ${esc(v.name)}"><span class="use">Use this design</span><span class="chosen">✓ Chosen</span></button>
+  ${cardMenu(esc(v.name))}
   <!-- part:${v.slug} --><div class="drawing" data-ss-id="${v.slug}-drawing"><h2>${esc(v.name)}</h2><p>Being drawn…</p><i></i><i></i><i></i></div><!-- /part:${v.slug} -->
 </section>
 `).join("\n");
@@ -861,6 +870,28 @@ if (cmd === "round") {
   const list = made.versions.map((v) => v.name);
   const said = list.length > 1 ? `${list.slice(0, -1).join(", ")} and ${list.at(-1)}` : list[0];
   console.log(`round: ${said} under ${made.parent.label || made.parent.slug}, in a new row joined to it by lines (${made.versions.map((v) => v.slug).join(", ")}), ${made.tokens ? "each with its tokens" : `with no tokens: the page has no rule for [data-ss-id="direction-${made.parent.slug}"], so set each version's`}; the canvas shows every direction; nothing pushed`);
+  process.exit(0);
+}
+// Its own space, only when the person asks for one in words: the page with that direction alone (its views with it),
+// named after it, in a new private space. This space, its page and work/ stay as they are.
+if (cmd === "copy") {
+  const slug = (plain("direction", argv[1]) || "").replace(/^direction-/, ""), page = read("work/index.html");
+  if (page === null) { console.error("copy: no work/index.html"); process.exit(2); }
+  const all = directionsOf(page), d = all.find((x) => !x.view && x.slug === slug);
+  if (!d) { console.error(`copy: give a direction on the page (${all.filter((x) => !x.view).map((x) => x.slug).join(", ") || "it has none"})`); process.exit(2); }
+  let out = page;
+  for (const x of all.slice().reverse()) if (x !== d && x.view !== slug) out = out.slice(0, x.start) + out.slice(x.end).replace(/^\n/, "");
+  const name = (d.label || slug).replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+  out = titled(out.replace(LINES, ""), name);
+  out = withFocus(out, `direction-${slug}`) || out;
+  const dir = `draw/_copy/${slug}`;
+  if (within(dir)) fs.rmSync(dir, { recursive: true, force: true });
+  mkdir(dir);
+  if (!write(`${dir}/index.html`, out)) process.exit(2);
+  let j;
+  try { const r = run(["deploy", dir, "--title", name, "--json"]); j = JSON.parse(r.slice(r.indexOf("{"))); }
+  catch (e) { console.error(`copy: the new space wasn't made: ${String(e.stderr || e.message || e).trim().split("\n").pop()}`); process.exit(1); }
+  console.log(`copy: ${name} alone in a new space, private: ${(j.space || {}).url || (j.space || {}).id}; this space is as it was`);
   process.exit(0);
 }
 if (cmd === "push") {

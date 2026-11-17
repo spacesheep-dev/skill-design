@@ -242,16 +242,19 @@ function switcherListeners(already) {
 }
 
 test("the frame's listeners go in on a page an older starter set up, whose tab already has the number keys", () => {
+  const menu = ["document click", "document keydown"], put = (l) => [...l, ...menu].sort();
   const fresh = switcherListeners({});
-  assert.deepEqual(fresh, ["document click", "document ss:canvas", "window hashchange", "window keydown", "window keydown"]);
+  assert.deepEqual(fresh, put(["document click", "document ss:canvas", "window hashchange", "window keydown", "window keydown"]));
   // An older starter's tab: its number-key listener is in, so only the frame's are added on the push.
-  assert.deepEqual(switcherListeners({ ssViewKeys: true }), ["document click", "document ss:canvas", "window hashchange", "window keydown"]);
+  assert.deepEqual(switcherListeners({ ssViewKeys: true }), put(["document click", "document ss:canvas", "window hashchange", "window keydown"]));
   // A tab whose frame listened to the canvas before ssFrameHeard: the canvas's listener that calls the newest frame() goes in.
-  assert.deepEqual(switcherListeners({ ssViewKeys: true, ssFrameKeys: true }), ["document click", "document ss:canvas", "window hashchange"]);
+  assert.deepEqual(switcherListeners({ ssViewKeys: true, ssFrameKeys: true }), put(["document click", "document ss:canvas", "window hashchange"]));
   // A tab whose frame came before the cards' pills: the pill's tap goes in on the push.
-  assert.deepEqual(switcherListeners({ ssViewKeys: true, ssFrameKeys: true, ssFrameHeard: true }), ["document click", "window hashchange"]);
+  assert.deepEqual(switcherListeners({ ssViewKeys: true, ssFrameKeys: true, ssFrameHeard: true }), put(["document click", "window hashchange"]));
+  // A tab from before the cards' menus: the menu's tap and keys go in on the push.
+  assert.deepEqual(switcherListeners({ ssViewKeys: true, ssFrameKeys: true, ssFrameHeard: true, ssPillTaps: true }), put(["window hashchange"]));
   // This starter's tab, pushed again: nothing twice.
-  assert.deepEqual(switcherListeners({ ssViewKeys: true, ssFrameKeys: true, ssFrameHeard: true, ssPillTaps: true }), ["window hashchange"]);
+  assert.deepEqual(switcherListeners({ ssViewKeys: true, ssFrameKeys: true, ssFrameHeard: true, ssPillTaps: true, ssMenus: true }), ["window hashchange"]);
 });
 
 // The switcher's script on a stand-in page with three directions: what its bar's pill and tabs show.
@@ -268,7 +271,7 @@ function barPage(flags = {}) {
     contains(x) { return x === this; }
   }
   const dirs = ["first", "second", "third"].map((s) => new El({ ssId: `direction-${s}`, ssLabel: s[0].toUpperCase() + s.slice(1), line: s }));
-  const bar = { ".switcher-tabs": new El(), ".switcher-line": new El(), ".switcher-views": new El(), ".frame-back": new El(), ".frame-zoom": new El(), ".frame-use": new El(), 'meta[name="ss-canvas"][content="on"]': new El(), "section.direction": dirs[0] };
+  const bar = { ".switcher-tabs": new El(), ".switcher-line": new El(), ".switcher-views": new El(), ".frame-back": new El(), ".frame-zoom": new El(), ".frame-use": new El(), ".frame-round": new El(), 'meta[name="ss-canvas"][content="on"]': new El(), "section.direction": dirs[0] };
   const document = {
     body: {}, contains: () => true, getElementById: () => null, createElement: () => new El(),
     querySelector: (s) => bar[s] || dirs.find((d) => s === `[data-ss-id="${d.dataset.ssId}"]`) || null,
@@ -282,7 +285,7 @@ function barPage(flags = {}) {
   if (flags.ssFrameKeys) heard["ss:canvas"] = [() => {}];
   vm.runInNewContext(BASE.slice(BASE.indexOf("/* switcher: start */\n(() => {"), BASE.indexOf("/* switcher: end */\n/* controls")), win);
   const canvas = (open) => { win.ss = { canvas: { zoom: open ? 0.87 : 0.35, open } }; (heard["ss:canvas"] || []).forEach((f) => f()); };
-  return { dirs, pill: bar[".frame-use"], tabs: bar[".switcher-tabs"], canvas, observe: () => watchers.forEach((f) => f()) };
+  return { dirs, pill: bar[".frame-use"], round: bar[".frame-round"], tabs: bar[".switcher-tabs"], canvas, observe: () => watchers.forEach((f) => f()) };
 }
 
 test("the bar's pill follows the open direction on a tab an older frame set up, and a live pick marks it and its tab", () => {
@@ -295,6 +298,10 @@ test("the bar's pill follows the open direction on a tab an older frame set up, 
   const page = barPage();
   page.canvas("direction-second");
   assert.equal(page.pill.disabled, false);
+  assert.deepEqual([page.round.hidden, page.round.dataset.ssSay, page.round.title], [false, "Another round of Second", "Another round of Second"], "Another round beside it says its line");
+  page.canvas(null);
+  assert.equal(page.round.hidden, true, "and goes with it on the canvas");
+  page.canvas("direction-second");
   // The agent's pick arrives as an attribute on the section, in a live push that keeps the node.
   page.dirs[1].setAttribute("data-chosen", "");
   page.observe();
