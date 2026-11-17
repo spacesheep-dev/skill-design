@@ -39,6 +39,8 @@
 //                                               revision's first status, before anything changes; the
 //                                               last build's frame and parts go to draw/_old/, so a save
 //                                               sends work/ as edited
+//   node fold.js -C <folder> title "<title>"     rename the space, and the page's <title>: only when the
+//                                               person picks a new title (start keeps the one it has)
 //   node fold.js -C <folder> focus <all|slug>    what the canvas shows: every direction, or the one named
 //                                               (its <meta name="ss-canvas-focus">), then push the page
 //   node fold.js -C <folder> kit                 before a page's first device view: its switcher (styles and
@@ -79,7 +81,7 @@ if (argv[0] === "-C") {
   argv.splice(0, 2);
 }
 const cmd = argv[0];
-const COMMANDS = ["start", "push", "write", "brief", "save", "wait", "stop", "read", "focus", "kit"];
+const COMMANDS = ["start", "push", "write", "brief", "save", "wait", "stop", "read", "focus", "kit", "title"];
 if (!COMMANDS.includes(cmd)) {
   console.error(`usage: node fold.js -C <folder> ${COMMANDS.join("|")} …  (the header of ${__filename} says what each does)`);
   process.exit(2);
@@ -443,6 +445,8 @@ function isBlank(h) {
   return [platformBlank, (t) => firstPage(t, base)].some((make) => knownPage(make).test(page));
 }
 const isDesign = (h) => !isBlank(h);
+// The starter with the space's own title: a design never renames the space unasked (`title` does, on the person's pick).
+const titled = (base, title) => base.replace(/<title>[^<]*<\/title>/, `<title>${esc(title)}</title>`);
 // The starter with no directions: the canvas and its frame, pushed the moment a blank page is known, before any design.
 const emptyCanvas = (base) => base.replace(/^<section class="direction"[\s\S]*?^<\/section>\n*/gm, "");
 // One space per folder: start never points a folder at a second space.
@@ -543,7 +547,7 @@ function idle() {
 }
 
 // Said when the starter is in work/, just before the agent draws: how each direction reaches the person.
-const NEXT = 'next: Edit the title, the directions\' tokens and each section\'s opening tag (slug, name, line) in work/index.html, one Edit each, and leave every <!-- part:… --> placeholder as it is (fold.js names it after its section). Then fold.js push, fold.js save "Frame" "Drawing three directions", fold.js write, and each direction as draw/<slug>/01.html, 02.html…, its first line its status. A direction drawn in work/index.html shows no status.';
+const NEXT = 'next: Edit the directions\' tokens and each section\'s opening tag (slug, name, line) in work/index.html, one Edit each, and leave every <!-- part:… --> placeholder as it is (fold.js names it after its section). Then fold.js push, fold.js save "Frame" "Drawing three directions", fold.js write, and each direction as draw/<slug>/01.html, 02.html…, its first line its status. A direction drawn in work/index.html shows no status.';
 // Each command that starts a run or reads one first sets up an older folder's missing records, when that's safe.
 if (!bg && !NEW && ["start", "read", "kit", "save", "write", "wait", "stop"].includes(cmd)) adopt();
 if (cmd === "start") {
@@ -560,7 +564,7 @@ if (cmd === "start") {
     space = (j.space || {}).id;
     if (!UUID.test(space || "")) { console.error("start: the new space's id isn't in the answer"); process.exit(1); }
     keep(space);
-    if (!setWork(base) || !write("draw/starter", "1\n")) process.exit(2);
+    if (!setWork(titled(base, title)) || !write("draw/starter", "1\n")) process.exit(2);
     try { run(["live", "push", "--space", space, "--status", "Reading your brief"]); card("up"); console.log("status: Reading your brief"); }
     catch (e) { console.error(`status refused: ${why(e)}`); }
     console.log(push("--html", emptyCanvas(base)) ? "pushed the empty canvas" : "the empty canvas wasn't pushed (draw/fold.log)");
@@ -569,7 +573,8 @@ if (cmd === "start") {
   }
   const link = plain("link", argv[1]), first = (plain("status", argv[2]) || "Reading your brief").slice(0, 200);
   if (!link) { console.error("start: give the space's link, or --new \"<title>\""); process.exit(2); }
-  space = ((run(["spaces", "get", link]).match(/^ *id: (.*)$/m) || [])[1] || "").trim();
+  const got = run(["spaces", "get", link]), title = ((got.match(/^ *title: (.*)$/m) || [])[1] || "").trim();
+  space = ((got.match(/^ *id: (.*)$/m) || [])[1] || "").trim();
   if (!UUID.test(space)) { console.error(`start: no id in the answer to spaces get ${link}`); process.exit(1); }
   keep(space);
   try { run(["live", "push", "--space", space, "--status", first]); card("up"); console.log(`status: ${first}`); }
@@ -580,12 +585,24 @@ if (cmd === "start") {
   const aside = retire();
   if (aside) console.log(aside);
   if (!isDesign(read("work/index.html"))) {
-    const base = fs.readFileSync(path.join(__dirname, "base.html"), "utf8");
+    const base = titled(fs.readFileSync(path.join(__dirname, "base.html"), "utf8"), title || "Design");
     if (!setWork(base) || !write("draw/starter", "1\n")) process.exit(2);
     console.log(push("--html", emptyCanvas(base)) ? "pushed the empty canvas" : "the empty canvas wasn't pushed (draw/fold.log)");
     console.log(`work/index.html held no design: the starter is in its place\n${NEXT}`);
   } else remove("draw/starter"); // a revision: section 7, not a new build
-  console.log(`space: ${space}`);
+  console.log(`space: ${space}\ntitle: ${title} (the person's: keep it)`);
+  process.exit(0);
+}
+// A new title, only when the person picked one: the space's (as lists and links show it) and the page's <title>.
+if (cmd === "title") {
+  const want = (plain("title", argv[1]) || "").trim().slice(0, 200);
+  if (!want) { console.error('title: give the title the person picked, title "<title>"'); process.exit(2); }
+  run(["spaces", "update", space, "--title", want]);
+  for (const f of ["work/index.html", "draw/frame.html"]) {
+    const p = read(f);
+    if (p !== null && /<title>[^<]*<\/title>/.test(p) && !(f === "work/index.html" ? rework(titled(p, want)) : swap(f, titled(p, want)))) process.exit(2);
+  }
+  console.log(`title: ${want}; the next push or save carries it to the page`);
   process.exit(0);
 }
 // A revision's first word to the person: the status goes up before the read, so the page says something
