@@ -185,8 +185,59 @@ test("the frame's listeners go in on a page an older starter set up, whose tab a
   assert.deepEqual(fresh, ["document ss:canvas", "window hashchange", "window keydown", "window keydown"]);
   // An older starter's tab: its number-key listener is in, so only the frame's are added on the push.
   assert.deepEqual(switcherListeners({ ssViewKeys: true }), ["document ss:canvas", "window hashchange", "window keydown"]);
+  // A tab whose frame listened to the canvas before ssFrameHeard: the canvas's listener that calls the newest frame() goes in.
+  assert.deepEqual(switcherListeners({ ssViewKeys: true, ssFrameKeys: true }), ["document ss:canvas", "window hashchange"]);
   // This starter's tab, pushed again: nothing twice.
-  assert.deepEqual(switcherListeners({ ssViewKeys: true, ssFrameKeys: true }), ["window hashchange"]);
+  assert.deepEqual(switcherListeners({ ssViewKeys: true, ssFrameKeys: true, ssFrameHeard: true }), ["window hashchange"]);
+});
+
+// The switcher's script on a stand-in page with three directions: what its bar's pill and tabs show.
+function barPage(flags = {}) {
+  const vm = require("vm"), heard = {}, watchers = [];
+  const camel = (n) => n.slice(5).replace(/-([a-z])/g, (m, c) => c.toUpperCase());
+  class El {
+    constructor(data = {}) { this.dataset = { ...data }; this.attrs = new Map(); this.children = []; this.hidden = false; this.classList = { toggle() {} }; }
+    hasAttribute(n) { return n.startsWith("data-") ? camel(n) in this.dataset : this.attrs.has(n); }
+    setAttribute(n, v) { if (n.startsWith("data-")) this.dataset[camel(n)] = String(v); else this.attrs.set(n, String(v)); }
+    toggleAttribute(n, on) { if (on) this.setAttribute(n, ""); else if (n.startsWith("data-")) delete this.dataset[camel(n)]; else this.attrs.delete(n); }
+    replaceChildren(...k) { this.children = k; }
+    addEventListener() {}
+    contains(x) { return x === this; }
+  }
+  const dirs = ["first", "second", "third"].map((s) => new El({ ssId: `direction-${s}`, ssLabel: s[0].toUpperCase() + s.slice(1), line: s }));
+  const bar = { ".switcher-tabs": new El(), ".switcher-line": new El(), ".switcher-views": new El(), ".frame-back": new El(), ".frame-zoom": new El(), ".frame-use": new El(), 'meta[name="ss-canvas"][content="on"]': new El(), "section.direction": dirs[0] };
+  const document = {
+    body: {}, contains: () => true, getElementById: () => null, createElement: () => new El(),
+    querySelector: (s) => bar[s] || dirs.find((d) => s === `[data-ss-id="${d.dataset.ssId}"]`) || null,
+    querySelectorAll: (s) => (s === "section.direction:not([data-view-of])" ? dirs : []),
+    addEventListener: (n, f) => (heard[n] = heard[n] || []).push(f),
+  };
+  const win = { ...flags, document, location: { hash: "" }, history: { replaceState() {} }, matchMedia: () => ({ matches: false }), CSS: { escape: (s) => s },
+    MutationObserver: class { constructor(f) { watchers.push(f); } observe() {} takeRecords() {} }, HashChangeEvent: class {}, addEventListener() {}, dispatchEvent() {} };
+  win.window = win;
+  // A listener an older frame added, which knows nothing of the pill, as the frame before it did.
+  if (flags.ssFrameKeys) heard["ss:canvas"] = [() => {}];
+  vm.runInNewContext(BASE.slice(BASE.indexOf("/* switcher: start */\n(() => {"), BASE.indexOf("/* switcher: end */\n/* controls")), win);
+  const canvas = (open) => { win.ss = { canvas: { zoom: open ? 0.87 : 0.35, open } }; (heard["ss:canvas"] || []).forEach((f) => f()); };
+  return { dirs, pill: bar[".frame-use"], tabs: bar[".switcher-tabs"], canvas, observe: () => watchers.forEach((f) => f()) };
+}
+
+test("the bar's pill follows the open direction on a tab an older frame set up, and a live pick marks it and its tab", () => {
+  const old = barPage({ ssViewKeys: true, ssFrameKeys: true });
+  old.canvas("direction-first");
+  assert.equal(old.pill.hidden, false, "an older frame's tab shows the pill once a direction opens");
+  assert.equal(old.pill.dataset.ssSay, "Use First");
+  old.canvas(null);
+  assert.equal(old.pill.hidden, true, "and hides it back on the canvas");
+  const page = barPage();
+  page.canvas("direction-second");
+  assert.equal(page.pill.disabled, false);
+  // The agent's pick arrives as an attribute on the section, in a live push that keeps the node.
+  page.dirs[1].setAttribute("data-chosen", "");
+  page.observe();
+  assert.equal(page.pill.disabled, true, "the pill is pressed out at once");
+  assert.ok(page.pill.hasAttribute("data-chosen"), "and reads Chosen");
+  assert.deepEqual(page.tabs.children.map((b) => b.hasAttribute("data-chosen")), [false, true, false], "its tab carries the mark");
 });
 
 test("a width rule on the window, or a size in vw, is flagged with the frame's way to say it", () => {
