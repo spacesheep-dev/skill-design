@@ -76,7 +76,8 @@
   .frame-use[data-chosen] .chosen { display: inline; }
   .frame-use[data-chosen] { cursor: default; }
   .switcher-tabs button[data-chosen]::after { content: " \2713"; }
-  .direction[data-chosen] { outline: 2px solid var(--bar-ink); outline-offset: 6px; }
+  /* the chosen edge is the frame's own edge, 2 px at any canvas zoom, so it stays under the label row 3 px above */
+  .direction[data-chosen] { outline: calc(2px / var(--ss-cz, 1)) solid var(--bar-ink); outline-offset: 0; }
   /* "Use this design" on each direction's card: Spacesheep's canvas draws it at the right end of the card's label
      row (data-ss-canvas="label"), at screen size and outside the design. Until the canvas lifts it there it shows
      nowhere; nor with one direction, nor while a direction is open, when the bar's pill is the one. It is a small
