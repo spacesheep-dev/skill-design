@@ -136,7 +136,7 @@ Reply in at most five short lines, then, only when step 2 found the title doesn'
 - how to give feedback: tap a block and comment with @shepherd in it, or say it in this chat,
 - the next step: with directions, one decision line ("If you want the due dates first, pick Harbour Chart; every bill at once, Logbook"); else approve it or hand it to a developer.
 
-**Keep a Decisions log on the space.** After the first revision or decision, add it at the very end: `<details class="no-print" data-ss-id="decisions" data-ss-canvas="pin" style="display:none"><summary>Decisions</summary>…</details>`, one line per decision with the date and version ("11 Nov, v4: picked Night Watch; bolder type"). It is the record, read from the source, never shown: the canvas draws any block outside a direction as a frame of its own, so `data-ss-canvas="pin"` keeps it off the canvas, and the check flags a log that would show.
+**Keep a Decisions log on the space.** After the first revision or decision, add it at the very end: `<details class="no-print" data-ss-id="decisions" data-ss-canvas="pin" style="display:none"><summary>Decisions</summary>…</details>`, one line per decision with the date, version and the person's reason when they gave one ("11 Nov, v4: picked Night Watch, for the due dates first; bolder type"). Before new work in a space, read its log in `work/index.html` and start from the taste it records. It is the record, read from the source, never shown: the canvas draws any block outside a direction as a frame of its own, so `data-ss-canvas="pin"` keeps it off the canvas, and the check flags a log that would show.
 
 ## 7. Revise from comments and chat
 
