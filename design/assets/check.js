@@ -221,13 +221,13 @@ function checkUnit(slug, u) {
     const rules = new Map();
     for (const d of decls(s.body)) {
       const k = `${d.sel}\u0000${d.media}`;
-      if (!rules.has(k)) rules.set(k, { sel: d.sel, at: d.at, props: {} });
-      rules.get(k).props[d.prop] = d;
+      if (!rules.has(k)) rules.set(k, { sel: d.sel, ds: [] });
+      rules.get(k).ds.push(d);
     }
     for (const r of rules.values()) {
-      if (/::?(first-letter|first-line|before|after|marker)\b/i.test(r.sel) || /^(left|right|inline-start|inline-end)\b/i.test((r.props.float || {}).value || "")) continue; // a drop cap floats beside its text
-      const said = tight(r.props);
-      if (said) fail(slug, where(s.at + said.at), `display type in "${r.sel}" ${said.text}: a taller face the stack names, one the picture's renderer lacks, can run into the text beside it; give it .2em of margin or padding above and below, or line-height 1`);
+      if (/::?(first-letter|first-line|before|after|marker)\b/i.test(r.sel) || /^(left|right|inline-start|inline-end)\b/i.test((r.ds.filter((d) => d.prop === "float").pop() || {}).value || "")) continue; // a drop cap floats beside its text
+      const said = tight(r.ds);
+      if (said) fail(slug, where(s.at + said.at), `display type in "${r.sel}" ${said.text}: a taller face the stack names, one the picture's renderer lacks, can run into the text beside it; give it a margin of a fifth of its size above and below; keep the line-height`);
     }
   }
   if (colours.length) fail(slug, colours[0].w, `colour ${colours[0].c} isn't a token${colours.length > 1 ? ` (${colours.length - 1} more: ${[...new Set(colours.slice(1).map((x) => x.c))].slice(0, 4).join(", ")})` : ""}: use the direction's variables`);
@@ -239,12 +239,24 @@ function checkUnit(slug, u) {
   }
 }
 
-// For one rule's declarations: { text, at } when it sets display type (40 px or more, at a 1280 px frame) under
-// line-height 1 with less than a fifth of its size clear above or below it, else null.
-function tight(p) {
-  const font = p.font ? p.font.value.match(/(\S+)\s*\/\s*(\S+)/) : null;
-  const size = p["font-size"] ? p["font-size"].value : font ? font[1] : "";
-  const lhDecl = p["line-height"] || (font && p.font), lh = p["line-height"] ? p["line-height"].value : font ? font[2] : "";
+// For one rule's declarations, in their order: { text, at } when it sets display type (40 px or more, at a 1280 px
+// frame) under line-height 1 with less than a fifth of its size clear above or below it (margin and padding
+// together, each side as the last declaration that sets it leaves it), else null.
+function tight(ds) {
+  let size = "", lh = "", at = 0;
+  const box = { margin: ["0", "0"], padding: ["0", "0"] };
+  for (const d of ds) {
+    const v = d.value.replace(/\s*!important$/i, ""), side = d.prop.match(/^(margin|padding)(?:-(top|bottom|block|block-start|block-end))?$/);
+    if (d.prop === "font") { const f = v.match(/(\S+)\s*\/\s*(\S+)/); size = f ? f[1] : (v.match(/\d*\.?\d+(?:px|rem|em|cqi|cqw|vw|vh|vmin|vmax)\b/i) || [""])[0]; lh = f ? f[2] : ""; at = d.at; }
+    else if (d.prop === "font-size") size = v;
+    else if (d.prop === "line-height") { lh = v; at = d.at; }
+    else if (side) {
+      const w = v.split(/\s+/), b = box[side[1]];
+      if (!side[2]) box[side[1]] = [w[0], w[2] ?? w[0]];
+      else if (side[2] === "block") box[side[1]] = [w[0], w[1] ?? w[0]];
+      else b[/top|start/.test(side[2]) ? 0 : 1] = v;
+    }
+  }
   const PX = { px: 1, rem: 16, em: 16, cqi: 12.8, cqw: 12.8, vw: 14.4, vh: 9, vmin: 9, vmax: 14.4 };
   const px = Math.max(0, ...[...size.toLowerCase().matchAll(/(\d*\.?\d+)(px|rem|em|cqi|cqw|vw|vh|vmin|vmax)\b/g)].map((m) => m[1] * PX[m[2]]));
   if (px < 40 || !lh) return null;
@@ -253,16 +265,10 @@ function tight(p) {
   const ratio = n[2] === "%" ? n[1] / 100 : n[2] === "px" ? n[1] / px : +n[1];
   if (ratio >= 1) return null;
   const len = (v) => { const m = (v || "").trim().toLowerCase().match(/^(-?\d*\.?\d+)(em|px|rem)?$/); return !m ? 0 : m[2] === "em" ? m[1] * px : m[2] === "rem" ? m[1] * 16 : +m[1]; };
-  const sides = (prop) => {
-    const all = p[prop] ? p[prop].value.split(/\s+/) : [], block = p[`${prop}-block`] ? p[`${prop}-block`].value.split(/\s+/) : [];
-    const top = p[`${prop}-top`] ? p[`${prop}-top`].value : block[0] ?? all[0];
-    const bottom = p[`${prop}-bottom`] ? p[`${prop}-bottom`].value : block[1] ?? block[0] ?? all[2] ?? all[0];
-    return [len(top), len(bottom)];
-  };
-  const [mt, mb] = sides("margin"), [pt, pb] = sides("padding"), need = px / 5;
-  const short = [Math.max(mt, pt) < need && "above", Math.max(mb, pb) < need && "below"].filter(Boolean);
+  const clear = (i) => len(box.margin[i]) + len(box.padding[i]), need = px / 5 - 0.01;
+  const short = [clear(0) < need && "above", clear(1) < need && "below"].filter(Boolean);
   if (!short.length) return null;
-  return { at: lhDecl.at, text: `sets line-height ${lh.trim()} with less than a fifth of its size clear ${short.join(" and ")}` };
+  return { at, text: `sets line-height ${lh.trim()} with less than a fifth of its size clear ${short.join(" and ")}` };
 }
 
 // The name a script declares at its top with const, let or class, which a second run in the same window

@@ -111,14 +111,19 @@ test("display type under line-height 1 without a fifth of its size clear is flag
     ".first-date { font-size: 30cqi; line-height: .9; margin: 8px 0; }", // the poster run's date: it rose into its heading in Rockwell
     ".first-date { font: 900 120px/0.85 Rockwell, serif; margin: 0; }",
     ".first-date { font-size: 6rem; line-height: 90%; margin-top: .3em; }", // clear above, not below
+    ".first-date { font-size: 120px; line-height: .9; margin: -.2em 0; padding: .2em 0; }", // the margin takes the room back
+    ".first-date { font-size: 120px; line-height: .9; margin-top: .2em; margin-bottom: .2em; margin: 0; }", // the last one wins
   ]) {
     const lines = tightType(css);
     assert.equal(lines.length, 1, `${css}: ${lines.join(" | ") || "not flagged"}`);
     assert.match(lines[0], /draw\/first\/01\.html:\d+/);
+    assert.match(lines[0], /give it a margin of a fifth of its size above and below; keep the line-height$/); // room, never looser type
   }
   for (const css of [
     ".first-date { font-size: 30cqi; line-height: .9; margin: .2em 0; }",
     ".first-date { font-size: 30cqi; line-height: .9; margin-block: 0; padding-block: .25em; }",
+    ".first-date { font-size: 120px; line-height: .9; margin: .1em 0; padding: .1em 0; }", // margin and padding together
+    ".first-date { line-height: .9; font: 900 120px Rockwell, serif; margin: 0; }", // the font shorthand sets line-height back to normal
     ".first-date { font-size: 30cqi; line-height: 1; margin: 0; }",
     ".first-date { font-size: 18px; line-height: .9; margin: 0; }", // not display type
     ".first-date::first-letter { font-size: 5em; line-height: .8; }", // a drop cap
