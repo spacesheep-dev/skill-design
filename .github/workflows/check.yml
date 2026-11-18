@@ -22,5 +22,8 @@ jobs:
 
       - run: npx -y spacesheep@latest skills lint
 
+      # The page a Shepherd turn copies is what base.html makes.
+      - run: node tools/shepherd.js --check
+
       # fold.js against a stand-in CLI, and check.js on a folder the test makes: no network and no space.
-      - run: node --test test/fold.test.js test/check.test.js
+      - run: node --test test/fold.test.js test/check.test.js test/shepherd.test.js
