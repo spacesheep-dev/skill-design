@@ -323,6 +323,13 @@ test("a width rule on the window, or a size in vw, is flagged with the frame's w
   assert.match(lines[2], /6vw.*use cqi/);
 });
 
+test("overflow or a height on a direction's own section is flagged: its frame couldn't scroll on the canvas", () => {
+  const lines = withView({ css: '.direction { overflow: hidden; } [data-ss-id="direction-first-phone"][data-leads="2"] { max-height: 900px; } .first-phone-top { overflow: hidden; height: 4rem; } .direction-hero, .direction .first-phone-top { height: 2rem; }' });
+  assert.equal(lines.length, 2, lines.join(" | "));
+  assert.match(lines[0], /overflow: hidden on the direction's section \(".direction"\): its frame can't scroll on the canvas/);
+  assert.match(lines[1], /max-height: 900px on the direction's section/);
+});
+
 test("the starter's Export is last in the bar's row, its PDF items name sections by data-ss-id, and the end mark is the body's last node", () => {
   const row = BASE.slice(BASE.indexOf('<div class="switcher-row">'), BASE.indexOf('<div class="switcher-views"'));
   assert.match(row, /<div class="export no-print">[\s\S]*<\/p><\/div>\n  <\/div>\n  $/, "Export closes the row");

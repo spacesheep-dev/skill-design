@@ -17,7 +17,7 @@ test("shepherd.html is what tools/shepherd.js makes from base.html", () => {
 });
 
 test("it fits in one use_skill read and keeps the starter's metas, with no ss-workspace and no Export", () => {
-  assert.ok([...PAGE].length <= 24000, `${[...PAGE].length} characters`);
+  assert.ok([...PAGE].length <= 25000, `${[...PAGE].length} characters`);
   for (const meta of ['<meta name="ss-chat" content="open">', '<meta name="ss-canvas" content="on">', '<meta name="ss-canvas-focus" content="all">'])
     assert.ok(PAGE.includes(meta), meta);
   assert.doesNotMatch(PAGE, /ss-workspace/);
@@ -59,40 +59,106 @@ test("the questions card comes first in the body, within the first 4,000 charact
   assert.ok(end <= 4000, `the card ends at ${end}`);
   const tag = PAGE.slice(card, PAGE.indexOf(">", card));
   for (const a of ['data-ss-canvas="pin"', 'data-ss-id="design-questions"', 'data-ss-comments="off"']) assert.ok(tag.includes(a), a);
-  assert.match(PAGE.slice(card, end), /<button type="button" class="ss-start" data-ss-say="" disabled>/);
+  assert.match(PAGE.slice(card, end), /<button type="button" class="ss-start" data-ss-say="" disabled>Getting ready…<\/button>/);
   assert.ok(PAGE.indexOf(".ss-questions{") < card, "its styles come before it");
   assert.match(PAGE, /\.ss-questions\[hidden\]\{display:none;\}/);
 });
 
-test("the page's script turns the button on and says every answer in one line, and the card hides on the turn's edit", () => {
-  const card = PAGE.match(/<div class="ss-questions[\s\S]*?\n<\/div>/)[0];
-  const js = scripts(PAGE)[0].match(/\/\* questions: start \*\/[\s\S]*?\/\* questions: end \*\//)[0];
-  // A small stand-in for the card's DOM: two fieldsets as the example has them.
+// A small stand-in for the card's DOM: two fieldsets as the example has them, a button, and the card's listeners.
+function cardTab() {
   const input = (type, name, value, checked) => ({ type, name, value, checked, disabled: false });
   const sets = [
     { legend: "How should it feel?", inputs: [input("radio", "look", "Warm and homely", true), input("radio", "look", "Clean and modern", false)] },
     { legend: "What must it show?", inputs: [input("checkbox", "must", "Opening hours", true), input("checkbox", "must", "Prices", true)], text: { type: "text", value: " Allergens ", disabled: false } },
   ];
-  const go = { dataset: { ssSay: "" }, disabled: true, textContent: "Getting the page ready…", title: "" };
+  const attrs = {};
+  const go = { dataset: { ssSay: "" }, disabled: true, textContent: "Getting ready…", title: "",
+    getAttribute: (n) => (n in attrs ? attrs[n] : null), setAttribute: (n, v) => { attrs[n] = String(v); }, before: (w) => { why = w; } };
+  let why = null;
   const listeners = {};
   const fieldset = (f) => ({
-    querySelector: (s) => (s === "legend" ? { textContent: f.legend } : s === 'input[type="text"]' ? f.text || null : null),
-    querySelectorAll: (s) => (s === "input:checked" ? f.inputs.filter((i) => i.checked) : []),
+    querySelector: (q) => (q === "legend" ? { textContent: f.legend } : q === 'input[type="text"]' ? f.text || null : null),
+    querySelectorAll: (q) => (q === "input:checked" ? f.inputs.filter((i) => i.checked) : []),
   });
-  const el = { dataset: {}, querySelector: (s) => (s === ".ss-start" ? go : null), querySelectorAll: (s) => (s === "fieldset" ? sets.map(fieldset) : []),
+  const all = () => sets.flatMap((f) => [...f.inputs, ...(f.text ? [f.text] : [])]);
+  const el = { dataset: {},
+    querySelector: (q) => (q === ".ss-start" ? go : q === ".ss-why" ? why : null),
+    querySelectorAll: (q) => (q === "fieldset" ? sets.map(fieldset) : q === "input, .ss-start" ? [...all(), go] : []),
     addEventListener: (t, fn) => { listeners[t] = fn; } };
-  const tab = vm.createContext({ document: { querySelector: (s) => (s === ".ss-questions" ? el : null) }, window: {}, setTimeout: (fn) => fn() });
-  tab.window.parent = {};
-  vm.runInContext(js, tab);
-  assert.equal(go.disabled, false);
-  assert.equal(go.textContent, "Start designing");
-  assert.equal(go.dataset.ssSay, "Start designing with my answers. How should it feel? Warm and homely · What must it show? Opening hours, Prices, Allergens");
-  sets[0].inputs[0].checked = false; sets[0].inputs[1].checked = true; listeners.change();
-  assert.match(go.dataset.ssSay, /How should it feel\? Clean and modern/);
-  listeners.click({ target: { closest: (s) => (s === ".ss-start" ? go : null) } });
-  assert.ok("sent" in el.dataset);
-  assert.equal(go.textContent, "Designing… the directions come next");
-  vm.runInContext(js, tab);
-  assert.equal(go.textContent, "Designing… the directions come next", "a second run leaves a sent card as it is");
+  const document = { querySelector: (q) => (q === ".ss-questions" ? el : null),
+    createElement: () => ({ textContent: "", className: "", setAttribute(n, v) { this[n] = v; } }) };
+  const tab = vm.createContext({ document, window: { parent: {} }, setTimeout: (fn) => fn() });
+  const js = scripts(PAGE)[0].match(/\/\* questions: start \*\/[\s\S]*?\/\* questions: end \*\//)[0];
+  const run = () => vm.runInContext(js, tab);
+  const press = () => listeners.click({ target: { closest: (q) => (q === ".ss-start" ? go : null) } });
+  return { sets, go, el, attrs, listeners, all, run, press, why: () => why };
+}
+
+test("the page's script turns the button on and says every answer in one line, and the card hides on the turn's edit", () => {
+  const card = PAGE.match(/<div class="ss-questions[\s\S]*?\n<\/div>/)[0];
+  const t = cardTab();
+  t.run();
+  assert.equal(t.go.disabled, false);
+  assert.equal(t.go.textContent, "Start designing");
+  assert.equal(t.go.dataset.ssSay, "Start designing with my answers. How should it feel? Warm and homely · What must it show? Opening hours, Prices, Allergens");
+  t.sets[0].inputs[0].checked = false; t.sets[0].inputs[1].checked = true; t.listeners.change();
+  assert.match(t.go.dataset.ssSay, /How should it feel\? Clean and modern/);
+  t.press();
+  assert.ok("sent" in t.el.dataset);
+  assert.equal(t.go.textContent, "Designing… the directions come next");
+  assert.ok(t.all().every((i) => i.disabled), "every toggle and the button are off once sent");
+  t.run();
+  assert.equal(t.go.textContent, "Designing… the directions come next", "a second run leaves a sent card as it is");
   assert.match(card, /<div class="ss-questions no-print"/, "shepherd.md's turn 2 hides it by writing hidden before class");
+});
+
+test("a say the viewer refuses opens the card again with the picks kept and the reason shown, and a retry sends", () => {
+  const t = cardTab();
+  t.run();
+  t.sets[0].inputs[0].checked = false; t.sets[0].inputs[1].checked = true; t.listeners.change();
+  const line = t.go.dataset.ssSay;
+  t.press();
+  assert.ok("sent" in t.el.dataset);
+  t.listeners["ss:say-refused"]({ detail: { why: "Not sent: you typed or clicked outside the page just now. Tap again in a few seconds." } });
+  assert.ok(!("sent" in t.el.dataset), "the card is open again");
+  assert.ok(t.all().every((i) => !i.disabled), "the toggles and the button are on");
+  assert.equal(t.go.textContent, "Start designing");
+  assert.equal(t.why().textContent, "Not sent: you typed or clicked outside the page just now. Tap again in a few seconds.");
+  assert.equal(t.why().role, "status");
+  assert.equal(t.sets[0].inputs[1].checked, true, "the picks are kept");
+  assert.equal(t.go.dataset.ssSay, line, "the button says the same answers");
+  t.press();
+  assert.ok("sent" in t.el.dataset, "a retry sends");
+  assert.equal(t.why().textContent, "", "the reason goes once it's sent");
+  assert.equal(t.go.textContent, "Designing… the directions come next");
+});
+
+test("a tap the viewer greys (it can't take a say) leaves the card open with the viewer's reason", () => {
+  const t = cardTab();
+  t.run();
+  t.attrs["aria-disabled"] = "true";
+  t.go.title = "Turn on page actions to send";
+  t.press();
+  assert.ok(!("sent" in t.el.dataset));
+  assert.ok(t.all().every((i) => !i.disabled));
+  assert.equal(t.why().textContent, "Turn on page actions to send");
+});
+
+test("while the card shows, the bar, the frames and the canvas's labels are hidden; its styles come first", () => {
+  const head = PAGE.slice(0, PAGE.indexOf('<div class="ss-questions'));
+  const rule = head.match(/body:has\(>\.ss-questions:not\(\[hidden\]\)\) :is\(([^)]*)\)\{visibility:hidden;\}/);
+  assert.ok(rule, "the hiding rule is in the card's own styles");
+  for (const s of [".switcher", "section.direction", "ss-canvas-stage", "[data-ss-canvas-lift]", ".ss-canvas-label", ".ss-canvas-section", ".ss-canvas-chip"]) assert.ok(rule[1].split(",").includes(s), s);
+  assert.doesNotMatch(rule[1], /ss-questions/, "never the card itself");
+});
+
+test("each section runs from its opening tag to the </section> after its own part marker, as shepherd.md says to match it", () => {
+  const md = fs.readFileSync(path.join(__dirname, "..", "design", "references", "shepherd.md"), "utf8");
+  for (const n of ["first", "second", "third"]) {
+    const whole = new RegExp(`<section class="direction"[^>]*data-ss-id="direction-${n}"[\\s\\S]*?<!-- /part:${n} -->\\n</section>`, "g");
+    const found = PAGE.match(whole) || [];
+    assert.equal(found.length, 1, n);
+    assert.doesNotMatch(found[0].slice(1), /<section/, `${n} holds no other section`);
+    assert.ok(md.includes(`<!-- /part:${n} -->`), `shepherd.md names ${n}'s own marker`);
+  }
 });

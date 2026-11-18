@@ -203,6 +203,9 @@ function checkUnit(slug, u) {
       fail(slug, w, `"${d.media}" asks the window's width, not the frame's: on the canvas a phone frame gets the wide rule; write it as @container ${asks.join(" and ") || "(…)"}`);
     }
     if (d.prop.startsWith("--")) continue;
+    // The canvas scrolls a frame under the wheel only while the frame may scroll: overflow or a height on the
+    // direction's own section takes that away, and the wheel pans the canvas instead.
+    if (/^(overflow(-[xy])?|(max-)?height)$/.test(d.prop) && d.sel.split(",").some((x) => /(\.direction(?![\w-])|\[data-ss-id="?direction-[^\]]*\])[^\s>+~]*$/.test(x.trim()))) fail(slug, w, `${d.prop}: ${d.value} on the direction's section ("${d.sel}"): its frame can't scroll on the canvas; set it on a block inside`);
     if (/(^|[^\w.-])(\d+\.?\d*|\.\d+)vw\b/.test(v)) fail(slug, w, `${d.prop}: ${d.value} in "${d.sel}" follows the window's width, not the frame's: use cqi`);
     if (!d.wide) {
       if (/^(width|min-width|flex-basis)$/.test(d.prop)) { const px = +(v.match(/^(\d+(?:\.\d+)?)px\b/) || [])[1]; if (px > 390) fail(slug, w, `${d.prop}: ${px}px in "${d.sel}" is wider than a phone (390 px)`); }

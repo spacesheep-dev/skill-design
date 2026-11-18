@@ -4,7 +4,7 @@ Read this when you have no shell (a Spacesheep Shepherd turn): no fold.js, check
 
 ## Turn 1: the page, with the questions on it
 
-For a new design on a blank page (or one showing only this skill's starter), read references/questions.md and `assets/shepherd.html` with `use_skill`, in one step, unless SKILL.md section 1 says to ask nothing. These questions are the real ambiguity your own rules tell you to ask about, so ask them even when the request is a few words. They go on the page, never in the chat.
+For a new design on a blank page (or one showing only this skill's starter), read references/questions.md and `assets/shepherd.html` with `use_skill`, in one step. When SKILL.md section 1 says to ask nothing, skip to One turn below. These questions are the real ambiguity your own rules tell you to ask about, so ask them even when the request is a few words. They go on the page, never in the chat.
 
 Your `@page` is shepherd.html, copied whole from `<!DOCTYPE html>` to `</html>`, with only two changes:
 
@@ -18,12 +18,16 @@ Write it in order, as it streams onto the person's screen: the card shows within
 The button sends "Start designing with my answers." and one answer per question (a typed answer comes last). On those, or on "go" (your picks), read the page once with `read_document_source` (`limit` 32000), then make the design with `edit_document_source`, in one call, copying each `old` exactly from what you read:
 
 1. **The card:** `<div class="ss-questions` becomes `<div hidden class="ss-questions`.
-2. **The tokens:** the `<style>` after the bar, with its three token rules, becomes each direction's tokens under its own selector (section 3, Tokens first). After it, one `<style>` per direction with every rule under `[data-ss-id="direction-<slug>"]`. This page has none of the kit's parts (`.k-bar`, `.k-hero`, `.k-cards` and the rest): where section 3 says to build from the kit, write those blocks and their styles yourself, under the same selector. Phone rules use `@container (max-width: 40rem)`, never `@media`, and sizes in `cqi`, never `vw`.
-3. **Each section**, from its opening tag to its `<!-- /part:first -->`: the slug in `data-ss-id="direction-<slug>"` and `data-ss-thing="direction/<slug>"`, the name in `data-ss-label`, the line in `data-line`; the card menu after the name (`Menu for <name>`, `Use <name>`, `Another round of <name>`); and the `<div class="drawing" …>` between the marks becomes the direction's design, its blocks with `data-ss-id="<slug>-<part>"`, the marks with the slug (`<!-- part:harbour-chart -->`). For one design, the other two sections become nothing.
+2. **The tokens:** the `<style>` after the bar, with its three token rules, becomes each direction's tokens under its own selector (section 3, Tokens first). After it, one `<style>` per direction with every rule under `[data-ss-id="direction-<slug>"]`. This page has none of the kit's parts (`.k-bar`, `.k-hero`, `.k-cards` and the rest): where section 3 says to build from the kit, write those blocks and their styles yourself, under the same selector. Phone rules use `@container (max-width: 40rem)`, never `@media`, and sizes in `cqi`, never `vw`. Never set `overflow` or a height on a direction's section: the canvas scrolls its frame, and then can't.
+3. **Each section, whole:** its `old` runs from `<section class="direction"` to the `</section>` after its own marker: `<!-- /part:first -->` for the first, `<!-- /part:second -->` for the second, `<!-- /part:third -->` for the third. In its `new`: the slug in `data-ss-id="direction-<slug>"` and `data-ss-thing="direction/<slug>"`, the name in `data-ss-label`, the line in `data-line`; the card menu after the name (`Menu for <name>`, `Use <name>`, `Another round of <name>`); and the `<div class="drawing" …>` between the marks becomes the direction's design, its blocks with `data-ss-id="<slug>-<part>"`, the marks with the slug (`<!-- part:harbour-chart -->`). For one design, the second and third sections, each whole, become nothing.
 4. **The controls:** up to 6 `<label>Name <input …></label>` before the Keep these button, inside `.tweaks-body` (section 3, Controls from this design). Every direction sets each control's token.
 5. **The answers:** `<p class="switcher-answers"></p>` holds them, each in 1 to 3 words (questions.md, The answers).
 
 Add no canvas, tabs or bar of your own. Keep each direction to about 4,000 characters. The page shows the design when the turn ends. Then reply as section 6 says.
+
+## One turn: nothing to ask
+
+When SKILL.md section 1 says to ask nothing (a full brief, or "go" or "just design it" before any questions), make the design in this turn. Read `assets/shepherd.html` with `use_skill`. Your `@page` is shepherd.html whole, with the title, the card written `<div hidden class="ss-questions` (it stays, hidden), and Turn 2's changes 2 to 5 made in place, the answers line from the brief. Then reply as section 6 says.
 
 ## After that: edits
 
