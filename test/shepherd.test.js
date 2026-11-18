@@ -45,3 +45,9 @@ test("its scripts parse, declare nothing at their top, and keep the switcher's m
   assert.match(all[0], /function ssControls\(\)/);
   assert.match(all[0], /function ssDraw\(fn\)/);
 });
+
+test("it keeps the rule that hides the card menu on the drawing, behind an open direction and for a single direction", () => {
+  const rule = /section\.direction :is\(\.use-this,\.card-menu\),html:has\(\.frame-back:not\(\[hidden\]\)\) :is\(\.use-this,\.card-menu\),html:not\(:has\(section\.direction:not\(\[data-view-of\]\) ~ section\.direction:not\(\[data-view-of\]\)\)\) :is\(\.use-this,\.card-menu\)\{display:none;\}/;
+  assert.match(PAGE, rule);
+  assert.doesNotMatch(PAGE.slice(0, PAGE.indexOf("</style>")), /\.direction\[data-view-of\]/);
+});

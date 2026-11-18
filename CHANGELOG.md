@@ -5,9 +5,9 @@ Each release is a heading with its tag. The release workflow uses the words unde
 ## v1.2.24
 
 - Design works in a Shepherd turn, which has no shell for fold.js. SKILL.md's first line now sends that turn to the new references/shepherd.md, which replaces Order of work there.
-- A new design asks first: turn 1 reads references/questions.md, asks in the chat and writes no page. Turn 2 reads the new `assets/shepherd.html` (18,569 characters, one `use_skill` read) and writes it whole as the page, with the title, tokens, sections, drawings and controls filled in.
-- `assets/shepherd.html` is base.html's metas (`ss-chat`, `ss-canvas`, `ss-canvas-focus`), bar, tokens, sections and Tweaks, with a slim switcher: tabs, Back, zoom, Use this · Another round and the card menus. It has no Export, device row, rounds, kit parts or layout check, and no `ss-workspace` meta. `tools/shepherd.js` makes it from base.html, and CI fails when the two differ. Its switcher marks stay, so `fold.js kit` later brings such a page up to the full starter.
-- New tests: shepherd.html is what base.html makes; it keeps the metas and base.html's sections and has no Export; its script parses and can run twice; and `fold.js kit` turns it into the starter's switcher, Export, device row and layout check.
+- A new design asks first: turn 1 reads references/questions.md, asks in the chat and writes no page. Turn 2 reads the new `assets/shepherd.html` (18,810 characters, one `use_skill` read) and writes it whole as the page, with the title, tokens, sections, drawings and controls filled in.
+- `assets/shepherd.html` is base.html's metas (`ss-chat`, `ss-canvas`, `ss-canvas-focus`), bar, tokens, sections and Tweaks, with a slim switcher: tabs, Back, zoom, Use this · Another round and the card menus. It keeps the rule that hides the card menu on the drawing, behind an open direction and for a single direction. It has no Export, device row, rounds, kit parts or layout check, and no `ss-workspace` meta, so references/shepherd.md has the turn write each drawing's blocks and styles itself, under its direction's selector. `tools/shepherd.js` makes it from base.html, and CI fails when the two differ. Its switcher marks stay, so `fold.js kit` later brings such a page up to the full starter.
+- New tests: shepherd.html is what base.html makes; it keeps the metas and base.html's sections keeps the card menu's hide rule and has no Export; its script parses and can run twice; and `fold.js kit` turns it into the starter's switcher, Export, device row and layout check.
 
 ## v1.2.23
 

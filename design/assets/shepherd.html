@@ -59,6 +59,7 @@ html:not(:has(meta[name="ss-canvas"][content="on"])) .direction:not(.on){display
 :is(.menu-open:hover,.menu-open[aria-expanded="true"],.card-menu .menu > button:enabled:hover){background:color-mix(in srgb,var(--bar-ink) 8%,transparent);}
 :is(.menu-open,.card-menu .menu > button):focus-visible{outline:2px solid #4f46e5;outline-offset:2px;}
 @media (pointer:coarse){.menu-open::after{content:"";position:absolute;inset:-18px -10px -4px;}.card-menu .menu > button{height:44px;}}
+section.direction :is(.use-this,.card-menu),html:has(.frame-back:not([hidden])) :is(.use-this,.card-menu),html:not(:has(section.direction:not([data-view-of]) ~ section.direction:not([data-view-of]))) :is(.use-this,.card-menu){display:none;}
 /* switcher: end */
 .tweaks{position:relative;flex:none;margin-left:auto;color:var(--bar-ink);font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;}
 .tweaks:not(:has(input[data-var])){display:none;}

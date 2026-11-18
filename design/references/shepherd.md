@@ -16,7 +16,7 @@ On the answers, or "go": read `assets/shepherd.html` with `use_skill`. It fits i
 2. **The tokens:** in the `<style>` after the bar, each direction's tokens under its own selector (section 3, Tokens first).
 3. **Each section's opening tag:** the slug in `data-ss-id="direction-<slug>"` and `data-ss-thing="direction/<slug>"`, the name in `data-ss-label`, the line in `data-line`. The card menu inside it follows the name: `Menu for <name>`, `Use <name>`, `Another round of <name>`. For one design, keep one section.
 4. **The drawing:** in each section, the `<div class="drawing" …>` between `<!-- part:first -->` and `<!-- /part:first -->` becomes the direction's design. Its blocks take `data-ss-id="<slug>-<part>"`, and the marks take the slug (`<!-- part:harbour-chart -->`).
-5. **Its styles:** one `<style>` per direction, after the tokens, with every rule under `[data-ss-id="direction-<slug>"]`. Phone rules use `@container (max-width: 40rem)`, never `@media` (section 3).
+5. **Its styles:** one `<style>` per direction, after the tokens, with every rule under `[data-ss-id="direction-<slug>"]`. This page has none of the kit's parts (`.k-bar`, `.k-hero`, `.k-cards` and the rest): where section 3 says to build from the kit, write those blocks and their styles yourself, under the same selector. Phone rules use `@container (max-width: 40rem)`, never `@media`, and sizes in `cqi`, never `vw`.
 6. **The controls:** up to 6 `<label>Name <input …></label>` before the Keep these button, inside `.tweaks-body` (section 3, Controls from this design). Every direction sets each control's token.
 
 Leave everything else exactly as it is: the metas (`ss-canvas` is the canvas), the bar, both scripts and the end mark. Add no canvas, tabs or bar of your own.

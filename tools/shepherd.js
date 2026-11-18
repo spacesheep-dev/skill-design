@@ -114,8 +114,9 @@ function statements(css) {
   return out.filter(Boolean);
 }
 const tight = (s) => s.replace(/\s+/g, " ").replace(/\s*([{};])\s*/g, "$1").replace(/([:,]) (?=[^"]*(?:"[^"]*"[^"]*)*$)/g, "$1").trim();
-// What the slim bar leaves out: Export, the device row, rounds and views.
-const DROP = /export|switcher-views|data-view-of|data-older|rounds|\.round\b|data-round|data-version-of/;
+// What the slim bar leaves out: Export, the device row, rounds and views. A rule that only counts directions
+// (:not([data-view-of])) stays: it keeps the card menu off the drawing and hidden for a single direction.
+const DROP = /export|switcher-views|(?<!:not\()\[data-view-of|data-older|rounds|\.round\b|data-round|data-version-of/;
 function slimCss(css) {
   return statements(css).map((s) => {
     if (!s.startsWith("@")) return DROP.test(s.slice(0, s.indexOf("{"))) ? "" : tight(s);
