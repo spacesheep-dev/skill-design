@@ -1010,8 +1010,8 @@ test("round puts each version in a row of its own below everything, joined to it
   const versions = all.slice(3);
   assert.deepEqual(versions.map((s) => [attr(s, "data-ss-id"), attr(s, "data-version-of"), attr(s, "data-ss-frame"), attr(s, "data-ss-label"), attr(s, "data-ss-x"), attr(s, "data-ss-y")]), [
     ["direction-bolder", "second", "desktop", "Bolder", "0", "1120"],
-    ["direction-quieter", "second", "desktop", "Quieter", "1352", "1120"],
-    ["direction-wider", "second", "desktop", "Wider", "2704", "1120"],
+    ["direction-quieter", "second", "desktop", "Quieter", "1600", "1120"],
+    ["direction-wider", "second", "desktop", "Wider", "3200", "1120"],
   ], "a row under the first, 320 px below its bottom, centred under Second");
   for (const v of ["bolder", "quieter", "wider"]) {
     const s = versions.find((x) => attr(x, "data-ss-id") === `direction-${v}`);
@@ -1023,9 +1023,9 @@ test("round puts each version in a row of its own below everything, joined to it
   }
   const lines = page.match(/<div class="no-print" data-round-lines data-ss-id="round-lines" aria-hidden="true" data-ss-x="([-\d.]+)" data-ss-y="([-\d.]+)" style="width:([\d.]+)px!important;height:([\d.]+)px!important"><svg[^>]*>((?:<path d="[^"]*"\/>)*)<\/svg><\/div>/);
   assert.ok(lines, "one lines block");
-  assert.deepEqual(lines.slice(1, 5), ["638", "800", "2708", "320"], "from Second's bottom to the versions' tops");
+  assert.deepEqual(lines.slice(1, 5), ["638", "800", "3204", "320"], "from Second's bottom to the versions' tops");
   assert.deepEqual([...lines[5].matchAll(/d="([^"]*)"/g)].map((m) => m[1]), [
-    "M2 320V112Q2 96 18 96H1338Q1354 96 1354 80V0", "M1354 320V0", "M2706 320V112Q2706 96 2690 96H1370Q1354 96 1354 80V0",
+    "M2 320V112Q2 96 18 96H1586Q1602 96 1602 80V0", "M1602 320V0", "M3202 320V112Q3202 96 3186 96H1618Q1602 96 1602 80V0",
   ], "each line from its version's top middle up, across 96 px under Second, and up to Second's bottom middle");
   assert.ok(sectionsOf(page.slice(page.indexOf(lines[0]))).length === 0, "the lines come after the last direction");
   assert.equal(page.match(/\/\* rounds: start \*\//g).length, 1, "the lines' rules once");
@@ -1035,7 +1035,7 @@ test("round puts each version in a row of its own below everything, joined to it
   assert.equal(fold(["round", "bolder", "Bolder Still", "Plain"]).status, 0);
   const again = fs.readFileSync(file, "utf8"), next = sectionsOf(again);
   assert.deepEqual(next.slice(0, 6), all, "the first two rounds are as they were");
-  assert.deepEqual(next.slice(6).map((s) => [attr(s, "data-version-of"), attr(s, "data-ss-x"), attr(s, "data-ss-y")]), [["bolder", "-676", "2240"], ["bolder", "676", "2240"]]);
+  assert.deepEqual(next.slice(6).map((s) => [attr(s, "data-version-of"), attr(s, "data-ss-x"), attr(s, "data-ss-y")]), [["bolder", "-800", "2240"], ["bolder", "800", "2240"]]);
   assert.deepEqual(next.map((s) => attr(s, "data-round") || null), [null, null, null, "2", "2", "2", "3", "3"], "the directions are round 1, and each round takes the next number");
   assert.equal(again.match(/<div class="no-print" data-round-lines data-ss-id="round-lines" /g).length, 1);
   assert.equal(linesOf(again).match(/<path /g).length, 5);
@@ -1121,11 +1121,11 @@ test("round refuses a parent the page hasn't got, a name already taken or one of
   ];
   fs.writeFileSync(path.join(folder, "draw", "card"), "down\n");
   for (const [args, said] of cases) { const r = fold(args); assert.equal(r.status, 2, args.join(" ")); assert.match(r.stderr, said); }
-  fs.writeFileSync(file, before.replace(' data-ss-x="1352" data-ss-y="0"', ""));
+  fs.writeFileSync(file, before.replace(' data-ss-x="1600" data-ss-y="0"', ""));
   const r = fold(["round", "first", "Bolder"]);
   assert.equal(r.status, 2);
   assert.match(r.stderr, /round: second has no data-ss-frame size or no data-ss-x and data-ss-y/);
-  assert.equal(fs.readFileSync(file, "utf8"), before.replace(' data-ss-x="1352" data-ss-y="0"', ""), "nothing changed");
+  assert.equal(fs.readFileSync(file, "utf8"), before.replace(' data-ss-x="1600" data-ss-y="0"', ""), "nothing changed");
 });
 
 // A page from before the canvas area: the whole-page meta, its directions loose in the body, and the starter's

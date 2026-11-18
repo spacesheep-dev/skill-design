@@ -90,7 +90,7 @@ html:not(:has([data-ss-canvas-area])) .direction:not(.on){display:none;}
 :is(.frame-use,.use-this)[data-chosen] .chosen{display:inline;}
 :is(.frame-use,.use-this)[data-chosen]{cursor:default;}
 .card-menu{display:inline-flex;align-items:center;gap:6px;color:var(--bar-ink);font:500 11px/1.2 ui-monospace,monospace;white-space:nowrap;}
-.card-menu:has(.use-this[data-chosen])::before{content:"✓ Chosen";}
+.card-menu:has(.use-this[data-chosen])::before{content:"✓" / "Chosen";}
 .menu-open{position:relative;width:24px;height:24px;padding:0;border:1px solid;border-radius:5px;background:transparent;color:inherit;font:13px/1 ui-monospace,monospace;cursor:pointer;}
 .card-menu .menu{position:absolute;z-index:1;top:calc(100% + 4px);right:0;display:grid;min-width:160px;padding:4px;background:var(--bar-bg);border:1px solid var(--bar-line);border-radius:8px;box-shadow:0 6px 24px rgba(0,0,0,.16);}
 .card-menu .menu[hidden]{display:none;}
@@ -150,12 +150,12 @@ section.direction :is(.use-this,.card-menu),html:has(.frame-back:not([hidden])) 
   <!-- part:first --><div class="drawing" data-ss-id="first-drawing"><h2>First</h2><p>Being drawn…</p><i></i><i></i><i></i></div><!-- /part:first -->
 </section>
 
-<section class="direction" data-ss-frame="desktop" data-ss-section data-ss-id="direction-second" data-ss-thing="direction/second" data-ss-label="Second" data-line="One line on what it leads with." data-ss-x="1352" data-ss-y="0">
+<section class="direction" data-ss-frame="desktop" data-ss-section data-ss-id="direction-second" data-ss-thing="direction/second" data-ss-label="Second" data-line="One line on what it leads with." data-ss-x="1600" data-ss-y="0">
   <div class="card-menu no-print" data-ss-canvas="label"><button type="button" class="menu-open" aria-haspopup="menu" aria-expanded="false" aria-label="Menu for Second">⋯</button><div class="menu" role="menu" hidden><button type="button" class="use-this" role="menuitem" data-ss-say="Use Second" title="Use Second"><span class="use">Use this</span><span class="chosen">✓ Chosen</span></button><button type="button" class="round" role="menuitem" data-ss-say="Another round of Second" title="Another round of Second">Another round</button></div></div>
   <!-- part:second --><div class="drawing" data-ss-id="second-drawing"><h2>Second</h2><p>Being drawn…</p><i></i><i></i><i></i></div><!-- /part:second -->
 </section>
 
-<section class="direction" data-ss-frame="desktop" data-ss-section data-ss-id="direction-third" data-ss-thing="direction/third" data-ss-label="Third" data-line="One line on what it leads with." data-ss-x="2704" data-ss-y="0">
+<section class="direction" data-ss-frame="desktop" data-ss-section data-ss-id="direction-third" data-ss-thing="direction/third" data-ss-label="Third" data-line="One line on what it leads with." data-ss-x="3200" data-ss-y="0">
   <div class="card-menu no-print" data-ss-canvas="label"><button type="button" class="menu-open" aria-haspopup="menu" aria-expanded="false" aria-label="Menu for Third">⋯</button><div class="menu" role="menu" hidden><button type="button" class="use-this" role="menuitem" data-ss-say="Use Third" title="Use Third"><span class="use">Use this</span><span class="chosen">✓ Chosen</span></button><button type="button" class="round" role="menuitem" data-ss-say="Another round of Third" title="Another round of Third">Another round</button></div></div>
   <!-- part:third --><div class="drawing" data-ss-id="third-drawing"><h2>Third</h2><p>Being drawn…</p><i></i><i></i><i></i></div><!-- /part:third -->
 </section>
@@ -184,6 +184,8 @@ document.querySelectorAll('.use-this').forEach((u) => {
 const d = all().find((x) => 'Use ' + label(x) === u.dataset.ssSay), on = !!d && ch(d);
 u.toggleAttribute('data-chosen', on);
 u.disabled = on;
+const m = u.closest('.card-menu');
+if (m) m.title = on ? 'Chosen' : '';
 });
 }
 function frame() {
@@ -238,12 +240,12 @@ const t = e.target && e.target.closest ? e.target : null;
 if (!t) return;
 const b = t.closest('.menu-open');
 document.querySelectorAll('.card-menu .menu:not([hidden])').forEach((m) => { if (m.previousElementSibling !== b) { m.hidden = true; m.previousElementSibling.setAttribute('aria-expanded', 'false'); } });
-if (b) { const m = b.nextElementSibling; m.hidden = !m.hidden; b.setAttribute('aria-expanded', String(!m.hidden)); return; }
+if (b) { const m = b.nextElementSibling; m.hidden = !m.hidden; b.setAttribute('aria-expanded', String(!m.hidden)); m.style.left = b.getBoundingClientRect().right < m.offsetWidth ? '0' : ''; return; }
 const u = t.closest('.use-this'), d = u && window.ssPillOf(u);
 if (d) open(d);
 }, true);
 }
-// The canvas hears keys only in its area: on the bar, Esc goes Back and a tab's number opens its direction.
+// On the bar: Esc goes Back, a tab's number opens its direction.
 if (!window.ssSlimKeys) {
 window.ssSlimKeys = true;
 addEventListener('keydown', (e) => {
@@ -316,8 +318,7 @@ const a = [...f.querySelectorAll('input:checked')].map((i) => i.value), t = f.qu
 if (t && t.value.trim()) a.push(t.value.trim());
 return (f.querySelector('legend')?.textContent || '').trim() + ' ' + (a.join(', ') || 'your pick');
 }).join(' · ');
-// The viewer sends the line only while the button shows it (its title), and puts a refusal's reason there
-// for a moment: until the title is the line again, the button stays off, so a tap can't only fill the chat box.
+// The button stays off until the viewer's title is the line again, so a tap can't only fill the chat box.
 const ready = () => { if (!sent()) go.disabled = go.getAttribute('aria-disabled') !== 'true' && go.title !== go.dataset.ssSay; };
 const set = () => {
 if (sent()) return;
