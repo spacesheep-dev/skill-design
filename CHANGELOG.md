@@ -6,6 +6,7 @@ Each release is a heading with its tag. The release workflow uses the words unde
 
 - Every card's ⋯ menu shows at Fit in a narrow window. The canvas hides a card's menu when the next card's number would sit on it, and with directions 72 px apart that happened to all but the last card below about 1,000 px wide. The starter's three directions (base.html, shepherd.html) and each new round's versions now stand 320 px apart: at Fit in a 360 px window that is still about 22 px, room for the number. A page made before keeps its places.
 - A card's menu nearer the window's left edge than its own width opens rightward, so the first card's Use this and Another round stay in view (base.html, starter.html, shepherd.html).
+- The chosen card's mark beside its ⋯ is a bare ✓, named Chosen for screen readers and as its tooltip, rather than the words ✓ Chosen. The canvas hides a menu wider than its card on screen allows, so in a narrow window the chosen card lost its ⋯, and Another round with it. The tab and the card's line still say Chosen (base.html, starter.html, shepherd.html).
 
 ## v1.2.26
 

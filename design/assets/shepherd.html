@@ -90,7 +90,7 @@ html:not(:has([data-ss-canvas-area])) .direction:not(.on){display:none;}
 :is(.frame-use,.use-this)[data-chosen] .chosen{display:inline;}
 :is(.frame-use,.use-this)[data-chosen]{cursor:default;}
 .card-menu{display:inline-flex;align-items:center;gap:6px;color:var(--bar-ink);font:500 11px/1.2 ui-monospace,monospace;white-space:nowrap;}
-.card-menu:has(.use-this[data-chosen])::before{content:"✓ Chosen";}
+.card-menu:has(.use-this[data-chosen])::before{content:"✓" / "Chosen";}
 .menu-open{position:relative;width:24px;height:24px;padding:0;border:1px solid;border-radius:5px;background:transparent;color:inherit;font:13px/1 ui-monospace,monospace;cursor:pointer;}
 .card-menu .menu{position:absolute;z-index:1;top:calc(100% + 4px);right:0;display:grid;min-width:160px;padding:4px;background:var(--bar-bg);border:1px solid var(--bar-line);border-radius:8px;box-shadow:0 6px 24px rgba(0,0,0,.16);}
 .card-menu .menu[hidden]{display:none;}
@@ -184,6 +184,8 @@ document.querySelectorAll('.use-this').forEach((u) => {
 const d = all().find((x) => 'Use ' + label(x) === u.dataset.ssSay), on = !!d && ch(d);
 u.toggleAttribute('data-chosen', on);
 u.disabled = on;
+const m = u.closest('.card-menu');
+if (m) m.title = on ? 'Chosen' : '';
 });
 }
 function frame() {

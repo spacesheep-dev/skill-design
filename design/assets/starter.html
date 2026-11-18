@@ -104,7 +104,7 @@
      the card's label row (data-ss-canvas="label"), at screen size and outside the design. Until the canvas lifts it
      there it shows nowhere; nor with one direction, nor while a direction is open, when the bar's pair is the one.
      ⋯ is a small outline chip in the type of the canvas's own labels (01 · Name) and the edge of its number boxes,
-     the chosen card says so beside it, and the menu drops under it; on a touch screen ⋯ takes a tap 44 px tall,
+     the chosen card has a bare ✓ beside it (named Chosen, its tooltip too: the tab and the card's line say the word), and the menu drops under it; on a touch screen ⋯ takes a tap 44 px tall,
      reaching up and down to the card's edge without growing. (.use-this alone is an older page's pill.) */
   .use-this { height: 24px; padding: 0 8px; border: 1px solid; border-radius: 5px; background: transparent; color: var(--bar-ink);
     font: 500 11px/1.2 ui-monospace, monospace; white-space: nowrap; cursor: pointer; }
@@ -115,7 +115,7 @@
   :is(.frame-use, .use-this)[data-chosen] .chosen { display: inline; }
   :is(.frame-use, .use-this)[data-chosen] { cursor: default; }
   .card-menu { display: inline-flex; align-items: center; gap: 6px; color: var(--bar-ink); font: 500 11px/1.2 ui-monospace, monospace; white-space: nowrap; }
-  .card-menu:has(.use-this[data-chosen])::before { content: "✓ Chosen"; }
+  .card-menu:has(.use-this[data-chosen])::before { content: "✓" / "Chosen"; }
   .menu-open { position: relative; width: 24px; height: 24px; padding: 0; border: 1px solid; border-radius: 5px; background: transparent; color: inherit;
     font: 13px/1 ui-monospace, monospace; cursor: pointer; }
   .card-menu .menu { position: absolute; z-index: 1; top: calc(100% + 4px); right: 0; display: grid; min-width: 160px; padding: 4px;
@@ -479,6 +479,8 @@ function ssDraw(fn) { fn(); document.addEventListener('ss:live', () => fn()); }
       const d = pillOf(u), on = !!d && d.hasAttribute('data-chosen');
       u.toggleAttribute('data-chosen', on);
       u.disabled = on;
+      const m = u.closest('.card-menu');
+      if (m) m.title = on ? 'Chosen' : '';
     });
   }
   // The device buttons (shown only without the canvas): the direction, then each of its views. The same

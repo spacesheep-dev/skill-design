@@ -33,6 +33,8 @@ const SWITCHER_JS = `(() => {
       const d = all().find((x) => 'Use ' + label(x) === u.dataset.ssSay), on = !!d && ch(d);
       u.toggleAttribute('data-chosen', on);
       u.disabled = on;
+      const m = u.closest('.card-menu');
+      if (m) m.title = on ? 'Chosen' : '';
     });
   }
   function frame() {
