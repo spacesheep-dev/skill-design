@@ -146,8 +146,16 @@ const QUESTIONS_JS = `/* questions: start */
     if (t && t.value.trim()) a.push(t.value.trim());
     return (f.querySelector('legend')?.textContent || '').trim() + ' ' + (a.join(', ') || 'your pick');
   }).join(' · ');
-  const set = () => { if (sent()) return; const l = say(); if (go.dataset.ssSay !== l) { go.dataset.ssSay = l; go.title = l; } };
-  if (!sent()) { go.disabled = false; go.textContent = 'Start designing'; }
+  // The viewer sends the line only while the button shows it (its title), and puts a refusal's reason there
+  // for a moment: until the title is the line again, the button stays off, so a tap can't only fill the chat box.
+  const ready = () => { if (!sent()) go.disabled = go.getAttribute('aria-disabled') !== 'true' && go.title !== go.dataset.ssSay; };
+  const set = () => {
+    if (sent()) return;
+    const l = say();
+    if (go.dataset.ssSay !== l) { go.dataset.ssSay = l; if (go.hasAttribute('data-ss-title')) go.setAttribute('data-ss-title', l); else go.title = l; }
+    ready();
+  };
+  if (!sent()) go.textContent = 'Start designing';
   const lock = (on, why) => {
     if (on) card.dataset.sent = ''; else delete card.dataset.sent;
     card.querySelectorAll('input, .ss-start').forEach((i) => { i.disabled = on; });
@@ -163,6 +171,7 @@ const QUESTIONS_JS = `/* questions: start */
     card.addEventListener('click', (e) => {
       if (!e.target.closest || !e.target.closest('.ss-start') || sent()) return;
       const l = go.dataset.ssSay;
+      if (go.getAttribute('aria-disabled') !== 'true' && go.title !== l) { e.stopPropagation(); ready(); return; }
       setTimeout(() => {
         if (go.getAttribute('aria-disabled') === 'true') { lock(false, go.title || 'Not sent. Try again in a moment.'); return; }
         lock(true);
@@ -172,7 +181,9 @@ const QUESTIONS_JS = `/* questions: start */
     card.addEventListener('ss:say-refused', (e) => {
       lock(false, (e.detail && e.detail.why) || 'Not sent. Press Start designing again.');
       set();
+      setTimeout(ready, 1600);
     });
+    if (window.MutationObserver) new window.MutationObserver(ready).observe(go, { attributes: true, attributeFilter: ['title', 'aria-disabled'] });
   }
   set();
 })();

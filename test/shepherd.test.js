@@ -72,8 +72,11 @@ function cardTab() {
     { legend: "What must it show?", inputs: [input("checkbox", "must", "Opening hours", true), input("checkbox", "must", "Prices", true)], text: { type: "text", value: " Allergens ", disabled: false } },
   ];
   const attrs = {};
+  let watch = null;
   const go = { dataset: { ssSay: "" }, disabled: true, textContent: "Getting ready…", title: "",
-    getAttribute: (n) => (n in attrs ? attrs[n] : null), setAttribute: (n, v) => { attrs[n] = String(v); }, before: (w) => { why = w; } };
+    getAttribute: (n) => (n === "title" ? go.title : n in attrs ? attrs[n] : null), hasAttribute: (n) => n === "title" || n in attrs,
+    setAttribute: (n, v) => { if (n === "title") go.title = String(v); else attrs[n] = String(v); if (watch) watch(); },
+    removeAttribute: (n) => { delete attrs[n]; }, before: (w) => { why = w; } };
   let why = null;
   const listeners = {};
   const fieldset = (f) => ({
@@ -87,11 +90,23 @@ function cardTab() {
     addEventListener: (t, fn) => { listeners[t] = fn; } };
   const document = { querySelector: (q) => (q === ".ss-questions" ? el : null),
     createElement: () => ({ textContent: "", className: "", setAttribute(n, v) { this[n] = v; } }) };
-  const tab = vm.createContext({ document, window: { parent: {} }, setTimeout: (fn) => fn() });
+  // Timers: a tap's (0 ms) runs at once, longer ones wait for later().
+  const waiting = [];
+  const window = { parent: {}, MutationObserver: function (fn) { this.observe = () => { watch = fn; }; } };
+  const tab = vm.createContext({ document, window, setTimeout: (fn, ms) => (ms ? waiting.push(fn) : fn()) });
   const js = scripts(PAGE)[0].match(/\/\* questions: start \*\/[\s\S]*?\/\* questions: end \*\//)[0];
   const run = () => vm.runInContext(js, tab);
-  const press = () => listeners.click({ target: { closest: (q) => (q === ".ss-start" ? go : null) } });
-  return { sets, go, el, attrs, listeners, all, run, press, why: () => why };
+  // A tap: the card's listener first, then the viewer's on the document, unless the card stopped it.
+  const press = () => { let on = true; listeners.click({ target: { closest: (q) => (q === ".ss-start" ? go : null) }, stopPropagation: () => { on = false; } }); return on; };
+  // The viewer's refusal (chat-actions.ts): the button's title is its reason for 1.5 s, its own kept in data-ss-title.
+  const refuse = (text) => {
+    if (!go.hasAttribute("data-ss-title")) go.setAttribute("data-ss-title", go.title);
+    go.setAttribute("title", text);
+    listeners["ss:say-refused"]({ detail: { why: text } });
+  };
+  const restore = () => { go.setAttribute("title", go.getAttribute("data-ss-title")); go.removeAttribute("data-ss-title"); };
+  const later = () => waiting.splice(0).forEach((fn) => fn());
+  return { sets, go, el, attrs, listeners, all, run, press, refuse, restore, later, why: () => why };
 }
 
 test("the page's script turns the button on and says every answer in one line, and the card hides on the turn's edit", () => {
@@ -119,10 +134,15 @@ test("a say the viewer refuses opens the card again with the picks kept and the 
   const line = t.go.dataset.ssSay;
   t.press();
   assert.ok("sent" in t.el.dataset);
-  t.listeners["ss:say-refused"]({ detail: { why: "Not sent: you typed or clicked outside the page just now. Tap again in a few seconds." } });
+  t.refuse("Not sent: you typed or clicked outside the page just now. Tap again in a few seconds.");
   assert.ok(!("sent" in t.el.dataset), "the card is open again");
-  assert.ok(t.all().every((i) => !i.disabled), "the toggles and the button are on");
+  assert.ok(t.all().every((i) => i === t.go || !i.disabled), "the toggles are on");
+  assert.equal(t.go.disabled, true, "the button waits while the viewer shows its reason in the title");
   assert.equal(t.go.textContent, "Start designing");
+  assert.equal(t.press(), false, "a tap that gets through anyway never reaches the viewer, which would only fill the chat box");
+  assert.ok(!("sent" in t.el.dataset), "and the card doesn't lock");
+  t.restore();
+  assert.equal(t.go.disabled, false, "the button is on once the title is the line again");
   assert.equal(t.why().textContent, "Not sent: you typed or clicked outside the page just now. Tap again in a few seconds.");
   assert.equal(t.why().role, "status");
   assert.equal(t.sets[0].inputs[1].checked, true, "the picks are kept");
@@ -131,6 +151,32 @@ test("a say the viewer refuses opens the card again with the picks kept and the 
   assert.ok("sent" in t.el.dataset, "a retry sends");
   assert.equal(t.why().textContent, "", "the reason goes once it's sent");
   assert.equal(t.go.textContent, "Designing… the directions come next");
+});
+
+test("answers changed while the viewer shows a refusal are what its title comes back to, so the retry sends them", () => {
+  const t = cardTab();
+  t.run();
+  t.press();
+  t.refuse("Not sent: you typed or clicked outside the page just now. Tap again in a few seconds.");
+  t.sets[0].inputs[0].checked = false; t.sets[0].inputs[1].checked = true; t.listeners.change();
+  assert.match(t.go.dataset.ssSay, /Clean and modern/);
+  assert.equal(t.go.disabled, true);
+  t.restore();
+  assert.equal(t.go.title, t.go.dataset.ssSay, "the viewer puts back the new line, not the old one");
+  assert.equal(t.go.disabled, false);
+  assert.equal(t.press(), true);
+  assert.ok("sent" in t.el.dataset);
+});
+
+test("with no observer, the button comes back on after the refusal's moment", () => {
+  const t = cardTab();
+  t.run();
+  t.press();
+  t.refuse("Not sent.");
+  t.go.title = t.go.getAttribute("data-ss-title"); // put back without an attribute write
+  assert.equal(t.go.disabled, true);
+  t.later();
+  assert.equal(t.go.disabled, false);
 });
 
 test("a tap the viewer greys (it can't take a say) leaves the card open with the viewer's reason", () => {

@@ -87,6 +87,11 @@ function sources(d) {
   return [{ file: "work/index.html", text: page.slice(d.start, d.end), base: lineAt(page, d.start) - 1 }];
 }
 
+// The canvas scrolls a frame under the wheel only while the frame may scroll: overflow or a height on a
+// direction's own section takes that away, and the wheel pans the canvas instead. The reason, or "".
+const pinsFrame = (d) => /^(overflow(-[xy])?|(max-)?height)$/.test(d.prop) && d.sel.split(",").some((x) => /(\.direction(?![\w-])|\[data-ss-id="?direction-[^\]]*\])[^\s>+~]*$/.test(x.trim()))
+  ? `${d.prop}: ${d.value} on the direction's section ("${d.sel}"): its frame can't scroll on the canvas; set it on a block inside` : "";
+
 // Blocks of script and style, so tag checks skip them and CSS and script checks get them.
 function split(text) {
   const blocks = [];
@@ -203,9 +208,7 @@ function checkUnit(slug, u) {
       fail(slug, w, `"${d.media}" asks the window's width, not the frame's: on the canvas a phone frame gets the wide rule; write it as @container ${asks.join(" and ") || "(…)"}`);
     }
     if (d.prop.startsWith("--")) continue;
-    // The canvas scrolls a frame under the wheel only while the frame may scroll: overflow or a height on the
-    // direction's own section takes that away, and the wheel pans the canvas instead.
-    if (/^(overflow(-[xy])?|(max-)?height)$/.test(d.prop) && d.sel.split(",").some((x) => /(\.direction(?![\w-])|\[data-ss-id="?direction-[^\]]*\])[^\s>+~]*$/.test(x.trim()))) fail(slug, w, `${d.prop}: ${d.value} on the direction's section ("${d.sel}"): its frame can't scroll on the canvas; set it on a block inside`);
+    if (pinsFrame(d)) fail(slug, w, pinsFrame(d));
     if (/(^|[^\w.-])(\d+\.?\d*|\.\d+)vw\b/.test(v)) fail(slug, w, `${d.prop}: ${d.value} in "${d.sel}" follows the window's width, not the frame's: use cqi`);
     if (!d.wide) {
       if (/^(width|min-width|flex-basis)$/.test(d.prop)) { const px = +(v.match(/^(\d+(?:\.\d+)?)px\b/) || [])[1]; if (px > 390) fail(slug, w, `${d.prop}: ${px}px in "${d.sel}" is wider than a phone (390 px)`); }
@@ -414,6 +417,9 @@ for (const d of dirs) {
     }
   }
 }
+// The same rule in the page's own styles (the head, or between directions), where a direction's checks don't look.
+for (const b of split(page)) if (b.kind === "style" && !every.some((d) => b.start >= d.start && b.start < d.end))
+  for (const d of decls(b.body)) if (pinsFrame(d)) fail("page", `work/index.html:${lineAt(page, b.bodyAt + d.at)}`, pinsFrame(d));
 if (!only && page.length > 200000) fail("page", "work/index.html", `the page is ${Math.round(page.length / 1000)} KB: over 200 KB is slow on a phone`);
 
 // The Decisions log is the record, read from the source and never shown. The canvas draws any block outside a

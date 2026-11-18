@@ -330,6 +330,29 @@ test("overflow or a height on a direction's own section is flagged: its frame co
   assert.match(lines[1], /max-height: 900px on the direction's section/);
 });
 
+test("the same rule is read in the page's own styles: the head, or a style between directions", () => {
+  const run = (page) => {
+    const folder = fs.mkdtempSync(path.join(os.tmpdir(), "check-test-"));
+    try {
+      fs.mkdirSync(path.join(folder, "work"));
+      fs.writeFileSync(path.join(folder, "work", "index.html"), page);
+      const r = spawnSync(process.execPath, [CHECK, "-C", folder], { encoding: "utf8", timeout: 20000 });
+      assert.equal(r.error, undefined, `check.js didn't finish: ${r.error}`);
+      return r.stdout.split("\n").filter((l) => l.includes("on the direction's section"));
+    } finally {
+      fs.rmSync(folder, { recursive: true, force: true });
+    }
+  };
+  assert.deepEqual(run(BASE), [], "the starter sets neither");
+  const head = run(BASE.replace("</head>", '<style>[data-ss-id="direction-first"] { overflow: hidden; height: 600px }</style>\n</head>'));
+  assert.equal(head.length, 2, head.join(" | "));
+  assert.match(head[0], /^page .*work\/index\.html:\d+.*overflow: hidden on the direction's section \("\[data-ss-id="direction-first"\]"\)/);
+  assert.match(head[1], /height: 600px on the direction's section/);
+  const between = run(BASE.replace(/<section class="direction"(?=[^>]*data-ss-id="direction-second")/, '<style>.direction { max-height: 100vh; }</style>\n$&'));
+  assert.equal(between.length, 1, between.join(" | "));
+  assert.match(between[0], /max-height: 100vh on the direction's section \("\.direction"\)/);
+});
+
 test("the starter's Export is last in the bar's row, its PDF items name sections by data-ss-id, and the end mark is the body's last node", () => {
   const row = BASE.slice(BASE.indexOf('<div class="switcher-row">'), BASE.indexOf('<div class="switcher-views"'));
   assert.match(row, /<div class="export no-print">[\s\S]*<\/p><\/div>\n  <\/div>\n  $/, "Export closes the row");
