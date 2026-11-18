@@ -42,8 +42,8 @@
      While it runs (its stage is in the area), the page is one screen: the bar, then the area filling the rest, inside
      the viewer's own padding (64 px under its header), so the page never scrolls under the bar. Off it, the area is
      an ordinary block. */
-  html:has([data-ss-canvas-area] > [data-ss-canvas-stage]) { height: 100%; }
-  html:has([data-ss-canvas-area] > [data-ss-canvas-stage]) body { display: flex; flex-direction: column; height: 100%; }
+  html:has([data-ss-canvas-area] > [data-ss-canvas-stage]) { box-sizing: border-box; height: 100%; }
+  html:has([data-ss-canvas-area] > [data-ss-canvas-stage]) body { display: flex; flex-direction: column; height: 100%; margin: 0; }
   html:has([data-ss-canvas-area] > [data-ss-canvas-stage]) .switcher { flex: none; }
   [data-ss-canvas-area]:has(> [data-ss-canvas-stage]) { flex: 1 1 auto; height: auto; min-height: 320px; }
   html:not(:has([data-ss-canvas-area])) .direction:not(.on) { display: none; }

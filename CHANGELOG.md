@@ -5,7 +5,7 @@ Each release is a heading with its tag. The release workflow uses the words unde
 ## v1.2.26
 
 - The canvas is one block of the page, under the bar, not the whole page. Spacesheep's canvas now takes only what sits in `<div data-ss-canvas-area>`, and its whole-page `<meta name="ss-canvas">` is gone. base.html, starter.html and shepherd.html put every direction inside that block, after the bar, and drop the meta (`ss-canvas-focus` stays).
-- While the canvas runs, the page is one screen: the bar, then the area filling the rest, inside the viewer's own 64 px under its header, so nothing scrolls under the bar. Without the canvas (a client copy, the save's measured pictures) the area is an ordinary block.
+- While the canvas runs, the page is one screen: the bar, then the area filling the rest, inside whatever padding the viewer gives the page (64 px under its header), so the page never scrolls. The rule sets `html` to border-box and `body` margin to 0, so it holds on shepherd.html too. Without the canvas (a client copy, the save's measured pictures) the area is an ordinary block.
 - The starter's canvas tests, in its styles and scripts, look for the area instead of the meta. The save's layout check (`?ss-check`) turns the canvas off by taking the area's attribute away.
 - A page from before the area keeps working: its next save, `fold.js kit` and `fold.js round` drop the meta, put its directions, views, versions and round lines in the area, and bring its switcher up to the starter's.
 - check.js flags a direction outside the area, with its line, and an area that is never closed.

@@ -65,8 +65,8 @@ body:has(>.ss-questions:not([hidden]))>:is(.switcher,[data-ss-canvas-area]){disp
 .switcher-line{margin:6px 2px 0;font-size:13px;color:var(--bar-muted);min-height:1.3em;}
 .switcher-answers{margin:2px 2px 0;font-size:13px;color:var(--bar-muted);}
 .switcher-answers:empty{display:none;}
-html:has([data-ss-canvas-area] > [data-ss-canvas-stage]){height:100%;}
-html:has([data-ss-canvas-area] > [data-ss-canvas-stage]) body{display:flex;flex-direction:column;height:100%;}
+html:has([data-ss-canvas-area] > [data-ss-canvas-stage]){box-sizing:border-box;height:100%;}
+html:has([data-ss-canvas-area] > [data-ss-canvas-stage]) body{display:flex;flex-direction:column;height:100%;margin:0;}
 html:has([data-ss-canvas-area] > [data-ss-canvas-stage]) .switcher{flex:none;}
 [data-ss-canvas-area]:has(> [data-ss-canvas-stage]){flex:1 1 auto;height:auto;min-height:320px;}
 html:not(:has([data-ss-canvas-area])) .direction:not(.on){display:none;}
