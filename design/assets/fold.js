@@ -717,6 +717,29 @@ if (cmd === "focus") {
   console.log(ok ? `focus: ${value}, pushed` : "focus set, but the push was refused: see draw/fold.log");
   process.exit(ok ? 0 : 1);
 }
+// Spacesheep's canvas is one block of the page, <div data-ss-canvas-area>, and only what is in it is on the canvas;
+// the whole-page <meta name="ss-canvas"> is gone, so a page that still has it shows its directions as a plain page.
+// Such a page loses the meta and gets the area, from its first direction (or the rounds' lines, if they come first)
+// to the end of its last, so the views, versions and lines between them are in it, and the bar stays above it. Its
+// own canvas tests (meta[name="ss-canvas"][content="on"], in its styles and scripts) become the area's. A page
+// without the meta, or with the area already, comes back as it is.
+function areaed(page) {
+  const meta = /^[ \t]*<meta name="ss-canvas"(?=[\s>])[^>]*>[ \t]*\n?/m;
+  if (!meta.test(page)) return page;
+  const out = page.replace(meta, "").replace(/meta\[name="ss-canvas"\]\[content="on"\]/g, "[data-ss-canvas-area]");
+  const flat = out.replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>|<!--[\s\S]*?-->/gi, (c) => " ".repeat(c.length));
+  if (/<[a-z][^>]*\sdata-ss-canvas-area(?=[\s=>])/i.test(flat)) return out;
+  const opens = [...flat.matchAll(/<section\b[^>]*class="[^"]*\bdirection\b[^"]*"[^>]*>/g)];
+  if (!opens.length) return out;
+  const last = opens[opens.length - 1], tags = /<section\b[^>]*>|<\/section>/gi;
+  let a = opens[0].index, b = -1;
+  tags.lastIndex = last.index + last[0].length;
+  for (let depth = 1, t; (t = tags.exec(flat)); ) if (!(depth += t[0][1] === "/" ? -1 : 1)) { b = t.index + t[0].length; break; }
+  if (b < 0) return out;
+  const lines = /<div\b[^>]*\sdata-round-lines(?=[\s=>])[^>]*>(?:(?!<\/?div\b)[\s\S])*<\/div>/i.exec(flat);
+  if (lines) { a = Math.min(a, lines.index); b = Math.max(b, lines.index + lines[0].length); }
+  return out.slice(0, a) + "<div data-ss-canvas-area>\n\n" + out.slice(a, b) + "\n\n</div>" + out.slice(b);
+}
 // A page made before device views has a switcher that would make a view a tab, kit rules that follow the
 // window, and maybe no layout check or Export: `kit` puts in the starter's switcher spans (each /* switcher: start */ … /* switcher: end */, the
 // styles' in a <style>, the script's in a <script>), the script's in a <script> of its own when the page has
@@ -734,7 +757,10 @@ function kitted(page) {
   for (const m of base.matchAll(span)) now[kind(base, m.index)] = m[0];
   const had = [...page.matchAll(span)].map((m) => kind(page, m.index));
   if (!had.includes("style")) return null;
+  page = areaed(page);
   let out = page.replace(span, (m, at) => now[kind(page, at)]);
+  // The bar's zoom figure is gone: the canvas area draws its own zoom.
+  out = out.replace(/[ \t]*<output class="frame-zoom"[^>]*>[^<]*<\/output>\n?/, "");
   // What kit adds at the page's end goes before its end mark (<!-- design: end -->), else before </body>.
   const atEnd = (add) => { const end = out.lastIndexOf("<!-- design: end -->"), body = end >= 0 ? end : out.lastIndexOf("</body>"); out = body >= 0 ? out.slice(0, body) + add + out.slice(body) : out + "\n" + add; };
   if (!had.includes("script")) atEnd(`<script>\n${now.script}\n</script>\n`);
@@ -742,7 +768,7 @@ function kitted(page) {
   if (!/class="switcher-views"/.test(out)) {
     if (/<p class="switcher-line"/.test(out)) out = out.replace(/([ \t]*)<p class="switcher-line"/, (m, pad) => `${pad}${row}\n${m}`);
     else if (/<nav\b[^>]*class="[^"]*\bswitcher\b[^"]*"[^>]*>/.test(out)) out = out.replace(/(<nav\b[^>]*class="[^"]*\bswitcher\b[^"]*"[^>]*>[\s\S]*?)(\n?[ \t]*<\/nav>)/, (m, a, b) => `${a}\n  ${row}${b}`);
-    else out = out.replace(/<body\b[^>]*>/, (m) => `${m}\n<nav data-ss-canvas="pin" class="switcher no-print" aria-label="Design views" data-ss-react="off">\n  <div class="switcher-row">\n  </div>\n  ${row}\n</nav>`);
+    else out = out.replace(/<body\b[^>]*>/, (m) => `${m}\n<nav class="switcher no-print" aria-label="Design views" data-ss-react="off">\n  <div class="switcher-row">\n  </div>\n  ${row}\n</nav>`);
     if (!/class="switcher-views"/.test(out)) return null;
   }
   // Export, last in the bar's row (whose end is the </div> that closes its <div class="switcher-row">), and the
@@ -773,11 +799,11 @@ if (cmd === "kit") {
   for (const f of ["work/index.html", "draw/frame.html"]) {
     const p = read(f);
     if (p === null) continue;
-    const set = kitted(p);
+    const set = kitted(p) ?? (areaed(p) !== p ? areaed(p) : null);
     if (set === null) { console.error(`kit: ${f} has no starter switcher to bring up to date (no /* switcher: start */ span in a <style>, or no <body> for its device row); its views still show on the canvas, with no device buttons without it`); process.exit(2); }
     if (set !== p) { if (!(f === "work/index.html" ? rework(set) : swap(f, set))) process.exit(2); changed++; }
   }
-  console.log(changed ? "kit: the switcher, Export, the device buttons' row, the kit's phone rules and the layout check are now the starter's; nothing pushed" : "kit: already current");
+  console.log(changed ? "kit: the canvas area, the switcher, Export, the device buttons' row, the kit's phone rules and the layout check are now the starter's; nothing pushed" : "kit: already current");
   process.exit(0);
 }
 // A new round: versions of one direction in a row of their own below everything on the canvas, each joined to
@@ -843,8 +869,15 @@ function withLines(page) {
   if (!id || ids.has(id)) { id = "round-lines"; for (let k = 2; ids.has(id); k++) id = `round-lines-${k}`; }
   const html = `<div class="no-print" data-round-lines data-ss-id="${id}" aria-hidden="true" data-ss-x="${n(x0)}" data-ss-y="${n(y0)}" style="width:${w}px!important;height:${h}px!important"><svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${paths}</svg></div>\n`;
   if (found) return put(html);
-  const last = all.filter((d) => !d.view).at(-1), at = page.indexOf("\n", last.end) + 1 || last.end;
-  return page.slice(0, at) + html + page.slice(at);
+  const { at, lead } = afterLast(page, all);
+  return page.slice(0, at) + lead + html + page.slice(at);
+}
+// Where something goes after the last direction: the start of the next line when nothing else is on the rest of
+// its line, else right after its </section> on a line of its own (lead), so a page that closes the canvas area
+// on the same line (</section></div>) keeps what is added inside the area.
+function afterLast(page, all) {
+  const end = all.filter((d) => !d.view).at(-1).end, nl = page.indexOf("\n", end);
+  return nl >= 0 && !page.slice(end, nl).trim() ? { at: nl + 1, lead: "" } : { at: end, lead: "\n" };
 }
 const slugOf = (name) => name.normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40).replace(/-+$/, "");
 // The page with the new round in it, or { error }.
@@ -872,8 +905,8 @@ function rounded(page, parent, names) {
   <!-- part:${v.slug} --><div class="drawing" data-ss-id="${v.slug}-drawing"><h2>${esc(v.name)}</h2><p>Being drawn…</p><i></i><i></i><i></i></div><!-- /part:${v.slug} -->
 </section>
 `).join("\n");
-  const last = all.filter((d) => !d.view).at(-1), at = page.indexOf("\n", last.end) + 1 || last.end;
-  let out = page.slice(0, at) + "\n" + sections + page.slice(at);
+  const { at, lead } = afterLast(page, all);
+  let out = page.slice(0, at) + lead + "\n" + sections + page.slice(at);
   // The parent's tokens, as each version's own rule, in the page's <style> that sets them last (a part's own
   // <style>, inside its direction, is left as it is).
   const sel = `[data-ss-id="direction-${p.slug}"]`, inside = directionsOf(out);
@@ -1040,6 +1073,12 @@ if (cmd === "save") {
       const f = foldOnce("before the save");
       if (f.refused) return end(`save failed: ${f.refused}`);
       if (f.line) say(f.line);
+    }
+    // A page from before the canvas area gets it now, with the starter's switcher, so this save puts it on the canvas.
+    for (const f of ["work/index.html", "draw/frame.html"]) {
+      const p = read(f);
+      if (p === null || areaed(p) === p) continue;
+      if (f === "work/index.html" ? rework(kitted(p) || areaed(p)) : swap(f, kitted(p) || areaed(p))) say(`${f}: its directions are now in the canvas area, in place of the whole-page canvas meta`);
     }
     const sent = read("work/index.html") || "";
     const d = deploy(argv[1]);

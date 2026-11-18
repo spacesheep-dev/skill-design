@@ -4,17 +4,17 @@ Read this before building any prototype ("clickable", "tap through", "mock up th
 
 ## The shape
 
-- **One space, many screens.** Each screen is a `<section class="screen" data-ss-frame="phone" data-ss-section data-ss-id="screen-<name>" data-ss-thing="screen/<name>" data-ss-label="<Screen name>">`. Every screen stays visible on the working canvas. Without the canvas meta, the client copy shows only the current screen. The `data-ss-thing` path keeps comments on a screen while another one is showing (the house rule for parts that move). Name the parts people will talk about the same way: `data-ss-thing="screen/passengers/row-child"`.
+- **One space, many screens.** Each screen is a `<section class="screen" data-ss-frame="phone" data-ss-section data-ss-id="screen-<name>" data-ss-thing="screen/<name>" data-ss-label="<Screen name>">`. Every screen stays visible on the working canvas, inside the page's one `<div data-ss-canvas-area>` (Spacesheep's canvas is only what that block holds). Without the canvas area, the client copy shows only the current screen. The `data-ss-thing` path keeps comments on a screen while another one is showing (the house rule for parts that move). Name the parts people will talk about the same way: `data-ss-thing="screen/passengers/row-child"`.
 - **Navigation by hash.** A link to `#screen-passengers` moves to that screen, and the back gesture goes back. The browser history does the work, so you don't need a router.
-- **Phone frames in the review.** Mark each screen `data-ss-frame="phone"` so Spacesheep frames it at 390 × 844. Without the canvas meta, the client copy uses one centred device frame on wide screens and fills the viewport on a phone.
+- **Phone frames in the review.** Mark each screen `data-ss-frame="phone"` so Spacesheep frames it at 390 × 844. Without the canvas area, the client copy uses one centred device frame on wide screens and fills the viewport on a phone.
 - **Start on the first screen.** With no hash, show the first one. With an unknown hash, also show the first one.
 
 ```html
 <style>
   .screen { display: none; min-height: 100dvh; }
   .screen.on { display: block; }
-  html:has(meta[name="ss-canvas"][content="on"]) .screen { display: block; min-height: 0; }
-  html:has(meta[name="ss-canvas"][content="on"]) .device { display: contents; }
+  html:has([data-ss-canvas-area]) .screen { display: block; min-height: 0; }
+  html:has([data-ss-canvas-area]) .device { display: contents; }
   @media (min-width: 600px) {
     .device { width: 390px; height: 844px; margin: 24px auto; border-radius: 40px; overflow: auto; outline: 10px solid var(--brand-ink); }
     .screen { min-height: 100%; }

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Makes design/assets/shepherd.html from design/assets/base.html: the page a Shepherd turn copies whole, since
 // it has no shell for fold.js and writes a blank page as one document (references/shepherd.md). It keeps
-// base.html's metas, bar, tokens, sections and Tweaks, with a slim switcher (tabs, Back, zoom, Use this ·
+// base.html's metas, bar, tokens, sections and Tweaks, with a slim switcher (tabs, Back, Use this ·
 // Another round, the card menus) and nothing else: no Export, device row, rounds, kit parts or layout check.
 // Its switcher spans keep their marks, so `fold.js kit` later brings such a page up to the full starter.
 //   node tools/shepherd.js           writes it
@@ -15,12 +15,13 @@ const OUT = path.join(ASSETS, "shepherd.html");
 // The slim switcher. Each run of the page's scripts (a live push runs them again) replaces the last run's
 // functions; the document's listeners go in once and call the newest.
 const SWITCHER_JS = `(() => {
+  const q = (s) => document.querySelector(s), ch = (x) => x.hasAttribute('data-chosen');
   const all = () => [...document.querySelectorAll('section.direction:not([data-view-of])')];
   const label = (d) => d.dataset.ssLabel || d.dataset.ssId || '';
-  const byId = (id) => !!id && (document.getElementById(id) || document.querySelector('[data-ss-id="' + CSS.escape(id) + '"]'));
+  const byId = (id) => !!id && (document.getElementById(id) || q('[data-ss-id="' + CSS.escape(id) + '"]'));
   const dirAt = (at) => at && all().find((d) => d === at || d.contains(at));
-  const canvas = () => !!document.querySelector('meta[name="ss-canvas"][content="on"]');
-  const open = (d) => { history.replaceState(null, '', '#' + encodeURIComponent(d.dataset.ssId)); show(); dispatchEvent(new HashChangeEvent('hashchange')); };
+  const canvas = () => !!q('[data-ss-canvas-area]');
+  const open = (d) => { history.replaceState(null, '', '#' + encodeURIComponent(d.dataset.ssId)); dispatchEvent(new HashChangeEvent('hashchange')); };
   function pick() {
     let id = location.hash.slice(1);
     try { id = decodeURIComponent(id); } catch {}
@@ -29,26 +30,26 @@ const SWITCHER_JS = `(() => {
   }
   function pills() {
     document.querySelectorAll('.use-this').forEach((u) => {
-      const d = all().find((x) => 'Use ' + label(x) === u.dataset.ssSay), on = !!d && d.hasAttribute('data-chosen');
+      const d = all().find((x) => 'Use ' + label(x) === u.dataset.ssSay), on = !!d && ch(d);
       u.toggleAttribute('data-chosen', on);
       u.disabled = on;
     });
   }
   function frame() {
-    const c = (window.ss && window.ss.canvas) || {}, q = (s) => document.querySelector(s);
-    const back = q('.frame-back'), zoom = q('.frame-zoom'), use = q('.frame-use'), round = q('.frame-round');
+    const c = (window.ss && window.ss.canvas) || {};
+    const back = q('.frame-back'), bar = q('.switcher'), use = q('.frame-use'), round = q('.frame-round');
     if (back) back.hidden = !c.open;
-    if (zoom) { zoom.hidden = !canvas() || !!c.open || typeof c.zoom !== 'number'; zoom.textContent = Math.round((c.zoom || 1) * 100) + '%'; }
+    if (bar) bar.toggleAttribute('data-canvas-view', canvas() && !c.open && typeof c.zoom === 'number');
     const d = c.open && dirAt(byId(c.open)), on = !!d && all().length > 1;
     if (use) {
       use.hidden = !on;
-      if (on) { use.dataset.ssSay = use.title = 'Use ' + label(d); use.toggleAttribute('data-chosen', d.hasAttribute('data-chosen')); use.disabled = d.hasAttribute('data-chosen'); }
+      if (on) { use.dataset.ssSay = use.title = 'Use ' + label(d); use.toggleAttribute('data-chosen', ch(d)); use.disabled = ch(d); }
     }
     if (round) { round.hidden = !on; if (on) round.dataset.ssSay = round.title = 'Another round of ' + label(d); }
     pills();
   }
   function show() {
-    const d = pick(), tabs = document.querySelector('.switcher-tabs'), line = document.querySelector('.switcher-line');
+    const d = pick(), tabs = q('.switcher-tabs'), line = q('.switcher-line');
     all().forEach((x, i) => {
       x.classList.toggle('on', x === d);
       if (tabs && tabs.children[i]) tabs.children[i].setAttribute('aria-selected', String(x === d));
@@ -57,22 +58,22 @@ const SWITCHER_JS = `(() => {
     frame();
   }
   function draw() {
-    const tabs = document.querySelector('.switcher-tabs');
+    const tabs = q('.switcher-tabs');
     if (tabs) tabs.replaceChildren(...all().map((d) => {
       const b = document.createElement('button');
       b.type = 'button';
       b.setAttribute('role', 'tab');
       b.textContent = label(d);
-      if (d.hasAttribute('data-chosen')) b.dataset.chosen = '';
+      if (ch(d)) b.dataset.chosen = '';
       b.addEventListener('click', () => open(d));
       return b;
     }));
     show();
   }
   const stale = () => {
-    const t = document.querySelector('.switcher-tabs'), dirs = all();
+    const t = q('.switcher-tabs'), dirs = all();
     return !!t && (t.children.length !== dirs.length || dirs.some((d, i) => t.children[i].textContent !== label(d)
-      || t.children[i].hasAttribute('data-chosen') !== d.hasAttribute('data-chosen')));
+      || ch(t.children[i]) !== ch(d)));
   };
   window.ssFrame = frame;
   window.ssShow = show;
@@ -88,7 +89,17 @@ const SWITCHER_JS = `(() => {
       document.querySelectorAll('.card-menu .menu:not([hidden])').forEach((m) => { if (m.previousElementSibling !== b) { m.hidden = true; m.previousElementSibling.setAttribute('aria-expanded', 'false'); } });
       if (b) { const m = b.nextElementSibling; m.hidden = !m.hidden; b.setAttribute('aria-expanded', String(!m.hidden)); return; }
       const u = t.closest('.use-this'), d = u && window.ssPillOf(u);
-      if (d) { history.replaceState(null, '', '#' + encodeURIComponent(d.dataset.ssId)); dispatchEvent(new HashChangeEvent('hashchange')); }
+      if (d) open(d);
+    }, true);
+  }
+  // The canvas hears keys only in its area: on the bar, Esc goes Back and a tab's number opens its direction.
+  if (!window.ssSlimKeys) {
+    window.ssSlimKeys = true;
+    addEventListener('keydown', (e) => {
+      const t = e.target, k = e.key, c = window.ss && window.ss.canvas, d = all()[k - 1], b = q('.frame-back');
+      if (!t.closest || !t.closest('.switcher') || !canvas() || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (k === 'Escape' && c && c.open && b && t.closest('button,a,summary')) { e.preventDefault(); b.click(); }
+      else if (/^[1-9]$/.test(k) && d && t.closest('[role=tab]')) { e.preventDefault(); open(d); }
     }, true);
   }
   if (window.ssSlimWatch) window.ssSlimWatch.disconnect();
@@ -98,8 +109,8 @@ const SWITCHER_JS = `(() => {
 })();`;
 
 // The questions card: turn 1 writes it first in the page, so it shows within seconds while the rest streams in, with
-// the turn's own questions in place of these two. Pinned (data-ss-canvas="pin"), it sits at screen size above the
-// canvas. While it shows, the bar, the frames and the canvas's labels are hidden: there is nothing in them yet.
+// the turn's own questions in place of these two. It is a block of the page above the bar and the canvas area, and
+// while it shows, the bar and the area are hidden: there is nothing in them yet.
 // Its button stays off until the page's script has run, which is the turn's last write, so an answer never lands
 // while the turn still writes; then it says the answers in one tap (data-ss-say). Turn 2 hides it.
 const QUESTIONS_CSS = `.ss-questions{position:relative;z-index:2;box-sizing:border-box;width:min(560px,calc(100% - 24px));max-height:calc(100svh - 120px);overflow:auto;margin:12px auto;padding:20px;display:grid;gap:18px;background:Canvas;color:CanvasText;border:1px solid color-mix(in srgb,CanvasText 18%,transparent);border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,.16);font:15px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;color-scheme:light dark;}
@@ -118,8 +129,8 @@ const QUESTIONS_CSS = `.ss-questions{position:relative;z-index:2;box-sizing:bord
 .ss-start:disabled{opacity:.62;}
 .ss-questions .ss-why{margin:-6px 0 0;color:light-dark(#b42318,#ff9b8f);}
 .ss-questions .ss-why:empty{display:none;}
-body:has(>.ss-questions:not([hidden])) :is(.switcher,section.direction,ss-canvas-stage,[data-ss-canvas-stage],[data-ss-canvas-lift],.ss-canvas-label,.ss-canvas-section,.ss-canvas-chip,.ss-canvas-hint){visibility:hidden;}`;
-const QUESTIONS = `<div class="ss-questions no-print" data-ss-canvas="pin" data-ss-id="design-questions" data-ss-comments="off" data-ss-react="off">
+body:has(>.ss-questions:not([hidden]))>:is(.switcher,[data-ss-canvas-area]){display:none!important;}`;
+const QUESTIONS = `<div class="ss-questions no-print" data-ss-id="design-questions" data-ss-comments="off" data-ss-react="off">
   <h2>A few choices before I draw</h2>
   <p>My picks are chosen. Change any, then press Start designing.</p>
   <fieldset><legend>How should it feel?</legend>
@@ -246,7 +257,7 @@ function make(base) {
   const js = `/* switcher: start */\n${SWITCHER_JS.split("\n").map((l) => l.trim()).join("\n")}\n/* switcher: end */\n${bare(controls)}`;
   for (const [what, ok] of [["metas", /ss-canvas/.test(head)], ["nav", /switcher-row/.test(nav)], ["tokens", /direction-first/.test(tokens)], ["sections", sections.length === 3], ["controls", /function ssControls/.test(controls)]])
     if (!ok) throw new Error(`base.html: its ${what} weren't found`);
-  return `<!DOCTYPE html>\n${HEADER}\n${head}<style>\n${QUESTIONS_CSS}\n</style>\n</head>\n<body>\n\n${QUESTIONS}\n\n<style>\n${css}\n</style>\n\n${nav}\n\n${tokens}\n\n${sections.join("\n\n")}\n\n<script>\n${draw}\n${js}\n${QUESTIONS_JS.split("\n").map((l) => l.trim()).join("\n")}\n</script>\n<!-- design: end -->\n</body>\n</html>\n`;
+  return `<!DOCTYPE html>\n${HEADER}\n${head}<style>\n${QUESTIONS_CSS}\n</style>\n</head>\n<body>\n\n${QUESTIONS}\n\n<style>\n${css}\n</style>\n\n${nav}\n\n${tokens}\n\n<div data-ss-canvas-area>\n\n${sections.join("\n\n")}\n\n</div>\n\n<script>\n${draw}\n${js}\n${QUESTIONS_JS.split("\n").map((l) => l.trim()).join("\n")}\n</script>\n<!-- design: end -->\n</body>\n</html>\n`;
 }
 
 module.exports = { make };

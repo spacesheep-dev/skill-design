@@ -447,6 +447,24 @@ if (!only) {
   }
 }
 
+// The canvas is one block of the page, <div data-ss-canvas-area>, and only what is inside it is on the canvas: a
+// direction, view or version outside it shows as a plain block under the canvas. (A page with the old whole-page
+// <meta name="ss-canvas"> gets the area on its next save, so that is not a failure.)
+if (!only) {
+  const flat = page.replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>|<!--[\s\S]*?-->/gi, (c) => c.replace(/[^\n]/g, " "));
+  const open = /<div\b[^>]*\sdata-ss-canvas-area(?=[\s=>])[^>]*>/i.exec(flat);
+  let end = -1;
+  if (open) {
+    const tags = /<(\/?)div\b[^>]*>/gi;
+    tags.lastIndex = open.index + open[0].length;
+    for (let depth = 1, t; (t = tags.exec(flat)); ) if (!(depth += t[1] ? -1 : 1)) { end = t.index; break; }
+    if (end < 0) fail("page", `work/index.html:${lineAt(page, open.index)}`, "the canvas area's <div data-ss-canvas-area> is never closed: close it after the last direction");
+  }
+  if (open && end >= 0) for (const m of flat.matchAll(/<section\b[^>]*class="[^"]*\bdirection\b[^"]*"[^>]*>/g))
+    if (m.index < open.index || m.index > end)
+      fail("page", `work/index.html:${lineAt(page, m.index)}`, `${(m[0].match(/data-ss-id="([^"]*)"/) || [])[1] || "a direction"} is outside the canvas area: move it inside <div data-ss-canvas-area>, after the last direction`);
+}
+
 // Controls: the inputs in the page's .tweaks pane, its Tweaks. At most 6, each named by its
 // label's first words, each a token the page sets and uses. A switch or choice needs a rule for every value past
 // 0, or that value changes nothing.

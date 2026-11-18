@@ -6,7 +6,7 @@ Read the part you need when the person asks for it. Each change is still shown b
 
 When the person wants sign-off ("send it to the client", "get approval", "I need a yes from Noor"):
 
-1. Make a client copy without the `ss-chat`, `ss-canvas` and `ss-canvas-focus` metas and without the Tweaks pane (`<details class="tweaks">`), so it opens on the design alone, one direction at a time (with Desktop / Phone buttons for a direction that has a view), and without the switcher's `switcher-answers` line ("From your answers: …"). Add an approval form near the end; the platform sends it from anyone who can open the space, with or without an account:
+1. Make a client copy without the `ss-chat` and `ss-canvas-focus` metas, without `data-ss-canvas-area` on the div around the directions (keep the div), and without the Tweaks pane (`<details class="tweaks">`), so it opens on the design alone, one direction at a time (with Desktop / Phone buttons for a direction that has a view), and without the switcher's `switcher-answers` line ("From your answers: …"). Add an approval form near the end; the platform sends it from anyone who can open the space, with or without an account:
    ```html
    <form data-ss-form="approvals" class="no-print" aria-label="Approve this design">
      <label>Your name <input name="name" autocomplete="name" required></label>

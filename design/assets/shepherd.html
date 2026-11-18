@@ -10,7 +10,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Design title</title>
 <meta name="ss-chat" content="open">
-<meta name="ss-canvas" content="on">
 <meta name="ss-canvas-focus" content="all">
 <style>
 .ss-questions{position:relative;z-index:2;box-sizing:border-box;width:min(560px,calc(100% - 24px));max-height:calc(100svh - 120px);overflow:auto;margin:12px auto;padding:20px;display:grid;gap:18px;background:Canvas;color:CanvasText;border:1px solid color-mix(in srgb,CanvasText 18%,transparent);border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,.16);font:15px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;color-scheme:light dark;}
@@ -29,12 +28,12 @@
 .ss-start:disabled{opacity:.62;}
 .ss-questions .ss-why{margin:-6px 0 0;color:light-dark(#b42318,#ff9b8f);}
 .ss-questions .ss-why:empty{display:none;}
-body:has(>.ss-questions:not([hidden])) :is(.switcher,section.direction,ss-canvas-stage,[data-ss-canvas-stage],[data-ss-canvas-lift],.ss-canvas-label,.ss-canvas-section,.ss-canvas-chip,.ss-canvas-hint){visibility:hidden;}
+body:has(>.ss-questions:not([hidden]))>:is(.switcher,[data-ss-canvas-area]){display:none!important;}
 </style>
 </head>
 <body>
 
-<div class="ss-questions no-print" data-ss-canvas="pin" data-ss-id="design-questions" data-ss-comments="off" data-ss-react="off">
+<div class="ss-questions no-print" data-ss-id="design-questions" data-ss-comments="off" data-ss-react="off">
   <h2>A few choices before I draw</h2>
   <p>My picks are chosen. Change any, then press Start designing.</p>
   <fieldset><legend>How should it feel?</legend>
@@ -61,19 +60,22 @@ body:has(>.ss-questions:not([hidden])) :is(.switcher,section.direction,ss-canvas
 .switcher-tabs{flex:1 1 auto;min-width:0;display:flex;flex-wrap:wrap;gap:6px;}
 .switcher-tabs button{flex:0 0 auto;min-height:44px;padding:0 14px;border:1px solid var(--bar-line);border-radius:22px;background:var(--bar-bg);color:var(--bar-ink);font:inherit;cursor:pointer;}
 .switcher-tabs button[aria-selected="true"]{background:var(--bar-ink);color:var(--bar-bg);border-color:var(--bar-ink);}
-.switcher:has(.frame-zoom:not([hidden])) .switcher-tabs button[aria-selected="true"]{background:var(--bar-bg);color:var(--bar-ink);border-color:var(--bar-line);}
+.switcher[data-canvas-view] .switcher-tabs button[aria-selected="true"]{background:var(--bar-bg);color:var(--bar-ink);border-color:var(--bar-line);}
 .switcher-tabs button:focus-visible{outline:3px solid #2563eb;outline-offset:2px;}
 .switcher-line{margin:6px 2px 0;font-size:13px;color:var(--bar-muted);min-height:1.3em;}
 .switcher-answers{margin:2px 2px 0;font-size:13px;color:var(--bar-muted);}
 .switcher-answers:empty{display:none;}
-html:not(:has(meta[name="ss-canvas"][content="on"])) .direction:not(.on){display:none;}
+html:has([data-ss-canvas-area] > [data-ss-canvas-stage]){box-sizing:border-box;height:100%;}
+html:has([data-ss-canvas-area] > [data-ss-canvas-stage]) body{display:flex;flex-direction:column;height:100%;margin:0;}
+html:has([data-ss-canvas-area] > [data-ss-canvas-stage]) .switcher{flex:none;}
+[data-ss-canvas-area]:has(> [data-ss-canvas-stage]){flex:1 1 auto;height:auto;min-height:320px;}
+html:not(:has([data-ss-canvas-area])) .direction:not(.on){display:none;}
 .direction,[data-ss-frame]{container-type:inline-size;}
-.frame-back,.frame-zoom,.frame-use,.frame-round{flex:none;min-height:44px;display:inline-flex;align-items:center;padding:0 14px;border:1px solid var(--bar-line);border-radius:22px;background:var(--bar-bg);color:var(--bar-ink);font:inherit;white-space:nowrap;}
+.frame-back,.frame-use,.frame-round{flex:none;min-height:44px;display:inline-flex;align-items:center;padding:0 14px;border:1px solid var(--bar-line);border-radius:22px;background:var(--bar-bg);color:var(--bar-ink);font:inherit;white-space:nowrap;}
 .frame-back,.frame-use,.frame-round{cursor:pointer;}
 :is(.frame-back,.frame-use,.frame-round):focus-visible{outline:3px solid #2563eb;outline-offset:2px;}
-.frame-zoom{border-color:transparent;color:var(--bar-muted);font-variant-numeric:tabular-nums;}
-:is(.frame-back,.frame-zoom,.frame-use,.frame-round)[hidden]{display:none;}
-.frame-zoom,.frame-use{margin-left:auto;}
+:is(.frame-back,.frame-use,.frame-round)[hidden]{display:none;}
+.frame-use{margin-left:auto;}
 .frame-use:has(+ .frame-round:not([hidden])){border-radius:22px 0 0 22px;}
 .frame-round{margin-left:-8px;border-left:0;border-radius:0 22px 22px 0;}
 .switcher{container-type:inline-size;}
@@ -114,7 +116,7 @@ section.direction :is(.use-this,.card-menu),html:has(.frame-back:not([hidden])) 
 .tweaks button{min-height:44px;border:0;border-radius:8px;background:var(--bar-ink);color:var(--bar-bg);font:inherit;cursor:pointer;}
 </style>
 
-<nav data-ss-canvas="pin" class="switcher no-print" aria-label="Design directions" data-ss-react="off">
+<nav class="switcher no-print" aria-label="Design directions" data-ss-react="off">
   <div class="switcher-row">
     <button type="button" class="frame-back" data-ss-canvas-back aria-keyshortcuts="Escape" title="Back to all directions (Esc)" hidden>← Back</button>
     <div class="switcher-tabs" role="tablist"></div>
@@ -124,7 +126,6 @@ section.direction :is(.use-this,.card-menu),html:has(.frame-back:not([hidden])) 
         <button type="button" data-tweaks-keep data-ss-say="">Keep these</button>
       </div>
     </details>
-    <output class="frame-zoom" aria-label="Zoom" hidden></output>
     <button type="button" class="frame-use" data-ss-say="" hidden><span class="use">Use this</span><span class="chosen">✓ Chosen</span></button>
     <button type="button" class="frame-round" data-ss-say="" hidden>Another round</button>
   </div>
@@ -142,6 +143,8 @@ section.direction :is(.use-this,.card-menu),html:has(.frame-back:not([hidden])) 
     --font-display: ui-monospace, Menlo, monospace; --font-body: Charter, "Iowan Old Style", Georgia, serif; }
 </style>
 
+<div data-ss-canvas-area>
+
 <section class="direction" data-ss-frame="desktop" data-ss-section data-ss-id="direction-first" data-ss-thing="direction/first" data-ss-label="First" data-line="One line on what it leads with." data-ss-x="0" data-ss-y="0">
   <div class="card-menu no-print" data-ss-canvas="label"><button type="button" class="menu-open" aria-haspopup="menu" aria-expanded="false" aria-label="Menu for First">⋯</button><div class="menu" role="menu" hidden><button type="button" class="use-this" role="menuitem" data-ss-say="Use First" title="Use First"><span class="use">Use this</span><span class="chosen">✓ Chosen</span></button><button type="button" class="round" role="menuitem" data-ss-say="Another round of First" title="Another round of First">Another round</button></div></div>
   <!-- part:first --><div class="drawing" data-ss-id="first-drawing"><h2>First</h2><p>Being drawn…</p><i></i><i></i><i></i></div><!-- /part:first -->
@@ -157,16 +160,19 @@ section.direction :is(.use-this,.card-menu),html:has(.frame-back:not([hidden])) 
   <!-- part:third --><div class="drawing" data-ss-id="third-drawing"><h2>Third</h2><p>Being drawn…</p><i></i><i></i><i></i></div><!-- /part:third -->
 </section>
 
+</div>
+
 <script>
 function ssDraw(fn) { fn(); document.addEventListener('ss:live', () => fn()); }
 /* switcher: start */
 (() => {
+const q = (s) => document.querySelector(s), ch = (x) => x.hasAttribute('data-chosen');
 const all = () => [...document.querySelectorAll('section.direction:not([data-view-of])')];
 const label = (d) => d.dataset.ssLabel || d.dataset.ssId || '';
-const byId = (id) => !!id && (document.getElementById(id) || document.querySelector('[data-ss-id="' + CSS.escape(id) + '"]'));
+const byId = (id) => !!id && (document.getElementById(id) || q('[data-ss-id="' + CSS.escape(id) + '"]'));
 const dirAt = (at) => at && all().find((d) => d === at || d.contains(at));
-const canvas = () => !!document.querySelector('meta[name="ss-canvas"][content="on"]');
-const open = (d) => { history.replaceState(null, '', '#' + encodeURIComponent(d.dataset.ssId)); show(); dispatchEvent(new HashChangeEvent('hashchange')); };
+const canvas = () => !!q('[data-ss-canvas-area]');
+const open = (d) => { history.replaceState(null, '', '#' + encodeURIComponent(d.dataset.ssId)); dispatchEvent(new HashChangeEvent('hashchange')); };
 function pick() {
 let id = location.hash.slice(1);
 try { id = decodeURIComponent(id); } catch {}
@@ -175,26 +181,26 @@ return dirAt(byId(id)) || dirs.find((d) => d.hasAttribute('data-default')) || di
 }
 function pills() {
 document.querySelectorAll('.use-this').forEach((u) => {
-const d = all().find((x) => 'Use ' + label(x) === u.dataset.ssSay), on = !!d && d.hasAttribute('data-chosen');
+const d = all().find((x) => 'Use ' + label(x) === u.dataset.ssSay), on = !!d && ch(d);
 u.toggleAttribute('data-chosen', on);
 u.disabled = on;
 });
 }
 function frame() {
-const c = (window.ss && window.ss.canvas) || {}, q = (s) => document.querySelector(s);
-const back = q('.frame-back'), zoom = q('.frame-zoom'), use = q('.frame-use'), round = q('.frame-round');
+const c = (window.ss && window.ss.canvas) || {};
+const back = q('.frame-back'), bar = q('.switcher'), use = q('.frame-use'), round = q('.frame-round');
 if (back) back.hidden = !c.open;
-if (zoom) { zoom.hidden = !canvas() || !!c.open || typeof c.zoom !== 'number'; zoom.textContent = Math.round((c.zoom || 1) * 100) + '%'; }
+if (bar) bar.toggleAttribute('data-canvas-view', canvas() && !c.open && typeof c.zoom === 'number');
 const d = c.open && dirAt(byId(c.open)), on = !!d && all().length > 1;
 if (use) {
 use.hidden = !on;
-if (on) { use.dataset.ssSay = use.title = 'Use ' + label(d); use.toggleAttribute('data-chosen', d.hasAttribute('data-chosen')); use.disabled = d.hasAttribute('data-chosen'); }
+if (on) { use.dataset.ssSay = use.title = 'Use ' + label(d); use.toggleAttribute('data-chosen', ch(d)); use.disabled = ch(d); }
 }
 if (round) { round.hidden = !on; if (on) round.dataset.ssSay = round.title = 'Another round of ' + label(d); }
 pills();
 }
 function show() {
-const d = pick(), tabs = document.querySelector('.switcher-tabs'), line = document.querySelector('.switcher-line');
+const d = pick(), tabs = q('.switcher-tabs'), line = q('.switcher-line');
 all().forEach((x, i) => {
 x.classList.toggle('on', x === d);
 if (tabs && tabs.children[i]) tabs.children[i].setAttribute('aria-selected', String(x === d));
@@ -203,22 +209,22 @@ if (line && d && line.textContent !== (d.dataset.line || '')) line.textContent =
 frame();
 }
 function draw() {
-const tabs = document.querySelector('.switcher-tabs');
+const tabs = q('.switcher-tabs');
 if (tabs) tabs.replaceChildren(...all().map((d) => {
 const b = document.createElement('button');
 b.type = 'button';
 b.setAttribute('role', 'tab');
 b.textContent = label(d);
-if (d.hasAttribute('data-chosen')) b.dataset.chosen = '';
+if (ch(d)) b.dataset.chosen = '';
 b.addEventListener('click', () => open(d));
 return b;
 }));
 show();
 }
 const stale = () => {
-const t = document.querySelector('.switcher-tabs'), dirs = all();
+const t = q('.switcher-tabs'), dirs = all();
 return !!t && (t.children.length !== dirs.length || dirs.some((d, i) => t.children[i].textContent !== label(d)
-|| t.children[i].hasAttribute('data-chosen') !== d.hasAttribute('data-chosen')));
+|| ch(t.children[i]) !== ch(d)));
 };
 window.ssFrame = frame;
 window.ssShow = show;
@@ -234,7 +240,17 @@ const b = t.closest('.menu-open');
 document.querySelectorAll('.card-menu .menu:not([hidden])').forEach((m) => { if (m.previousElementSibling !== b) { m.hidden = true; m.previousElementSibling.setAttribute('aria-expanded', 'false'); } });
 if (b) { const m = b.nextElementSibling; m.hidden = !m.hidden; b.setAttribute('aria-expanded', String(!m.hidden)); return; }
 const u = t.closest('.use-this'), d = u && window.ssPillOf(u);
-if (d) { history.replaceState(null, '', '#' + encodeURIComponent(d.dataset.ssId)); dispatchEvent(new HashChangeEvent('hashchange')); }
+if (d) open(d);
+}, true);
+}
+// The canvas hears keys only in its area: on the bar, Esc goes Back and a tab's number opens its direction.
+if (!window.ssSlimKeys) {
+window.ssSlimKeys = true;
+addEventListener('keydown', (e) => {
+const t = e.target, k = e.key, c = window.ss && window.ss.canvas, d = all()[k - 1], b = q('.frame-back');
+if (!t.closest || !t.closest('.switcher') || !canvas() || e.metaKey || e.ctrlKey || e.altKey) return;
+if (k === 'Escape' && c && c.open && b && t.closest('button,a,summary')) { e.preventDefault(); b.click(); }
+else if (/^[1-9]$/.test(k) && d && t.closest('[role=tab]')) { e.preventDefault(); open(d); }
 }, true);
 }
 if (window.ssSlimWatch) window.ssSlimWatch.disconnect();

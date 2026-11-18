@@ -360,7 +360,8 @@ test("start reads the page beside the space's details in a new folder, and reads
 
 const STARTER = fs.readFileSync(path.join(__dirname, "..", "design", "assets", "starter.html"), "utf8");
 const looksEmpty = (html, name = "the starter") => {
-  assert.match(html, /<meta name="ss-canvas" content="on">/, `${name}: the canvas is on`);
+  assert.match(html, /\n<div data-ss-canvas-area>\n\n<\/div>\n/, `${name}: the canvas area is there, empty`);
+  assert.doesNotMatch(html, /<meta name="ss-canvas"/, `${name}: no whole-page canvas meta`);
   assert.doesNotMatch(html, /ss-workspace/, `${name}: no workspace meta`);
   assert.match(html, /class="frame-back" data-ss-canvas-back/, `${name}: the frame is there`);
   assert.doesNotMatch(html, /^<section class="direction"/m, `${name}: no direction yet`);
@@ -495,14 +496,14 @@ test("focus refuses a direction the page doesn't have, and changes and pushes no
   assert.equal(sent().length, before, "nothing pushed");
 });
 
-test("focus gives a page from before the meta its focus beside the ss-canvas meta, in the writer's frame too", () => {
+test("focus gives a page from before the meta its focus before </head>, in the writer's frame too", () => {
   const { folder, fold } = setup();
   assert.equal(fold(["start", "--new", "Poster"]).status, 0);
   const old = BASE.replace('<meta name="ss-canvas-focus" content="all">\n', "");
   for (const f of [["work", "index.html"], ["draw", "frame.html"]]) fs.writeFileSync(path.join(folder, ...f), old);
   assert.equal(fold(["focus", "second"]).status, 0);
   for (const f of [["work", "index.html"], ["draw", "frame.html"]])
-    assert.equal(fs.readFileSync(path.join(folder, ...f), "utf8"), old.replace('<meta name="ss-canvas" content="on">', '<meta name="ss-canvas" content="on">\n<meta name="ss-canvas-focus" content="direction-second">'), f.join("/"));
+    assert.equal(fs.readFileSync(path.join(folder, ...f), "utf8"), old.replace('</head>', '<meta name="ss-canvas-focus" content="direction-second">\n</head>'), f.join("/"));
 });
 
 test("a revision's first status: read's words (Reading your design unless given) go up before it reads; start's, when given, go up beside its read, and start pushes no page over the design", () => {
@@ -821,7 +822,7 @@ test("kit brings a page made before device views up to the starter's switcher an
   const n = calls().length;
   const r = fold(["kit"]);
   assert.equal(r.status, 0, r.stderr);
-  assert.match(r.stdout, /^kit: the switcher, Export, the device buttons' row, the kit's phone rules and the layout check are now the starter's; nothing pushed$/m);
+  assert.match(r.stdout, /^kit: the canvas area, the switcher, Export, the device buttons' row, the kit's phone rules and the layout check are now the starter's; nothing pushed$/m);
   assert.equal(fs.readFileSync(page, "utf8"), BASE);
   assert.match(fold(["kit"]).stdout, /^kit: already current$/m);
   assert.equal(calls().length, n, "kit pushes nothing");
@@ -844,7 +845,7 @@ test("kit gives a page with no layout check the starter's, so the save's picture
   const n = calls().length;
   const r = fold(["kit"]);
   assert.equal(r.status, 0, r.stderr);
-  assert.match(r.stdout, /^kit: the switcher, Export, the device buttons' row, the kit's phone rules and the layout check are now the starter's; nothing pushed$/m);
+  assert.match(r.stdout, /^kit: the canvas area, the switcher, Export, the device buttons' row, the kit's phone rules and the layout check are now the starter's; nothing pushed$/m);
   const out = fs.readFileSync(page, "utf8");
   assert.equal(out.split(mark).length, 2, "the starter's check, once");
   assert.ok(out.includes(`<script>\n${mark}\n</script>\n<!-- design: end -->\n</body>`), "in a <script> of its own, at the page's end");
@@ -918,7 +919,10 @@ test("kit brings a page a Shepherd turn made from shepherd.html up to the starte
   const span = /\/\* switcher: start \*\/[\s\S]*?\/\* switcher: end \*\//g;
   const shepherd = fs.readFileSync(path.join(__dirname, "..", "design", "assets", "shepherd.html"), "utf8");
   const page = path.join(folder, "work", "index.html");
-  fs.writeFileSync(page, shepherd);
+  // A page from an older shepherd.html still has the bar's zoom figure, which the canvas area now draws itself.
+  const zoom = '    <output class="frame-zoom" aria-label="Zoom" hidden></output>\n';
+  fs.writeFileSync(page, shepherd.replace(/(?=    <button type="button" class="frame-use")/, zoom));
+  assert.ok(fs.readFileSync(page, "utf8").includes(zoom));
   const n = calls().length;
   const r = fold(["kit"]);
   assert.equal(r.status, 0, r.stderr);
@@ -926,6 +930,7 @@ test("kit brings a page a Shepherd turn made from shepherd.html up to the starte
   assert.deepEqual(out.match(span), BASE.match(span), "the starter's switcher styles and script");
   assert.ok(out.includes(BASE.match(/<div class="export no-print">.*<\/p><\/div>/)[0]), "Export in the bar");
   assert.match(out, /class="switcher-views"/);
+  assert.doesNotMatch(out, /frame-zoom/, "the old zoom figure goes");
   assert.equal(out.split(BASE.match(/\/\* check: start \*\/[\s\S]*?\/\* check: end \*\//)[0]).length, 2, "the layout check, once");
   assert.ok(out.endsWith("<!-- design: end -->\n</body>\n</html>\n"));
   assert.match(fold(["kit"]).stdout, /^kit: already current$/m);
@@ -955,7 +960,7 @@ test("kit gives a one-design page that dropped the switcher's tabs, script and n
   assert.match(out, /<script>\n\/\* switcher: start \*\/[\s\S]*?\/\* switcher: end \*\/\n<\/script>\n<!-- design: end -->\n<\/body>/, "the script in a <script> of its own, at the page's end, before its end mark");
   // Its nav: a row holding Export alone, and the device row.
   const exp = BASE.match(/<div class="export no-print">.*<\/p><\/div>/)[0];
-  assert.ok(out.includes(`<body>\n<nav data-ss-canvas="pin" class="switcher no-print" aria-label="Design views" data-ss-react="off">\n  <div class="switcher-row">\n    ${exp}\n  </div>\n  <div class="switcher-views" role="group" aria-label="Device views"></div>\n</nav>`), "a nav with Export and the device row");
+  assert.ok(out.includes(`<body>\n<nav class="switcher no-print" aria-label="Design views" data-ss-react="off">\n  <div class="switcher-row">\n    ${exp}\n  </div>\n  <div class="switcher-views" role="group" aria-label="Device views"></div>\n</nav>`), "a nav with Export and the device row");
   assert.doesNotMatch(out, /@media \(max-width: 40rem\)|5vw/);
   // The script runs without tabs, and the nav that holds only the device row shows only with buttons.
   assert.doesNotMatch(script, /if \(!tabsNow\(\)\) return;/);
@@ -1038,7 +1043,7 @@ test("round puts each version in a row of its own below everything, joined to it
 
 test("the starter carries the lines' rules as round adds them to an older page, shown only on the canvas", () => {
   const css = BASE.match(/  \/\* rounds: start \*\/[\s\S]*?\/\* rounds: end \*\//)[0];
-  assert.match(css, /html:not\(:has\(meta\[name="ss-canvas"\]\[content="on"\]\)\) \[data-round-lines\] \{ display: none; \}/);
+  assert.match(css, /html:not\(:has\(\[data-ss-canvas-area\]\)\) \[data-round-lines\] \{ display: none; \}/);
   const { folder, fold } = setup();
   assert.equal(fold(["start", "--new", "Poster"]).status, 0);
   // An older starter: no lines' rules, and a switcher script that knows nothing of rounds.
@@ -1075,6 +1080,20 @@ test("round replaces only its own lines block, never an element of the page's wh
   }
 });
 
+test("round keeps a new version and its lines inside the canvas area when the last direction closes it on the same line", () => {
+  const { folder, fold } = setup();
+  assert.equal(fold(["start", "--new", "Poster"]).status, 0);
+  const file = path.join(folder, "work", "index.html"), tight = BASE.replace("</section>\n\n</div>\n", "</section></div>\n");
+  assert.notEqual(tight, BASE);
+  fs.writeFileSync(file, tight);
+  assert.equal(fold(["round", "first", "Bolder"]).status, 0);
+  const out = fs.readFileSync(file, "utf8"), open = out.indexOf("<div data-ss-canvas-area>"), close = out.indexOf("</div>\n\n<script>");
+  for (const what of ['data-ss-id="direction-bolder"', " data-round-lines "])
+    assert.ok(out.indexOf(what) > open && out.indexOf(what) < close, `${what} is inside the area`);
+  assert.match(out, /<\/section>\n\n<section class="direction" data-version-of="first"/, "the version starts on a line of its own");
+  assert.match(out, /<\/section>\n<div class="no-print" data-round-lines [^\n]*<\/svg><\/div>\n<\/div>\n\n<script>/, "and the lines close it, then the area");
+});
+
 test("round puts versions before a page's device views, so the views keep the numbers after the directions, and its row below them, in the writer's frame too", () => {
   const { folder, fold } = setup();
   assert.equal(fold(["start", "--new", "Poster"]).status, 0);
@@ -1107,4 +1126,43 @@ test("round refuses a parent the page hasn't got, a name already taken or one of
   assert.equal(r.status, 2);
   assert.match(r.stderr, /round: second has no data-ss-frame size or no data-ss-x and data-ss-y/);
   assert.equal(fs.readFileSync(file, "utf8"), before.replace(' data-ss-x="1352" data-ss-y="0"', ""), "nothing changed");
+});
+
+// A page from before the canvas area: the whole-page meta, its directions loose in the body, and the starter's
+// canvas tests written against the meta.
+const BEFORE_AREA = BASE.replace('<meta name="ss-canvas-focus"', '<meta name="ss-canvas" content="on">\n<meta name="ss-canvas-focus"')
+  .replace("<div data-ss-canvas-area>\n\n", "").replace("</section>\n\n</div>\n", "</section>\n")
+  .replaceAll("[data-ss-canvas-area]", 'meta[name="ss-canvas"][content="on"]');
+test("kit and save move an older page's directions into the canvas area and drop the whole-page meta, giving the starter's page", () => {
+  assert.ok(BEFORE_AREA.includes('<meta name="ss-canvas" content="on">') && !BEFORE_AREA.includes("<div data-ss-canvas-area>\n"), "the older page has the meta and no area");
+  for (const how of ["kit", "save"]) {
+    const { folder, fold } = setup();
+    assert.equal(fold(["start", "--new", "Poster"]).status, 0);
+    const page = path.join(folder, "work", "index.html");
+    fs.writeFileSync(page, BEFORE_AREA);
+    const r = fold(how === "kit" ? ["kit"] : ["save", "Three directions", "Checking details"]);
+    assert.equal(r.status, 0, r.stdout + r.stderr);
+    if (how === "save") { const w = fold(["wait"]); assert.equal(w.status, 0, w.stdout + w.stderr); assert.match(fs.readFileSync(path.join(folder, "draw", "save.log"), "utf8"), /work\/index\.html: its directions are now in the canvas area/); }
+    assert.equal(fs.readFileSync(page, "utf8"), BASE, `${how}: the page is the starter's, its three directions in the area`);
+    assert.equal(fold(["kit"]).stdout.trim(), "kit: already current", `${how}: nothing left to do`);
+  }
+});
+
+test("an older page's round lines and views go in the area with its directions, and a page without the meta is left as it is", () => {
+  const { folder, fold } = setup();
+  assert.equal(fold(["start", "--new", "Poster"]).status, 0);
+  const page = path.join(folder, "work", "index.html");
+  const view = '<section class="direction" data-view-of="first" data-ss-frame="phone" data-ss-section data-ss-id="direction-first-phone" data-ss-label="First · Phone"><!-- part:first-phone --><!-- /part:first-phone --></section>';
+  const lines = '<div class="no-print" data-round-lines data-ss-id="round-lines" aria-hidden="true" data-ss-x="0" data-ss-y="800"><svg width="1" height="1"></svg></div>';
+  fs.writeFileSync(page, BEFORE_AREA.replace(/(^<section[^>]*data-ss-id="direction-third"[\s\S]*?<\/section>\n)/m, `$1${lines}\n${view}\n`));
+  assert.equal(fold(["kit"]).status, 0);
+  const out = fs.readFileSync(page, "utf8"), open = out.indexOf("\n<div data-ss-canvas-area>\n"), close = out.indexOf("</div>\n\n<script>");
+  assert.ok(open > 0 && close > open, "one area");
+  for (const id of ["direction-first", "direction-third", "round-lines", "direction-first-phone"]) { const at = out.search(new RegExp(`<(section|div)\\b[^>]*data-ss-id="${id}"`)); assert.ok(at > open && at < close, `${id} is in the area`); }
+  assert.ok(out.indexOf("\n<nav ") > 0 && out.indexOf("\n<nav ") < open, "the bar stays above it");
+  // A page that has the area (or never had the canvas) is not wrapped again.
+  const before = fs.readFileSync(page, "utf8");
+  assert.equal(fold(["kit"]).status, 0);
+  assert.equal(fs.readFileSync(page, "utf8"), before, "kit again changes nothing");
+  assert.equal((before.match(/\n<div data-ss-canvas-area>\n/g) || []).length, 1);
 });

@@ -18,15 +18,17 @@ test("shepherd.html is what tools/shepherd.js makes from base.html", () => {
 
 test("it fits in one use_skill read and keeps the starter's metas, with no ss-workspace and no Export", () => {
   assert.ok([...PAGE].length <= 25000, `${[...PAGE].length} characters`);
-  for (const meta of ['<meta name="ss-chat" content="open">', '<meta name="ss-canvas" content="on">', '<meta name="ss-canvas-focus" content="all">'])
+  for (const meta of ['<meta name="ss-chat" content="open">', '<meta name="ss-canvas-focus" content="all">'])
     assert.ok(PAGE.includes(meta), meta);
+  assert.doesNotMatch(PAGE, /<meta name="ss-canvas"[ >]/, "no whole-page canvas meta");
+  assert.match(PAGE, /\n<div data-ss-canvas-area>\n\n<section class="direction"[\s\S]*<\/section>\n\n<\/div>\n/, "the directions are in the canvas area");
   assert.doesNotMatch(PAGE, /ss-workspace/);
   assert.doesNotMatch(PAGE, /class="export|switcher-views|ss-check/);
   assert.ok(PAGE.endsWith("<!-- design: end -->\n</body>\n</html>\n"));
 });
 
 test("its bar, tokens and sections are base.html's", () => {
-  for (const cls of ["frame-back", "switcher-tabs", "tweaks-body", "data-tweaks-keep", "frame-zoom", "frame-use", "frame-round", "switcher-line", "switcher-answers"])
+  for (const cls of ["frame-back", "switcher-tabs", "tweaks-body", "data-tweaks-keep", "frame-use", "frame-round", "switcher-line", "switcher-answers"])
     assert.ok(PAGE.includes(cls), cls);
   const sections = (html) => [...html.matchAll(/^<section class="direction"[\s\S]*?^<\/section>$/gm)].map((m) => m[0]);
   assert.equal(sections(PAGE).length, 3);
@@ -52,13 +54,15 @@ test("it keeps the rule that hides the card menu on the drawing, behind an open 
   assert.doesNotMatch(PAGE.slice(0, PAGE.indexOf("</style>")), /\.direction\[data-view-of\]/);
 });
 
-test("the questions card comes first in the body, within the first 4,000 characters, pinned, with its button off", () => {
+test("the questions card comes first in the body, within the first 4,000 characters, above the canvas area, with its button off", () => {
   const body = PAGE.indexOf("<body>"), card = PAGE.indexOf('<div class="ss-questions');
   assert.ok(body > 0 && card > body && PAGE.slice(body + 6, card).trim() === "", "the card is the body's first element");
   const end = PAGE.indexOf("</div>", card) + 6;
   assert.ok(end <= 4000, `the card ends at ${end}`);
   const tag = PAGE.slice(card, PAGE.indexOf(">", card));
-  for (const a of ['data-ss-canvas="pin"', 'data-ss-id="design-questions"', 'data-ss-comments="off"']) assert.ok(tag.includes(a), a);
+  for (const a of ['data-ss-id="design-questions"', 'data-ss-comments="off"']) assert.ok(tag.includes(a), a);
+  assert.ok(!tag.includes("data-ss-canvas"), "a block of the page, not of the canvas");
+  assert.ok(card < PAGE.indexOf("<div data-ss-canvas-area>"), "above the canvas area");
   assert.match(PAGE.slice(card, end), /<button type="button" class="ss-start" data-ss-say="" disabled>Getting ready…<\/button>/);
   assert.ok(PAGE.indexOf(".ss-questions{") < card, "its styles come before it");
   assert.match(PAGE, /\.ss-questions\[hidden\]\{display:none;\}/);
@@ -190,11 +194,11 @@ test("a tap the viewer greys (it can't take a say) leaves the card open with the
   assert.equal(t.why().textContent, "Turn on page actions to send");
 });
 
-test("while the card shows, the bar, the frames and the canvas's labels are hidden; its styles come first", () => {
+test("while the card shows, the bar and the canvas area (its frames and labels with it) are hidden; its styles come first", () => {
   const head = PAGE.slice(0, PAGE.indexOf('<div class="ss-questions'));
-  const rule = head.match(/body:has\(>\.ss-questions:not\(\[hidden\]\)\) :is\(([^)]*)\)\{visibility:hidden;\}/);
+  const rule = head.match(/body:has\(>\.ss-questions:not\(\[hidden\]\)\)>:is\(([^)]*)\)\{display:none!important;\}/);
   assert.ok(rule, "the hiding rule is in the card's own styles");
-  for (const s of [".switcher", "section.direction", "ss-canvas-stage", "[data-ss-canvas-lift]", ".ss-canvas-label", ".ss-canvas-section", ".ss-canvas-chip"]) assert.ok(rule[1].split(",").includes(s), s);
+  for (const s of [".switcher", "[data-ss-canvas-area]"]) assert.ok(rule[1].split(",").includes(s), s);
   assert.doesNotMatch(rule[1], /ss-questions/, "never the card itself");
 });
 
@@ -207,4 +211,38 @@ test("each section runs from its opening tag to the </section> after its own par
     assert.doesNotMatch(found[0].slice(1), /<section/, `${n} holds no other section`);
     assert.ok(md.includes(`<!-- /part:${n} -->`), `shepherd.md names ${n}'s own marker`);
   }
+});
+
+test("on the slim bar, which sits outside the canvas area, Esc on a tab goes Back and a tab's number opens its direction", () => {
+  const js = scripts(PAGE)[0].match(/\/\* switcher: start \*\/[\s\S]*?\/\* switcher: end \*\//)[0];
+  class El {
+    constructor(is = [], data = {}) { this.is = is; this.dataset = data; this.children = []; this.attrs = {}; this.clicks = 0; this.classList = { toggle() {} }; }
+    closest(sel) { return sel.split(",").some((p) => this.is.includes(p.trim())) ? this : null; }
+    hasAttribute(n) { return n in this.attrs; }
+    setAttribute(n, v) { this.attrs[n] = v; }
+    toggleAttribute(n, on) { if (on) this.attrs[n] = ""; else delete this.attrs[n]; }
+    replaceChildren(...k) { this.children = k; }
+    addEventListener() {}
+    contains(x) { return x === this; }
+    click() { this.clicks++; }
+  }
+  const dirs = ["first", "second", "third"].map((s) => new El([], { ssId: `direction-${s}`, ssLabel: s }));
+  const bar = { ".switcher-tabs": new El(), ".frame-back": new El(), ".switcher": new El(), "[data-ss-canvas-area]": new El() };
+  const heard = {}, location = { hash: "" };
+  const document = { querySelector: (s) => bar[s] || null, querySelectorAll: (s) => (s === "section.direction:not([data-view-of])" ? dirs : []),
+    getElementById: () => null, createElement: () => new El(), addEventListener() {}, body: {} };
+  const win = { document, location, history: { replaceState: (a, b, h) => { location.hash = h; } }, CSS: { escape: (s) => s }, HashChangeEvent: class {},
+    MutationObserver: class { observe() {} }, addEventListener: (n, f) => (heard[n] = heard[n] || []).push(f), dispatchEvent() {} };
+  win.window = win;
+  vm.runInNewContext(js, win);
+  const tab = new El(["button", "[role=tab]", ".switcher"]);
+  const key = (k) => { let taken = false; (heard.keydown || []).forEach((f) => f({ key: k, target: tab, preventDefault: () => { taken = true; } })); return taken; };
+  win.ss = { canvas: { open: "direction-second", zoom: 1 } };
+  assert.ok(key("Escape"), "Esc is taken");
+  assert.equal(bar[".frame-back"].clicks, 1, "and goes Back");
+  win.ss = { canvas: { open: null, zoom: 0.3 } };
+  assert.equal(key("Escape"), false, "with nothing open, Esc is left alone");
+  assert.ok(key("3"));
+  assert.equal(location.hash, "#direction-third", "a tab's 3 opens the third direction");
+  assert.equal(key("7"), false, "a number with no direction is left alone");
 });
