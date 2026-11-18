@@ -912,6 +912,26 @@ test("a run's record written by another command while an older folder's processe
   assert.deepEqual(fs.readdirSync(path.join(folder, "draw")).filter((f) => f.endsWith(".new")), [], "no copy left behind");
 });
 
+test("kit brings a page a Shepherd turn made from shepherd.html up to the starter: its switcher, Export, device row and layout check", () => {
+  const { folder, fold, calls } = setup();
+  assert.equal(fold(["start", "--new", "Poster"]).status, 0);
+  const span = /\/\* switcher: start \*\/[\s\S]*?\/\* switcher: end \*\//g;
+  const shepherd = fs.readFileSync(path.join(__dirname, "..", "design", "assets", "shepherd.html"), "utf8");
+  const page = path.join(folder, "work", "index.html");
+  fs.writeFileSync(page, shepherd);
+  const n = calls().length;
+  const r = fold(["kit"]);
+  assert.equal(r.status, 0, r.stderr);
+  const out = fs.readFileSync(page, "utf8");
+  assert.deepEqual(out.match(span), BASE.match(span), "the starter's switcher styles and script");
+  assert.ok(out.includes(BASE.match(/<div class="export no-print">.*<\/p><\/div>/)[0]), "Export in the bar");
+  assert.match(out, /class="switcher-views"/);
+  assert.equal(out.split(BASE.match(/\/\* check: start \*\/[\s\S]*?\/\* check: end \*\//)[0]).length, 2, "the layout check, once");
+  assert.ok(out.endsWith("<!-- design: end -->\n</body>\n</html>\n"));
+  assert.match(fold(["kit"]).stdout, /^kit: already current$/m);
+  assert.equal(calls().length, n, "kit pushes nothing");
+});
+
 test("kit gives a one-design page that dropped the switcher's tabs, script and nav the script and a device row", () => {
   const { folder, fold, calls } = setup();
   assert.equal(fold(["start", "--new", "Poster"]).status, 0);

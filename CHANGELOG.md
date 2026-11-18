@@ -2,6 +2,13 @@
 
 Each release is a heading with its tag. The release workflow uses the words under it as the release's notes.
 
+## v1.2.24
+
+- Design works in a Shepherd turn, which has no shell for fold.js. SKILL.md's first line now sends that turn to the new references/shepherd.md, which replaces Order of work there.
+- A new design asks first: turn 1 reads references/questions.md, asks in the chat and writes no page. Turn 2 reads the new `assets/shepherd.html` (18,569 characters, one `use_skill` read) and writes it whole as the page, with the title, tokens, sections, drawings and controls filled in.
+- `assets/shepherd.html` is base.html's metas (`ss-chat`, `ss-canvas`, `ss-canvas-focus`), bar, tokens, sections and Tweaks, with a slim switcher: tabs, Back, zoom, Use this · Another round and the card menus. It has no Export, device row, rounds, kit parts or layout check, and no `ss-workspace` meta. `tools/shepherd.js` makes it from base.html, and CI fails when the two differ. Its switcher marks stay, so `fold.js kit` later brings such a page up to the full starter.
+- New tests: shepherd.html is what base.html makes; it keeps the metas and base.html's sections and has no Export; its script parses and can run twice; and `fold.js kit` turns it into the starter's switcher, Export, device row and layout check.
+
 ## v1.2.23
 
 - A save whose deploy the CLI calls failed now checks, as a save stopped at its time limit already did, whether its version was made all the same (only its answer lost, for example when the server restarted mid-call). If it was, the save is a save: it says `Saved as version N`, goes on to its status and pictures, and nothing says failed. If not, the save ends with the CLI's own words, as before.
