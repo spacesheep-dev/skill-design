@@ -17,7 +17,8 @@ Where the request came from:
 
 1. **The page's chat** (you are the person's open session and answer with `spacesheep talk reply`): words that make sense alone, then one `ss-blocks` fence with a `form` (id `brief`, submit "Start designing"); with your picks already chosen, Start designing pressed untouched takes them all. Each example below is a whole message. Through the CLI, send it as `--blocks` with the fence's list, the words as a first `{"text": {"markdown": "…"}}` block, in single quotes and each apostrophe written `\u0027`: backticks in a command are read as one to run.
 2. **Your own question tool** (Claude Code's AskUserQuestion, with the person at your terminal): the same questions and choices in one call, your pick labelled "(my pick)". It adds its own free answer.
-3. **Anywhere else:** the same questions numbered, each choice lettered with your pick first and labelled "(my pick)", ending "Reply go to use my picks."
+3. **A Shepherd turn** (no shell): the questions card on the page, with toggles and a Start designing button, never the chat (references/shepherd.md).
+4. **Anywhere else:** the same questions numbered, each choice lettered with your pick first and labelled "(my pick)", ending "Reply go to use my picks."
 
 Then end the turn. A run nobody answers gets no questions (section 1). In the chat, Start designing sends your pick for every question the person left untouched.
 

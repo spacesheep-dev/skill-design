@@ -97,8 +97,101 @@ const SWITCHER_JS = `(() => {
   draw();
 })();`;
 
+// The questions card: turn 1 writes it first in the page, so it shows within seconds while the rest streams in, with
+// the turn's own questions in place of these two. Pinned (data-ss-canvas="pin"), it sits at screen size above the
+// canvas. While it shows, the bar, the frames and the canvas's labels are hidden: there is nothing in them yet.
+// Its button stays off until the page's script has run, which is the turn's last write, so an answer never lands
+// while the turn still writes; then it says the answers in one tap (data-ss-say). Turn 2 hides it.
+const QUESTIONS_CSS = `.ss-questions{position:relative;z-index:2;box-sizing:border-box;width:min(560px,calc(100% - 24px));max-height:calc(100svh - 120px);overflow:auto;margin:12px auto;padding:20px;display:grid;gap:18px;background:Canvas;color:CanvasText;border:1px solid color-mix(in srgb,CanvasText 18%,transparent);border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,.16);font:15px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;color-scheme:light dark;}
+.ss-questions[hidden]{display:none;}
+.ss-questions h2{margin:0;font-size:19px;line-height:1.25;}
+.ss-questions p{margin:-10px 0 0;color:color-mix(in srgb,CanvasText 62%,transparent);}
+.ss-questions fieldset{display:flex;flex-wrap:wrap;gap:8px;min-width:0;margin:0;padding:0;border:0;}
+.ss-questions legend{padding:0 0 8px;font-weight:600;}
+.ss-questions label{position:relative;display:inline-flex;align-items:center;min-height:44px;padding:0 14px;border:1px solid color-mix(in srgb,CanvasText 28%,transparent);border-radius:8px;cursor:pointer;}
+.ss-questions label:has(input:checked){background:CanvasText;color:Canvas;border-color:CanvasText;}
+.ss-questions label:has(input:focus-visible),.ss-questions :is(input[type="text"],.ss-start):focus-visible{outline:2px solid #4f46e5;outline-offset:2px;}
+.ss-questions label input{position:absolute;opacity:0;pointer-events:none;}
+.ss-questions input[type="text"]{flex:1 1 160px;min-height:44px;padding:0 12px;border:1px solid color-mix(in srgb,CanvasText 28%,transparent);border-radius:8px;background:transparent;color:inherit;font:inherit;}
+.ss-questions :disabled{cursor:default;}
+.ss-start{min-height:48px;border:0;border-radius:8px;background:#4f46e5;color:#fff;font:600 16px/1.2 system-ui,-apple-system,"Segoe UI",sans-serif;cursor:pointer;}
+.ss-start:disabled{opacity:.62;}
+.ss-questions .ss-why{margin:-6px 0 0;color:light-dark(#b42318,#ff9b8f);}
+.ss-questions .ss-why:empty{display:none;}
+body:has(>.ss-questions:not([hidden])) :is(.switcher,section.direction,ss-canvas-stage,[data-ss-canvas-stage],[data-ss-canvas-lift],.ss-canvas-label,.ss-canvas-section,.ss-canvas-chip,.ss-canvas-hint){visibility:hidden;}`;
+const QUESTIONS = `<div class="ss-questions no-print" data-ss-canvas="pin" data-ss-id="design-questions" data-ss-comments="off" data-ss-react="off">
+  <h2>A few choices before I draw</h2>
+  <p>My picks are chosen. Change any, then press Start designing.</p>
+  <fieldset><legend>How should it feel?</legend>
+    <label><input type="radio" name="look" value="Warm and homely" checked>Warm and homely</label>
+    <label><input type="radio" name="look" value="Clean and modern">Clean and modern</label>
+    <label><input type="radio" name="look" value="Bold and playful">Bold and playful</label>
+  </fieldset>
+  <fieldset><legend>What must it show?</legend>
+    <label><input type="checkbox" name="must" value="Opening hours" checked>Opening hours</label>
+    <label><input type="checkbox" name="must" value="Prices">Prices</label>
+    <input type="text" name="must" aria-label="Something else it must show" placeholder="Or say what" maxlength="60">
+  </fieldset>
+  <button type="button" class="ss-start" data-ss-say="" disabled>Getting ready…</button>
+</div>`;
+// Pressed, the card waits for the design. A tap the viewer greys (it can't take a say now) leaves it open with the
+// viewer's reason, and a say it refuses (ss:say-refused) opens it again with the picks kept and the reason under them.
+const QUESTIONS_JS = `/* questions: start */
+(() => {
+  const card = document.querySelector('.ss-questions'), go = card && card.querySelector('.ss-start');
+  if (!go) return;
+  const sent = () => card.dataset.sent !== undefined;
+  const say = () => 'Start designing with my answers. ' + [...card.querySelectorAll('fieldset')].map((f) => {
+    const a = [...f.querySelectorAll('input:checked')].map((i) => i.value), t = f.querySelector('input[type="text"]');
+    if (t && t.value.trim()) a.push(t.value.trim());
+    return (f.querySelector('legend')?.textContent || '').trim() + ' ' + (a.join(', ') || 'your pick');
+  }).join(' · ');
+  // The viewer sends the line only while the button shows it (its title), and puts a refusal's reason there
+  // for a moment: until the title is the line again, the button stays off, so a tap can't only fill the chat box.
+  const ready = () => { if (!sent()) go.disabled = go.getAttribute('aria-disabled') !== 'true' && go.title !== go.dataset.ssSay; };
+  const set = () => {
+    if (sent()) return;
+    const l = say();
+    if (go.dataset.ssSay !== l) { go.dataset.ssSay = l; if (go.hasAttribute('data-ss-title')) go.setAttribute('data-ss-title', l); else go.title = l; }
+    ready();
+  };
+  if (!sent()) go.textContent = 'Start designing';
+  const lock = (on, why) => {
+    if (on) card.dataset.sent = ''; else delete card.dataset.sent;
+    card.querySelectorAll('input, .ss-start').forEach((i) => { i.disabled = on; });
+    let w = card.querySelector('.ss-why');
+    if (!w) { w = document.createElement('p'); w.className = 'ss-why'; w.setAttribute('role', 'status'); go.before(w); }
+    w.textContent = why || '';
+    go.textContent = on ? (window.parent !== window ? 'Designing… the directions come next' : 'Copied: paste it in the chat') : 'Start designing';
+  };
+  if (!card.ssWired) {
+    card.ssWired = true;
+    card.addEventListener('input', set);
+    card.addEventListener('change', set);
+    card.addEventListener('click', (e) => {
+      if (!e.target.closest || !e.target.closest('.ss-start') || sent()) return;
+      const l = go.dataset.ssSay;
+      if (go.getAttribute('aria-disabled') !== 'true' && go.title !== l) { e.stopPropagation(); ready(); return; }
+      setTimeout(() => {
+        if (go.getAttribute('aria-disabled') === 'true') { lock(false, go.title || 'Not sent. Try again in a moment.'); return; }
+        lock(true);
+        if (window.parent === window) navigator.clipboard?.writeText(l).catch(() => prompt('Copy this into the chat', l));
+      }, 0);
+    });
+    card.addEventListener('ss:say-refused', (e) => {
+      lock(false, (e.detail && e.detail.why) || 'Not sent. Press Start designing again.');
+      set();
+      setTimeout(ready, 1600);
+    });
+    if (window.MutationObserver) new window.MutationObserver(ready).observe(go, { attributes: true, attributeFilter: ['title', 'aria-disabled'] });
+  }
+  set();
+})();
+/* questions: end */`;
+
 const HEADER = `<!--
   Design's page for a Shepherd turn: references/shepherd.md says what to change. Copy everything else as it is.
+  The questions card comes first, so it shows while the rest of the page is still being written.
   Made from base.html by tools/shepherd.js.
 -->`;
 
@@ -153,7 +246,7 @@ function make(base) {
   const js = `/* switcher: start */\n${SWITCHER_JS.split("\n").map((l) => l.trim()).join("\n")}\n/* switcher: end */\n${bare(controls)}`;
   for (const [what, ok] of [["metas", /ss-canvas/.test(head)], ["nav", /switcher-row/.test(nav)], ["tokens", /direction-first/.test(tokens)], ["sections", sections.length === 3], ["controls", /function ssControls/.test(controls)]])
     if (!ok) throw new Error(`base.html: its ${what} weren't found`);
-  return `<!DOCTYPE html>\n${HEADER}\n${head}<style>\n${css}\n</style>\n</head>\n<body>\n\n${nav}\n\n${tokens}\n\n${sections.join("\n\n")}\n\n<script>\n${draw}\n${js}\n</script>\n<!-- design: end -->\n</body>\n</html>\n`;
+  return `<!DOCTYPE html>\n${HEADER}\n${head}<style>\n${QUESTIONS_CSS}\n</style>\n</head>\n<body>\n\n${QUESTIONS}\n\n<style>\n${css}\n</style>\n\n${nav}\n\n${tokens}\n\n${sections.join("\n\n")}\n\n<script>\n${draw}\n${js}\n${QUESTIONS_JS.split("\n").map((l) => l.trim()).join("\n")}\n</script>\n<!-- design: end -->\n</body>\n</html>\n`;
 }
 
 module.exports = { make };
