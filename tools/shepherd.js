@@ -87,12 +87,12 @@ const SWITCHER_JS = `(() => {
       if (!t) return;
       const b = t.closest('.menu-open');
       document.querySelectorAll('.card-menu .menu:not([hidden])').forEach((m) => { if (m.previousElementSibling !== b) { m.hidden = true; m.previousElementSibling.setAttribute('aria-expanded', 'false'); } });
-      if (b) { const m = b.nextElementSibling; m.hidden = !m.hidden; b.setAttribute('aria-expanded', String(!m.hidden)); return; }
+      if (b) { const m = b.nextElementSibling; m.hidden = !m.hidden; b.setAttribute('aria-expanded', String(!m.hidden)); m.style.left = b.getBoundingClientRect().right < m.offsetWidth ? '0' : ''; return; }
       const u = t.closest('.use-this'), d = u && window.ssPillOf(u);
       if (d) open(d);
     }, true);
   }
-  // The canvas hears keys only in its area: on the bar, Esc goes Back and a tab's number opens its direction.
+  // On the bar: Esc goes Back, a tab's number opens its direction.
   if (!window.ssSlimKeys) {
     window.ssSlimKeys = true;
     addEventListener('keydown', (e) => {
@@ -157,8 +157,7 @@ const QUESTIONS_JS = `/* questions: start */
     if (t && t.value.trim()) a.push(t.value.trim());
     return (f.querySelector('legend')?.textContent || '').trim() + ' ' + (a.join(', ') || 'your pick');
   }).join(' · ');
-  // The viewer sends the line only while the button shows it (its title), and puts a refusal's reason there
-  // for a moment: until the title is the line again, the button stays off, so a tap can't only fill the chat box.
+  // The button stays off until the viewer's title is the line again, so a tap can't only fill the chat box.
   const ready = () => { if (!sent()) go.disabled = go.getAttribute('aria-disabled') !== 'true' && go.title !== go.dataset.ssSay; };
   const set = () => {
     if (sent()) return;

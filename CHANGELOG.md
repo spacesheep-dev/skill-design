@@ -2,6 +2,11 @@
 
 Each release is a heading with its tag. The release workflow uses the words under it as the release's notes.
 
+## v1.2.27
+
+- Every card's ⋯ menu shows at Fit in a narrow window. The canvas hides a card's menu when the next card's number would sit on it, and with directions 72 px apart that happened to all but the last card below about 1,000 px wide. The starter's three directions (base.html, shepherd.html) and each new round's versions now stand 320 px apart: at Fit in a 360 px window that is still about 22 px, room for the number. A page made before keeps its places.
+- A card's menu nearer the window's left edge than its own width opens rightward, so the first card's Use this and Another round stay in view (base.html, starter.html, shepherd.html).
+
 ## v1.2.26
 
 - The canvas is one block of the page, under the bar, not the whole page. Spacesheep's canvas now takes only what sits in `<div data-ss-canvas-area>`, and its whole-page `<meta name="ss-canvas">` is gone. base.html, starter.html and shepherd.html put every direction inside that block, after the bar, and drop the meta (`ss-canvas-focus` stays).

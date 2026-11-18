@@ -398,12 +398,12 @@ function ssDraw(fn) { fn(); document.addEventListener('ss:live', () => fn()); }
   <!-- part:first --><div class="drawing" data-ss-id="first-drawing"><h2>First</h2><p>Being drawn…</p><i></i><i></i><i></i></div><!-- /part:first -->
 </section>
 
-<section class="direction" data-ss-frame="desktop" data-ss-section data-ss-id="direction-second" data-ss-thing="direction/second" data-ss-label="Second" data-line="One line on what it leads with." data-ss-x="1352" data-ss-y="0">
+<section class="direction" data-ss-frame="desktop" data-ss-section data-ss-id="direction-second" data-ss-thing="direction/second" data-ss-label="Second" data-line="One line on what it leads with." data-ss-x="1600" data-ss-y="0">
   <div class="card-menu no-print" data-ss-canvas="label"><button type="button" class="menu-open" aria-haspopup="menu" aria-expanded="false" aria-label="Menu for Second">⋯</button><div class="menu" role="menu" hidden><button type="button" class="use-this" role="menuitem" data-ss-say="Use Second" title="Use Second"><span class="use">Use this</span><span class="chosen">✓ Chosen</span></button><button type="button" class="round" role="menuitem" data-ss-say="Another round of Second" title="Another round of Second">Another round</button></div></div>
   <!-- part:second --><div class="drawing" data-ss-id="second-drawing"><h2>Second</h2><p>Being drawn…</p><i></i><i></i><i></i></div><!-- /part:second -->
 </section>
 
-<section class="direction" data-ss-frame="desktop" data-ss-section data-ss-id="direction-third" data-ss-thing="direction/third" data-ss-label="Third" data-line="One line on what it leads with." data-ss-x="2704" data-ss-y="0">
+<section class="direction" data-ss-frame="desktop" data-ss-section data-ss-id="direction-third" data-ss-thing="direction/third" data-ss-label="Third" data-line="One line on what it leads with." data-ss-x="3200" data-ss-y="0">
   <div class="card-menu no-print" data-ss-canvas="label"><button type="button" class="menu-open" aria-haspopup="menu" aria-expanded="false" aria-label="Menu for Third">⋯</button><div class="menu" role="menu" hidden><button type="button" class="use-this" role="menuitem" data-ss-say="Use Third" title="Use Third"><span class="use">Use this</span><span class="chosen">✓ Chosen</span></button><button type="button" class="round" role="menuitem" data-ss-say="Another round of Third" title="Another round of Third">Another round</button></div></div>
   <!-- part:third --><div class="drawing" data-ss-id="third-drawing"><h2>Third</h2><p>Being drawn…</p><i></i><i></i><i></i></div><!-- /part:third -->
 </section>
@@ -604,7 +604,8 @@ function ssDraw(fn) { fn(); document.addEventListener('ss:live', () => fn()); }
   };
   if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', hearChat); addEventListener('load', hearChat); } else hearChat();
   // A card's ⋯ menu: a tap opens or closes it, as does Return or Space (which, with ↓, puts focus on its first item);
-  // ↑ ↓ move, Esc closes it back to ⋯, and Tab, a tap outside or on an item closes it.
+  // ↑ ↓ move, Esc closes it back to ⋯, and Tab, a tap outside or on an item closes it. A ⋯ nearer the window's
+  // left edge than its menu is wide (the first card at Fit in a narrow window) opens it rightward, so it stays in view.
   if (!window.ssMenus) {
     window.ssMenus = true;
     const items = (m) => [...m.querySelectorAll('button:enabled')];
@@ -616,6 +617,7 @@ function ssDraw(fn) { fn(); document.addEventListener('ss:live', () => fn()); }
       const m = b.nextElementSibling;
       m.hidden = !m.hidden;
       b.setAttribute('aria-expanded', String(!m.hidden));
+      m.style.left = b.getBoundingClientRect().right < m.offsetWidth ? '0' : '';
       if (!m.hidden && !e.detail) (items(m)[0] || b).focus();
     }, true);
     document.addEventListener('keydown', (e) => {

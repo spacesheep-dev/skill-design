@@ -815,7 +815,9 @@ if (cmd === "kit") {
 // direction. It changes work/index.html and the writer's frame, if there is one, and pushes nothing: the versions'
 // Edits come next.
 const FRAME_SIZES = { desktop: [1280, 800], tablet: [820, 1180], phone: [390, 844] };
-const ROW_GAP = 320, FRAME_GAP = 72;
+// Frames in a row stand 320 px apart, as the starter's three directions do: at Fit in a 360 px window that is
+// still about 22 px, room for the next frame's number beside a frame's ⋯ menu, which the canvas hides when they meet.
+const ROW_GAP = 320, FRAME_GAP = 320;
 const attrOf = (tag, name) => { const m = tag.match(new RegExp(`\\s${name}="([^"]*)"`)); return m ? m[1] : null; };
 const num = (v) => (v !== null && v.trim() !== "" && isFinite(+v) ? +v : null);
 // The page with its comments, styles and scripts blanked to spaces, so what's found in it is at the same place in
