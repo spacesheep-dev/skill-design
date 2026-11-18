@@ -717,6 +717,29 @@ if (cmd === "focus") {
   console.log(ok ? `focus: ${value}, pushed` : "focus set, but the push was refused: see draw/fold.log");
   process.exit(ok ? 0 : 1);
 }
+// Spacesheep's canvas is one block of the page, <div data-ss-canvas-area>, and only what is in it is on the canvas;
+// the whole-page <meta name="ss-canvas"> is gone, so a page that still has it shows its directions as a plain page.
+// Such a page loses the meta and gets the area, from its first direction (or the rounds' lines, if they come first)
+// to the end of its last, so the views, versions and lines between them are in it, and the bar stays above it. Its
+// own canvas tests (meta[name="ss-canvas"][content="on"], in its styles and scripts) become the area's. A page
+// without the meta, or with the area already, comes back as it is.
+function areaed(page) {
+  const meta = /^[ \t]*<meta name="ss-canvas"(?=[\s>])[^>]*>[ \t]*\n?/m;
+  if (!meta.test(page)) return page;
+  const out = page.replace(meta, "").replace(/meta\[name="ss-canvas"\]\[content="on"\]/g, "[data-ss-canvas-area]");
+  const flat = out.replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>|<!--[\s\S]*?-->/gi, (c) => " ".repeat(c.length));
+  if (/<[a-z][^>]*\sdata-ss-canvas-area(?=[\s=>])/i.test(flat)) return out;
+  const opens = [...flat.matchAll(/<section\b[^>]*class="[^"]*\bdirection\b[^"]*"[^>]*>/g)];
+  if (!opens.length) return out;
+  const last = opens[opens.length - 1], tags = /<section\b[^>]*>|<\/section>/gi;
+  let a = opens[0].index, b = -1;
+  tags.lastIndex = last.index + last[0].length;
+  for (let depth = 1, t; (t = tags.exec(flat)); ) if (!(depth += t[0][1] === "/" ? -1 : 1)) { b = t.index + t[0].length; break; }
+  if (b < 0) return out;
+  const lines = /<div\b[^>]*\sdata-round-lines(?=[\s=>])[^>]*>(?:(?!<\/?div\b)[\s\S])*<\/div>/i.exec(flat);
+  if (lines) { a = Math.min(a, lines.index); b = Math.max(b, lines.index + lines[0].length); }
+  return out.slice(0, a) + "<div data-ss-canvas-area>\n\n" + out.slice(a, b) + "\n\n</div>" + out.slice(b);
+}
 // A page made before device views has a switcher that would make a view a tab, kit rules that follow the
 // window, and maybe no layout check or Export: `kit` puts in the starter's switcher spans (each /* switcher: start */ … /* switcher: end */, the
 // styles' in a <style>, the script's in a <script>), the script's in a <script> of its own when the page has
@@ -734,6 +757,7 @@ function kitted(page) {
   for (const m of base.matchAll(span)) now[kind(base, m.index)] = m[0];
   const had = [...page.matchAll(span)].map((m) => kind(page, m.index));
   if (!had.includes("style")) return null;
+  page = areaed(page);
   let out = page.replace(span, (m, at) => now[kind(page, at)]);
   // What kit adds at the page's end goes before its end mark (<!-- design: end -->), else before </body>.
   const atEnd = (add) => { const end = out.lastIndexOf("<!-- design: end -->"), body = end >= 0 ? end : out.lastIndexOf("</body>"); out = body >= 0 ? out.slice(0, body) + add + out.slice(body) : out + "\n" + add; };
@@ -742,7 +766,7 @@ function kitted(page) {
   if (!/class="switcher-views"/.test(out)) {
     if (/<p class="switcher-line"/.test(out)) out = out.replace(/([ \t]*)<p class="switcher-line"/, (m, pad) => `${pad}${row}\n${m}`);
     else if (/<nav\b[^>]*class="[^"]*\bswitcher\b[^"]*"[^>]*>/.test(out)) out = out.replace(/(<nav\b[^>]*class="[^"]*\bswitcher\b[^"]*"[^>]*>[\s\S]*?)(\n?[ \t]*<\/nav>)/, (m, a, b) => `${a}\n  ${row}${b}`);
-    else out = out.replace(/<body\b[^>]*>/, (m) => `${m}\n<nav data-ss-canvas="pin" class="switcher no-print" aria-label="Design views" data-ss-react="off">\n  <div class="switcher-row">\n  </div>\n  ${row}\n</nav>`);
+    else out = out.replace(/<body\b[^>]*>/, (m) => `${m}\n<nav class="switcher no-print" aria-label="Design views" data-ss-react="off">\n  <div class="switcher-row">\n  </div>\n  ${row}\n</nav>`);
     if (!/class="switcher-views"/.test(out)) return null;
   }
   // Export, last in the bar's row (whose end is the </div> that closes its <div class="switcher-row">), and the
@@ -773,11 +797,11 @@ if (cmd === "kit") {
   for (const f of ["work/index.html", "draw/frame.html"]) {
     const p = read(f);
     if (p === null) continue;
-    const set = kitted(p);
+    const set = kitted(p) ?? (areaed(p) !== p ? areaed(p) : null);
     if (set === null) { console.error(`kit: ${f} has no starter switcher to bring up to date (no /* switcher: start */ span in a <style>, or no <body> for its device row); its views still show on the canvas, with no device buttons without it`); process.exit(2); }
     if (set !== p) { if (!(f === "work/index.html" ? rework(set) : swap(f, set))) process.exit(2); changed++; }
   }
-  console.log(changed ? "kit: the switcher, Export, the device buttons' row, the kit's phone rules and the layout check are now the starter's; nothing pushed" : "kit: already current");
+  console.log(changed ? "kit: the canvas area, the switcher, Export, the device buttons' row, the kit's phone rules and the layout check are now the starter's; nothing pushed" : "kit: already current");
   process.exit(0);
 }
 // A new round: versions of one direction in a row of their own below everything on the canvas, each joined to
@@ -1040,6 +1064,12 @@ if (cmd === "save") {
       const f = foldOnce("before the save");
       if (f.refused) return end(`save failed: ${f.refused}`);
       if (f.line) say(f.line);
+    }
+    // A page from before the canvas area gets it now, with the starter's switcher, so this save puts it on the canvas.
+    for (const f of ["work/index.html", "draw/frame.html"]) {
+      const p = read(f);
+      if (p === null || areaed(p) === p) continue;
+      if (f === "work/index.html" ? rework(kitted(p) || areaed(p)) : swap(f, kitted(p) || areaed(p))) say(`${f}: its directions are now in the canvas area, in place of the whole-page canvas meta`);
     }
     const sent = read("work/index.html") || "";
     const d = deploy(argv[1]);

@@ -19,7 +19,7 @@ const SWITCHER_JS = `(() => {
   const label = (d) => d.dataset.ssLabel || d.dataset.ssId || '';
   const byId = (id) => !!id && (document.getElementById(id) || document.querySelector('[data-ss-id="' + CSS.escape(id) + '"]'));
   const dirAt = (at) => at && all().find((d) => d === at || d.contains(at));
-  const canvas = () => !!document.querySelector('meta[name="ss-canvas"][content="on"]');
+  const canvas = () => !!document.querySelector('[data-ss-canvas-area]');
   const open = (d) => { history.replaceState(null, '', '#' + encodeURIComponent(d.dataset.ssId)); show(); dispatchEvent(new HashChangeEvent('hashchange')); };
   function pick() {
     let id = location.hash.slice(1);
@@ -98,8 +98,8 @@ const SWITCHER_JS = `(() => {
 })();`;
 
 // The questions card: turn 1 writes it first in the page, so it shows within seconds while the rest streams in, with
-// the turn's own questions in place of these two. Pinned (data-ss-canvas="pin"), it sits at screen size above the
-// canvas. While it shows, the bar, the frames and the canvas's labels are hidden: there is nothing in them yet.
+// the turn's own questions in place of these two. It is a block of the page above the bar and the canvas area, and
+// while it shows, the bar and the area are hidden: there is nothing in them yet.
 // Its button stays off until the page's script has run, which is the turn's last write, so an answer never lands
 // while the turn still writes; then it says the answers in one tap (data-ss-say). Turn 2 hides it.
 const QUESTIONS_CSS = `.ss-questions{position:relative;z-index:2;box-sizing:border-box;width:min(560px,calc(100% - 24px));max-height:calc(100svh - 120px);overflow:auto;margin:12px auto;padding:20px;display:grid;gap:18px;background:Canvas;color:CanvasText;border:1px solid color-mix(in srgb,CanvasText 18%,transparent);border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,.16);font:15px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;color-scheme:light dark;}
@@ -118,8 +118,8 @@ const QUESTIONS_CSS = `.ss-questions{position:relative;z-index:2;box-sizing:bord
 .ss-start:disabled{opacity:.62;}
 .ss-questions .ss-why{margin:-6px 0 0;color:light-dark(#b42318,#ff9b8f);}
 .ss-questions .ss-why:empty{display:none;}
-body:has(>.ss-questions:not([hidden])) :is(.switcher,section.direction,ss-canvas-stage,[data-ss-canvas-stage],[data-ss-canvas-lift],.ss-canvas-label,.ss-canvas-section,.ss-canvas-chip,.ss-canvas-hint){visibility:hidden;}`;
-const QUESTIONS = `<div class="ss-questions no-print" data-ss-canvas="pin" data-ss-id="design-questions" data-ss-comments="off" data-ss-react="off">
+body:has(>.ss-questions:not([hidden]))>:is(.switcher,[data-ss-canvas-area]){display:none!important;}`;
+const QUESTIONS = `<div class="ss-questions no-print" data-ss-id="design-questions" data-ss-comments="off" data-ss-react="off">
   <h2>A few choices before I draw</h2>
   <p>My picks are chosen. Change any, then press Start designing.</p>
   <fieldset><legend>How should it feel?</legend>
@@ -246,7 +246,7 @@ function make(base) {
   const js = `/* switcher: start */\n${SWITCHER_JS.split("\n").map((l) => l.trim()).join("\n")}\n/* switcher: end */\n${bare(controls)}`;
   for (const [what, ok] of [["metas", /ss-canvas/.test(head)], ["nav", /switcher-row/.test(nav)], ["tokens", /direction-first/.test(tokens)], ["sections", sections.length === 3], ["controls", /function ssControls/.test(controls)]])
     if (!ok) throw new Error(`base.html: its ${what} weren't found`);
-  return `<!DOCTYPE html>\n${HEADER}\n${head}<style>\n${QUESTIONS_CSS}\n</style>\n</head>\n<body>\n\n${QUESTIONS}\n\n<style>\n${css}\n</style>\n\n${nav}\n\n${tokens}\n\n${sections.join("\n\n")}\n\n<script>\n${draw}\n${js}\n${QUESTIONS_JS.split("\n").map((l) => l.trim()).join("\n")}\n</script>\n<!-- design: end -->\n</body>\n</html>\n`;
+  return `<!DOCTYPE html>\n${HEADER}\n${head}<style>\n${QUESTIONS_CSS}\n</style>\n</head>\n<body>\n\n${QUESTIONS}\n\n<style>\n${css}\n</style>\n\n${nav}\n\n${tokens}\n\n<div data-ss-canvas-area>\n\n${sections.join("\n\n")}\n\n</div>\n\n<script>\n${draw}\n${js}\n${QUESTIONS_JS.split("\n").map((l) => l.trim()).join("\n")}\n</script>\n<!-- design: end -->\n</body>\n</html>\n`;
 }
 
 module.exports = { make };

@@ -10,7 +10,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Design title</title>
 <meta name="ss-chat" content="open">
-<meta name="ss-canvas" content="on">
 <meta name="ss-canvas-focus" content="all">
 <style>
 .ss-questions{position:relative;z-index:2;box-sizing:border-box;width:min(560px,calc(100% - 24px));max-height:calc(100svh - 120px);overflow:auto;margin:12px auto;padding:20px;display:grid;gap:18px;background:Canvas;color:CanvasText;border:1px solid color-mix(in srgb,CanvasText 18%,transparent);border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,.16);font:15px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;color-scheme:light dark;}
@@ -29,12 +28,12 @@
 .ss-start:disabled{opacity:.62;}
 .ss-questions .ss-why{margin:-6px 0 0;color:light-dark(#b42318,#ff9b8f);}
 .ss-questions .ss-why:empty{display:none;}
-body:has(>.ss-questions:not([hidden])) :is(.switcher,section.direction,ss-canvas-stage,[data-ss-canvas-stage],[data-ss-canvas-lift],.ss-canvas-label,.ss-canvas-section,.ss-canvas-chip,.ss-canvas-hint){visibility:hidden;}
+body:has(>.ss-questions:not([hidden]))>:is(.switcher,[data-ss-canvas-area]){display:none!important;}
 </style>
 </head>
 <body>
 
-<div class="ss-questions no-print" data-ss-canvas="pin" data-ss-id="design-questions" data-ss-comments="off" data-ss-react="off">
+<div class="ss-questions no-print" data-ss-id="design-questions" data-ss-comments="off" data-ss-react="off">
   <h2>A few choices before I draw</h2>
   <p>My picks are chosen. Change any, then press Start designing.</p>
   <fieldset><legend>How should it feel?</legend>
@@ -66,7 +65,11 @@ body:has(>.ss-questions:not([hidden])) :is(.switcher,section.direction,ss-canvas
 .switcher-line{margin:6px 2px 0;font-size:13px;color:var(--bar-muted);min-height:1.3em;}
 .switcher-answers{margin:2px 2px 0;font-size:13px;color:var(--bar-muted);}
 .switcher-answers:empty{display:none;}
-html:not(:has(meta[name="ss-canvas"][content="on"])) .direction:not(.on){display:none;}
+html:has([data-ss-canvas-area] > [data-ss-canvas-stage]){height:100%;}
+html:has([data-ss-canvas-area] > [data-ss-canvas-stage]) body{display:flex;flex-direction:column;height:100%;}
+html:has([data-ss-canvas-area] > [data-ss-canvas-stage]) .switcher{flex:none;}
+[data-ss-canvas-area]:has(> [data-ss-canvas-stage]){flex:1 1 auto;height:auto;min-height:320px;}
+html:not(:has([data-ss-canvas-area])) .direction:not(.on){display:none;}
 .direction,[data-ss-frame]{container-type:inline-size;}
 .frame-back,.frame-zoom,.frame-use,.frame-round{flex:none;min-height:44px;display:inline-flex;align-items:center;padding:0 14px;border:1px solid var(--bar-line);border-radius:22px;background:var(--bar-bg);color:var(--bar-ink);font:inherit;white-space:nowrap;}
 .frame-back,.frame-use,.frame-round{cursor:pointer;}
@@ -114,7 +117,7 @@ section.direction :is(.use-this,.card-menu),html:has(.frame-back:not([hidden])) 
 .tweaks button{min-height:44px;border:0;border-radius:8px;background:var(--bar-ink);color:var(--bar-bg);font:inherit;cursor:pointer;}
 </style>
 
-<nav data-ss-canvas="pin" class="switcher no-print" aria-label="Design directions" data-ss-react="off">
+<nav class="switcher no-print" aria-label="Design directions" data-ss-react="off">
   <div class="switcher-row">
     <button type="button" class="frame-back" data-ss-canvas-back aria-keyshortcuts="Escape" title="Back to all directions (Esc)" hidden>← Back</button>
     <div class="switcher-tabs" role="tablist"></div>
@@ -142,6 +145,8 @@ section.direction :is(.use-this,.card-menu),html:has(.frame-back:not([hidden])) 
     --font-display: ui-monospace, Menlo, monospace; --font-body: Charter, "Iowan Old Style", Georgia, serif; }
 </style>
 
+<div data-ss-canvas-area>
+
 <section class="direction" data-ss-frame="desktop" data-ss-section data-ss-id="direction-first" data-ss-thing="direction/first" data-ss-label="First" data-line="One line on what it leads with." data-ss-x="0" data-ss-y="0">
   <div class="card-menu no-print" data-ss-canvas="label"><button type="button" class="menu-open" aria-haspopup="menu" aria-expanded="false" aria-label="Menu for First">⋯</button><div class="menu" role="menu" hidden><button type="button" class="use-this" role="menuitem" data-ss-say="Use First" title="Use First"><span class="use">Use this</span><span class="chosen">✓ Chosen</span></button><button type="button" class="round" role="menuitem" data-ss-say="Another round of First" title="Another round of First">Another round</button></div></div>
   <!-- part:first --><div class="drawing" data-ss-id="first-drawing"><h2>First</h2><p>Being drawn…</p><i></i><i></i><i></i></div><!-- /part:first -->
@@ -157,6 +162,8 @@ section.direction :is(.use-this,.card-menu),html:has(.frame-back:not([hidden])) 
   <!-- part:third --><div class="drawing" data-ss-id="third-drawing"><h2>Third</h2><p>Being drawn…</p><i></i><i></i><i></i></div><!-- /part:third -->
 </section>
 
+</div>
+
 <script>
 function ssDraw(fn) { fn(); document.addEventListener('ss:live', () => fn()); }
 /* switcher: start */
@@ -165,7 +172,7 @@ const all = () => [...document.querySelectorAll('section.direction:not([data-vie
 const label = (d) => d.dataset.ssLabel || d.dataset.ssId || '';
 const byId = (id) => !!id && (document.getElementById(id) || document.querySelector('[data-ss-id="' + CSS.escape(id) + '"]'));
 const dirAt = (at) => at && all().find((d) => d === at || d.contains(at));
-const canvas = () => !!document.querySelector('meta[name="ss-canvas"][content="on"]');
+const canvas = () => !!document.querySelector('[data-ss-canvas-area]');
 const open = (d) => { history.replaceState(null, '', '#' + encodeURIComponent(d.dataset.ssId)); show(); dispatchEvent(new HashChangeEvent('hashchange')); };
 function pick() {
 let id = location.hash.slice(1);

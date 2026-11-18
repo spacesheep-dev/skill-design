@@ -18,8 +18,10 @@ test("shepherd.html is what tools/shepherd.js makes from base.html", () => {
 
 test("it fits in one use_skill read and keeps the starter's metas, with no ss-workspace and no Export", () => {
   assert.ok([...PAGE].length <= 25000, `${[...PAGE].length} characters`);
-  for (const meta of ['<meta name="ss-chat" content="open">', '<meta name="ss-canvas" content="on">', '<meta name="ss-canvas-focus" content="all">'])
+  for (const meta of ['<meta name="ss-chat" content="open">', '<meta name="ss-canvas-focus" content="all">'])
     assert.ok(PAGE.includes(meta), meta);
+  assert.doesNotMatch(PAGE, /<meta name="ss-canvas"[ >]/, "no whole-page canvas meta");
+  assert.match(PAGE, /\n<div data-ss-canvas-area>\n\n<section class="direction"[\s\S]*<\/section>\n\n<\/div>\n/, "the directions are in the canvas area");
   assert.doesNotMatch(PAGE, /ss-workspace/);
   assert.doesNotMatch(PAGE, /class="export|switcher-views|ss-check/);
   assert.ok(PAGE.endsWith("<!-- design: end -->\n</body>\n</html>\n"));
@@ -52,13 +54,15 @@ test("it keeps the rule that hides the card menu on the drawing, behind an open 
   assert.doesNotMatch(PAGE.slice(0, PAGE.indexOf("</style>")), /\.direction\[data-view-of\]/);
 });
 
-test("the questions card comes first in the body, within the first 4,000 characters, pinned, with its button off", () => {
+test("the questions card comes first in the body, within the first 4,000 characters, above the canvas area, with its button off", () => {
   const body = PAGE.indexOf("<body>"), card = PAGE.indexOf('<div class="ss-questions');
   assert.ok(body > 0 && card > body && PAGE.slice(body + 6, card).trim() === "", "the card is the body's first element");
   const end = PAGE.indexOf("</div>", card) + 6;
   assert.ok(end <= 4000, `the card ends at ${end}`);
   const tag = PAGE.slice(card, PAGE.indexOf(">", card));
-  for (const a of ['data-ss-canvas="pin"', 'data-ss-id="design-questions"', 'data-ss-comments="off"']) assert.ok(tag.includes(a), a);
+  for (const a of ['data-ss-id="design-questions"', 'data-ss-comments="off"']) assert.ok(tag.includes(a), a);
+  assert.ok(!tag.includes("data-ss-canvas"), "a block of the page, not of the canvas");
+  assert.ok(card < PAGE.indexOf("<div data-ss-canvas-area>"), "above the canvas area");
   assert.match(PAGE.slice(card, end), /<button type="button" class="ss-start" data-ss-say="" disabled>Getting ready…<\/button>/);
   assert.ok(PAGE.indexOf(".ss-questions{") < card, "its styles come before it");
   assert.match(PAGE, /\.ss-questions\[hidden\]\{display:none;\}/);
@@ -190,11 +194,11 @@ test("a tap the viewer greys (it can't take a say) leaves the card open with the
   assert.equal(t.why().textContent, "Turn on page actions to send");
 });
 
-test("while the card shows, the bar, the frames and the canvas's labels are hidden; its styles come first", () => {
+test("while the card shows, the bar and the canvas area (its frames and labels with it) are hidden; its styles come first", () => {
   const head = PAGE.slice(0, PAGE.indexOf('<div class="ss-questions'));
-  const rule = head.match(/body:has\(>\.ss-questions:not\(\[hidden\]\)\) :is\(([^)]*)\)\{visibility:hidden;\}/);
+  const rule = head.match(/body:has\(>\.ss-questions:not\(\[hidden\]\)\)>:is\(([^)]*)\)\{display:none!important;\}/);
   assert.ok(rule, "the hiding rule is in the card's own styles");
-  for (const s of [".switcher", "section.direction", "ss-canvas-stage", "[data-ss-canvas-lift]", ".ss-canvas-label", ".ss-canvas-section", ".ss-canvas-chip"]) assert.ok(rule[1].split(",").includes(s), s);
+  for (const s of [".switcher", "[data-ss-canvas-area]"]) assert.ok(rule[1].split(",").includes(s), s);
   assert.doesNotMatch(rule[1], /ss-questions/, "never the card itself");
 });
 

@@ -446,3 +446,27 @@ test("the starter's kit lays out at its frame's width, and its switcher makes no
   assert.match(head, /\.direction, \[data-ss-frame\] \{ container-type: inline-size; \}/);
   assert.match(BASE, /<div class="switcher-views" role="group" aria-label="Device views"><\/div>/);
 });
+
+// check.js's lines about the canvas area, for this page.
+function areaLines(page) {
+  const folder = fs.mkdtempSync(path.join(os.tmpdir(), "check-test-"));
+  try {
+    fs.mkdirSync(path.join(folder, "work"));
+    fs.writeFileSync(path.join(folder, "work", "index.html"), page);
+    const r = spawnSync(process.execPath, [CHECK, "-C", folder], { encoding: "utf8", timeout: 20000 });
+    assert.equal(r.error, undefined, `check.js didn't finish: ${r.error}`);
+    return r.stdout.split("\n").filter((l) => l.includes("canvas area"));
+  } finally {
+    fs.rmSync(folder, { recursive: true, force: true });
+  }
+}
+test("a direction outside the canvas area is flagged with its line; the starter, and a page from before the area, are not", () => {
+  assert.deepEqual(areaLines(BASE), []);
+  assert.deepEqual(areaLines(BASE.replace('<meta name="ss-canvas-focus"', '<meta name="ss-canvas" content="on">\n<meta name="ss-canvas-focus"')
+    .replace("<div data-ss-canvas-area>\n\n", "").replace("</section>\n\n</div>\n", "</section>\n")), [], "the save gives an older page its area");
+  const out = BASE.replace(/\n(<section class="direction"[^>]*data-ss-id="direction-third"[\s\S]*?<\/section>)\n\n<\/div>\n/, "\n</div>\n\n$1\n");
+  const lines = areaLines(out);
+  assert.equal(lines.length, 1, lines.join("\n"));
+  assert.match(lines[0], new RegExp(`work/index\\.html:${out.split("\n").findIndex((l) => l.startsWith("<section") && l.includes('data-ss-id="direction-third"')) + 1}\\b.*direction-third is outside the canvas area`));
+  assert.match(areaLines(BASE.replace("</section>\n\n</div>\n", "</section>\n"))[0] || "", /never closed/);
+});
