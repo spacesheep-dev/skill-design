@@ -2,6 +2,14 @@
 
 Each release is a heading with its tag. The release workflow uses the words under it as the release's notes.
 
+## v1.2.25
+
+- A Shepherd turn asks its questions on the page, not in the chat. Turn 1 writes `assets/shepherd.html` whole, with the questions card first in the body: each question a row of toggles with the pick already chosen, an Other field where a free answer fits, and one Start designing button. The canvas fills in under the card as the turn writes.
+- The card is pinned above the canvas at screen size. It and its styles come within the page's first 4,000 characters, so it shows a few seconds into the write. Its button stays off until the page's script, the turn's last write, has run, so an answer never arrives while the turn is still writing. Pressed, it says every answer in one line (`data-ss-say`), and the card says "Designing… the directions come next".
+- Turn 2 reads the page once and makes the design with one `edit_document_source` call: the card is hidden, and the tokens, sections, drawings, controls and the answers line are filled in. A page that already has a version can't be written again with `@page`, so the starter goes on the page in turn 1.
+- references/questions.md names the card as the place for a Shepherd turn's questions. The CLI path keeps its chat form.
+- `assets/shepherd.html` is 23,189 characters, one `use_skill` read. New tests: the card is the body's first element and ends within 4,000 characters, pinned, with its button off; the page's script turns the button on, says every answer in one line, follows a change, and leaves a sent card as it is.
+
 ## v1.2.24
 
 - Design works in a Shepherd turn, which has no shell for fold.js. SKILL.md's first line now sends that turn to the new references/shepherd.md, which replaces Order of work there.
