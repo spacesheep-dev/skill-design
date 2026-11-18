@@ -60,7 +60,7 @@ body:has(>.ss-questions:not([hidden]))>:is(.switcher,[data-ss-canvas-area]){disp
 .switcher-tabs{flex:1 1 auto;min-width:0;display:flex;flex-wrap:wrap;gap:6px;}
 .switcher-tabs button{flex:0 0 auto;min-height:44px;padding:0 14px;border:1px solid var(--bar-line);border-radius:22px;background:var(--bar-bg);color:var(--bar-ink);font:inherit;cursor:pointer;}
 .switcher-tabs button[aria-selected="true"]{background:var(--bar-ink);color:var(--bar-bg);border-color:var(--bar-ink);}
-.switcher:has(.frame-zoom:not([hidden])) .switcher-tabs button[aria-selected="true"]{background:var(--bar-bg);color:var(--bar-ink);border-color:var(--bar-line);}
+.switcher[data-canvas-view] .switcher-tabs button[aria-selected="true"]{background:var(--bar-bg);color:var(--bar-ink);border-color:var(--bar-line);}
 .switcher-tabs button:focus-visible{outline:3px solid #2563eb;outline-offset:2px;}
 .switcher-line{margin:6px 2px 0;font-size:13px;color:var(--bar-muted);min-height:1.3em;}
 .switcher-answers{margin:2px 2px 0;font-size:13px;color:var(--bar-muted);}
@@ -71,12 +71,11 @@ html:has([data-ss-canvas-area] > [data-ss-canvas-stage]) .switcher{flex:none;}
 [data-ss-canvas-area]:has(> [data-ss-canvas-stage]){flex:1 1 auto;height:auto;min-height:320px;}
 html:not(:has([data-ss-canvas-area])) .direction:not(.on){display:none;}
 .direction,[data-ss-frame]{container-type:inline-size;}
-.frame-back,.frame-zoom,.frame-use,.frame-round{flex:none;min-height:44px;display:inline-flex;align-items:center;padding:0 14px;border:1px solid var(--bar-line);border-radius:22px;background:var(--bar-bg);color:var(--bar-ink);font:inherit;white-space:nowrap;}
+.frame-back,.frame-use,.frame-round{flex:none;min-height:44px;display:inline-flex;align-items:center;padding:0 14px;border:1px solid var(--bar-line);border-radius:22px;background:var(--bar-bg);color:var(--bar-ink);font:inherit;white-space:nowrap;}
 .frame-back,.frame-use,.frame-round{cursor:pointer;}
 :is(.frame-back,.frame-use,.frame-round):focus-visible{outline:3px solid #2563eb;outline-offset:2px;}
-.frame-zoom{border-color:transparent;color:var(--bar-muted);font-variant-numeric:tabular-nums;}
-:is(.frame-back,.frame-zoom,.frame-use,.frame-round)[hidden]{display:none;}
-.frame-zoom,.frame-use{margin-left:auto;}
+:is(.frame-back,.frame-use,.frame-round)[hidden]{display:none;}
+.frame-use{margin-left:auto;}
 .frame-use:has(+ .frame-round:not([hidden])){border-radius:22px 0 0 22px;}
 .frame-round{margin-left:-8px;border-left:0;border-radius:0 22px 22px 0;}
 .switcher{container-type:inline-size;}
@@ -127,7 +126,6 @@ section.direction :is(.use-this,.card-menu),html:has(.frame-back:not([hidden])) 
         <button type="button" data-tweaks-keep data-ss-say="">Keep these</button>
       </div>
     </details>
-    <output class="frame-zoom" aria-label="Zoom" hidden></output>
     <button type="button" class="frame-use" data-ss-say="" hidden><span class="use">Use this</span><span class="chosen">✓ Chosen</span></button>
     <button type="button" class="frame-round" data-ss-say="" hidden>Another round</button>
   </div>
@@ -189,9 +187,9 @@ u.disabled = on;
 }
 function frame() {
 const c = (window.ss && window.ss.canvas) || {}, q = (s) => document.querySelector(s);
-const back = q('.frame-back'), zoom = q('.frame-zoom'), use = q('.frame-use'), round = q('.frame-round');
+const back = q('.frame-back'), bar = q('.switcher'), use = q('.frame-use'), round = q('.frame-round');
 if (back) back.hidden = !c.open;
-if (zoom) { zoom.hidden = !canvas() || !!c.open || typeof c.zoom !== 'number'; zoom.textContent = Math.round((c.zoom || 1) * 100) + '%'; }
+if (bar) bar.toggleAttribute('data-canvas-view', canvas() && !c.open && typeof c.zoom === 'number');
 const d = c.open && dirAt(byId(c.open)), on = !!d && all().length > 1;
 if (use) {
 use.hidden = !on;

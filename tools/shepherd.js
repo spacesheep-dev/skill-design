@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Makes design/assets/shepherd.html from design/assets/base.html: the page a Shepherd turn copies whole, since
 // it has no shell for fold.js and writes a blank page as one document (references/shepherd.md). It keeps
-// base.html's metas, bar, tokens, sections and Tweaks, with a slim switcher (tabs, Back, zoom, Use this ·
+// base.html's metas, bar, tokens, sections and Tweaks, with a slim switcher (tabs, Back, Use this ·
 // Another round, the card menus) and nothing else: no Export, device row, rounds, kit parts or layout check.
 // Its switcher spans keep their marks, so `fold.js kit` later brings such a page up to the full starter.
 //   node tools/shepherd.js           writes it
@@ -36,9 +36,9 @@ const SWITCHER_JS = `(() => {
   }
   function frame() {
     const c = (window.ss && window.ss.canvas) || {}, q = (s) => document.querySelector(s);
-    const back = q('.frame-back'), zoom = q('.frame-zoom'), use = q('.frame-use'), round = q('.frame-round');
+    const back = q('.frame-back'), bar = q('.switcher'), use = q('.frame-use'), round = q('.frame-round');
     if (back) back.hidden = !c.open;
-    if (zoom) { zoom.hidden = !canvas() || !!c.open || typeof c.zoom !== 'number'; zoom.textContent = Math.round((c.zoom || 1) * 100) + '%'; }
+    if (bar) bar.toggleAttribute('data-canvas-view', canvas() && !c.open && typeof c.zoom === 'number');
     const d = c.open && dirAt(byId(c.open)), on = !!d && all().length > 1;
     if (use) {
       use.hidden = !on;

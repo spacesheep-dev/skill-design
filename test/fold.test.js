@@ -919,7 +919,10 @@ test("kit brings a page a Shepherd turn made from shepherd.html up to the starte
   const span = /\/\* switcher: start \*\/[\s\S]*?\/\* switcher: end \*\//g;
   const shepherd = fs.readFileSync(path.join(__dirname, "..", "design", "assets", "shepherd.html"), "utf8");
   const page = path.join(folder, "work", "index.html");
-  fs.writeFileSync(page, shepherd);
+  // A page from an older shepherd.html still has the bar's zoom figure, which the canvas area now draws itself.
+  const zoom = '    <output class="frame-zoom" aria-label="Zoom" hidden></output>\n';
+  fs.writeFileSync(page, shepherd.replace(/(?=    <button type="button" class="frame-use")/, zoom));
+  assert.ok(fs.readFileSync(page, "utf8").includes(zoom));
   const n = calls().length;
   const r = fold(["kit"]);
   assert.equal(r.status, 0, r.stderr);
@@ -927,6 +930,7 @@ test("kit brings a page a Shepherd turn made from shepherd.html up to the starte
   assert.deepEqual(out.match(span), BASE.match(span), "the starter's switcher styles and script");
   assert.ok(out.includes(BASE.match(/<div class="export no-print">.*<\/p><\/div>/)[0]), "Export in the bar");
   assert.match(out, /class="switcher-views"/);
+  assert.doesNotMatch(out, /frame-zoom/, "the old zoom figure goes");
   assert.equal(out.split(BASE.match(/\/\* check: start \*\/[\s\S]*?\/\* check: end \*\//)[0]).length, 2, "the layout check, once");
   assert.ok(out.endsWith("<!-- design: end -->\n</body>\n</html>\n"));
   assert.match(fold(["kit"]).stdout, /^kit: already current$/m);

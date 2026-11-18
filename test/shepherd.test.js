@@ -28,7 +28,7 @@ test("it fits in one use_skill read and keeps the starter's metas, with no ss-wo
 });
 
 test("its bar, tokens and sections are base.html's", () => {
-  for (const cls of ["frame-back", "switcher-tabs", "tweaks-body", "data-tweaks-keep", "frame-zoom", "frame-use", "frame-round", "switcher-line", "switcher-answers"])
+  for (const cls of ["frame-back", "switcher-tabs", "tweaks-body", "data-tweaks-keep", "frame-use", "frame-round", "switcher-line", "switcher-answers"])
     assert.ok(PAGE.includes(cls), cls);
   const sections = (html) => [...html.matchAll(/^<section class="direction"[\s\S]*?^<\/section>$/gm)].map((m) => m[0]);
   assert.equal(sections(PAGE).length, 3);

@@ -759,6 +759,8 @@ function kitted(page) {
   if (!had.includes("style")) return null;
   page = areaed(page);
   let out = page.replace(span, (m, at) => now[kind(page, at)]);
+  // The bar's zoom figure is gone: the canvas area draws its own zoom.
+  out = out.replace(/[ \t]*<output class="frame-zoom"[^>]*>[^<]*<\/output>\n?/, "");
   // What kit adds at the page's end goes before its end mark (<!-- design: end -->), else before </body>.
   const atEnd = (add) => { const end = out.lastIndexOf("<!-- design: end -->"), body = end >= 0 ? end : out.lastIndexOf("</body>"); out = body >= 0 ? out.slice(0, body) + add + out.slice(body) : out + "\n" + add; };
   if (!had.includes("script")) atEnd(`<script>\n${now.script}\n</script>\n`);

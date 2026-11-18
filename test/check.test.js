@@ -276,7 +276,7 @@ function barPage(flags = {}) {
     contains(x) { return x === this; }
   }
   const dirs = ["first", "second", "third"].map((s) => new El({ ssId: `direction-${s}`, ssLabel: s[0].toUpperCase() + s.slice(1), line: s }));
-  const bar = { ".switcher-tabs": new El(), ".switcher-line": new El(), ".switcher-views": new El(), ".frame-back": new El(), ".frame-zoom": new El(), ".frame-use": new El(), ".frame-round": new El(), 'meta[name="ss-canvas"][content="on"]': new El(), "section.direction": dirs[0] };
+  const bar = { ".switcher-tabs": new El(), ".switcher-line": new El(), ".switcher-views": new El(), ".frame-back": new El(), ".switcher": new El(), ".frame-use": new El(), ".frame-round": new El(), '[data-ss-canvas-area]': new El(), "section.direction": dirs[0] };
   const document = {
     body: {}, contains: () => true, getElementById: () => null, createElement: () => new El(),
     querySelector: (s) => bar[s] || dirs.find((d) => s === `[data-ss-id="${d.dataset.ssId}"]`) || null,
@@ -290,7 +290,7 @@ function barPage(flags = {}) {
   if (flags.ssFrameKeys) heard["ss:canvas"] = [() => {}];
   vm.runInNewContext(BASE.slice(BASE.indexOf("/* switcher: start */\n(() => {"), BASE.indexOf("/* switcher: end */\n/* controls")), win);
   const canvas = (open) => { win.ss = { canvas: { zoom: open ? 0.87 : 0.35, open } }; (heard["ss:canvas"] || []).forEach((f) => f()); };
-  return { dirs, pill: bar[".frame-use"], round: bar[".frame-round"], tabs: bar[".switcher-tabs"], canvas, observe: () => watchers.forEach((f) => f()) };
+  return { dirs, bar: bar[".switcher"], pill: bar[".frame-use"], round: bar[".frame-round"], tabs: bar[".switcher-tabs"], canvas, observe: () => watchers.forEach((f) => f()) };
 }
 
 test("the bar's pill follows the open direction on a tab an older frame set up, and a live pick marks it and its tab", () => {
@@ -306,6 +306,9 @@ test("the bar's pill follows the open direction on a tab an older frame set up, 
   assert.deepEqual([page.round.hidden, page.round.dataset.ssSay, page.round.title], [false, "Another round of Second", "Another round of Second"], "Another round beside it says its line");
   page.canvas(null);
   assert.equal(page.round.hidden, true, "and goes with it on the canvas");
+  assert.ok(page.bar.hasAttribute("data-canvas-view"), "on the canvas the bar says so, and no tab is filled");
+  page.canvas("direction-first");
+  assert.ok(!page.bar.hasAttribute("data-canvas-view"), "a direction open full page fills its tab");
   page.canvas("direction-second");
   // The agent's pick arrives as an attribute on the section, in a live push that keeps the node.
   page.dirs[1].setAttribute("data-chosen", "");

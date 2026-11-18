@@ -8,7 +8,7 @@
   One design, not directions: keep one section, and drop the switcher's tabs; keep its script (it shows the
   design, and its views' buttons) and the nav, which holds Export (and Tweaks, with controls).
   Keep the end mark, the comment that says design: end, last in the body: what Spacesheep adds comes after it.
-  Keep the metas, the switcher (the frame: Back, the tabs, Tweaks and the zoom %), the canvas area (the
+  Keep the metas, the switcher (the frame: Back, the tabs and Tweaks), the canvas area (the
   <div data-ss-canvas-area> that holds every direction, view and round, under the bar) and the ids. The person's answers, when you asked: references/questions.md.
   A direction's phone or tablet view is a section of its own after the last direction, with data-view-of:
   SKILL.md, section 2.
@@ -33,7 +33,7 @@
   .switcher-tabs button { flex: 0 0 auto; min-height: 44px; padding: 0 14px; border: 1px solid var(--bar-line);
     border-radius: 22px; background: var(--bar-bg); color: var(--bar-ink); font: inherit; cursor: pointer; }
   .switcher-tabs button[aria-selected="true"] { background: var(--bar-ink); color: var(--bar-bg); border-color: var(--bar-ink); }
-  .switcher:has(.frame-zoom:not([hidden])) .switcher-tabs button[aria-selected="true"] { background: var(--bar-bg); color: var(--bar-ink); border-color: var(--bar-line); }
+  .switcher[data-canvas-view] .switcher-tabs button[aria-selected="true"] { background: var(--bar-bg); color: var(--bar-ink); border-color: var(--bar-line); }
   .switcher-tabs button:focus-visible { outline: 3px solid #2563eb; outline-offset: 2px; }
   .switcher-line { margin: 6px 2px 0; font-size: 13px; color: var(--bar-muted); min-height: 1.3em; }
   .switcher-answers { margin: 2px 2px 0; font-size: 13px; color: var(--bar-muted); }
@@ -75,17 +75,16 @@
     stroke-dasharray: 0 min(calc(24px / var(--ss-cz, 1)), 200px) 100000; }
   html:not(:has([data-ss-canvas-area])) [data-round-lines] { display: none; }
   /* rounds: end */
-  /* the frame's own controls: Back while a direction is open full page (Esc does the same), the zoom % on the canvas */
-  .frame-back, .frame-zoom, .frame-use, .frame-round { flex: none; min-height: 44px; display: inline-flex; align-items: center; padding: 0 14px;
+  /* the frame's own controls: Back while a direction is open full page (Esc does the same); the canvas area draws its own zoom */
+  .frame-back, .frame-use, .frame-round { flex: none; min-height: 44px; display: inline-flex; align-items: center; padding: 0 14px;
     border: 1px solid var(--bar-line); border-radius: 22px; background: var(--bar-bg); color: var(--bar-ink); font: inherit; white-space: nowrap; }
   .frame-back, .frame-use, .frame-round { cursor: pointer; }
   :is(.frame-back, .frame-use, .frame-round):focus-visible { outline: 3px solid #2563eb; outline-offset: 2px; }
-  .frame-zoom { border-color: transparent; color: var(--bar-muted); font-variant-numeric: tabular-nums; }
-  :is(.frame-back, .frame-zoom, .frame-use, .frame-round)[hidden] { display: none; }
+  :is(.frame-back, .frame-use, .frame-round)[hidden] { display: none; }
   /* "Use this · Another round", at the bar's right end while a direction is open, one outline pill in two halves as
      Back is (a filled one is the open tab): each says its line ("Use <name>", "Another round of <name>") in the chat.
      The direction the person chose (data-chosen) has its card's edge and its tab marked, and Use this says Chosen. */
-  .frame-zoom, .frame-use { margin-left: auto; }
+  .frame-use { margin-left: auto; }
   .frame-use:has(+ .frame-round:not([hidden])) { border-radius: 22px 0 0 22px; }
   .frame-round { margin-left: -8px; border-left: 0; border-radius: 0 22px 22px 0; }
   /* on a phone the tabs take a row of their own under Back and the pill, never a squeezed column */
@@ -135,7 +134,7 @@
      card menu's does. Open, it is tinted, not filled: a filled pill is the open direction. What it says back (Copied,
      or why a PDF or file wasn't made) is a small card in the same place. */
   .export { position: relative; flex: none; margin-left: auto; font: 14px/1.3 system-ui, -apple-system, "Segoe UI", sans-serif; }
-  .switcher-row > :is(.tweaks:has(input[data-var]), .frame-zoom:not([hidden]), .frame-use:not([hidden])) ~ .export { margin-left: 0; }
+  .switcher-row > :is(.tweaks:has(input[data-var]), .frame-use:not([hidden])) ~ .export { margin-left: 0; }
   .export-open { min-height: 44px; display: inline-flex; align-items: center; gap: 6px; padding: 0 14px; border: 1px solid var(--bar-line); border-radius: 22px;
     background: var(--bar-bg); color: var(--bar-ink); font: 15px/1.3 system-ui, -apple-system, "Segoe UI", sans-serif; white-space: nowrap; cursor: pointer; }
   .export-open svg { flex: none; width: 16px; height: 16px; }
@@ -373,7 +372,6 @@ function ssDraw(fn) { fn(); document.addEventListener('ss:live', () => fn()); }
         <button type="button" data-tweaks-keep data-ss-say="">Keep these</button>
       </div>
     </details>
-    <output class="frame-zoom" aria-label="Zoom" hidden></output>
     <button type="button" class="frame-use" data-ss-say="" hidden><span class="use">Use this</span><span class="chosen">✓ Chosen</span></button>
     <button type="button" class="frame-round" data-ss-say="" hidden>Another round</button>
     <div class="export no-print"><button type="button" class="export-open" aria-haspopup="menu" aria-expanded="false" aria-label="Export" title="Export"><svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2.5v7.5M4.75 6.75 8 10l3.25-3.25M2.5 11v2.5h11V11"/></svg><span class="export-word">Export</span></button><div class="menu" role="menu" aria-label="Export" hidden><button type="button" class="export-pdf" role="menuitem" data-ss-pdf="" hidden>PDF</button><button type="button" class="export-pdf-all" role="menuitem" data-ss-pdf="" hidden>PDF of every direction</button><button type="button" class="export-html" role="menuitem">HTML</button><hr><button type="button" class="export-prompt" role="menuitem">Copy prompt for a coding agent</button></div><p class="export-said" role="status"></p></div>
@@ -458,12 +456,12 @@ function ssDraw(fn) { fn(); document.addEventListener('ss:live', () => fn()); }
     drawDevices();
     frame();
   }
-  // The frame: Back while a frame is open full page, the zoom % in canvas view, from Spacesheep's canvas
+  // The frame: Back while a frame is open full page, and the bar's canvas view (no tab filled), from Spacesheep's canvas
   // (ss.canvas, and its ss:canvas event on each change). Back is data-ss-canvas-back: the canvas takes its click.
   function frame() {
-    const c = (window.ss && window.ss.canvas) || {}, back = document.querySelector('.frame-back'), zoom = document.querySelector('.frame-zoom');
+    const c = (window.ss && window.ss.canvas) || {}, back = document.querySelector('.frame-back'), bar = document.querySelector('.switcher');
     if (back) back.hidden = !c.open;
-    if (zoom) { zoom.hidden = !canvas() || !!c.open || typeof c.zoom !== 'number'; zoom.textContent = Math.round((c.zoom || 1) * 100) + '%'; }
+    if (bar) bar.toggleAttribute('data-canvas-view', canvas() && !c.open && typeof c.zoom === 'number');
     // Use this · Another round for the direction open full page (a view's own direction), when there are several to choose from.
     const use = document.querySelector('.frame-use'), round = document.querySelector('.frame-round'), at = c.open && (document.getElementById(c.open) || document.querySelector('[data-ss-id="' + CSS.escape(c.open) + '"]'));
     const d = at && (at.dataset.viewOf ? dirOf(at) : at), on = !!d && all().length > 1 && all().includes(d);
