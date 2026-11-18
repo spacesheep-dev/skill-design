@@ -15,12 +15,13 @@ const OUT = path.join(ASSETS, "shepherd.html");
 // The slim switcher. Each run of the page's scripts (a live push runs them again) replaces the last run's
 // functions; the document's listeners go in once and call the newest.
 const SWITCHER_JS = `(() => {
+  const q = (s) => document.querySelector(s), ch = (x) => x.hasAttribute('data-chosen');
   const all = () => [...document.querySelectorAll('section.direction:not([data-view-of])')];
   const label = (d) => d.dataset.ssLabel || d.dataset.ssId || '';
-  const byId = (id) => !!id && (document.getElementById(id) || document.querySelector('[data-ss-id="' + CSS.escape(id) + '"]'));
+  const byId = (id) => !!id && (document.getElementById(id) || q('[data-ss-id="' + CSS.escape(id) + '"]'));
   const dirAt = (at) => at && all().find((d) => d === at || d.contains(at));
-  const canvas = () => !!document.querySelector('[data-ss-canvas-area]');
-  const open = (d) => { history.replaceState(null, '', '#' + encodeURIComponent(d.dataset.ssId)); show(); dispatchEvent(new HashChangeEvent('hashchange')); };
+  const canvas = () => !!q('[data-ss-canvas-area]');
+  const open = (d) => { history.replaceState(null, '', '#' + encodeURIComponent(d.dataset.ssId)); dispatchEvent(new HashChangeEvent('hashchange')); };
   function pick() {
     let id = location.hash.slice(1);
     try { id = decodeURIComponent(id); } catch {}
@@ -29,26 +30,26 @@ const SWITCHER_JS = `(() => {
   }
   function pills() {
     document.querySelectorAll('.use-this').forEach((u) => {
-      const d = all().find((x) => 'Use ' + label(x) === u.dataset.ssSay), on = !!d && d.hasAttribute('data-chosen');
+      const d = all().find((x) => 'Use ' + label(x) === u.dataset.ssSay), on = !!d && ch(d);
       u.toggleAttribute('data-chosen', on);
       u.disabled = on;
     });
   }
   function frame() {
-    const c = (window.ss && window.ss.canvas) || {}, q = (s) => document.querySelector(s);
+    const c = (window.ss && window.ss.canvas) || {};
     const back = q('.frame-back'), bar = q('.switcher'), use = q('.frame-use'), round = q('.frame-round');
     if (back) back.hidden = !c.open;
     if (bar) bar.toggleAttribute('data-canvas-view', canvas() && !c.open && typeof c.zoom === 'number');
     const d = c.open && dirAt(byId(c.open)), on = !!d && all().length > 1;
     if (use) {
       use.hidden = !on;
-      if (on) { use.dataset.ssSay = use.title = 'Use ' + label(d); use.toggleAttribute('data-chosen', d.hasAttribute('data-chosen')); use.disabled = d.hasAttribute('data-chosen'); }
+      if (on) { use.dataset.ssSay = use.title = 'Use ' + label(d); use.toggleAttribute('data-chosen', ch(d)); use.disabled = ch(d); }
     }
     if (round) { round.hidden = !on; if (on) round.dataset.ssSay = round.title = 'Another round of ' + label(d); }
     pills();
   }
   function show() {
-    const d = pick(), tabs = document.querySelector('.switcher-tabs'), line = document.querySelector('.switcher-line');
+    const d = pick(), tabs = q('.switcher-tabs'), line = q('.switcher-line');
     all().forEach((x, i) => {
       x.classList.toggle('on', x === d);
       if (tabs && tabs.children[i]) tabs.children[i].setAttribute('aria-selected', String(x === d));
@@ -57,22 +58,22 @@ const SWITCHER_JS = `(() => {
     frame();
   }
   function draw() {
-    const tabs = document.querySelector('.switcher-tabs');
+    const tabs = q('.switcher-tabs');
     if (tabs) tabs.replaceChildren(...all().map((d) => {
       const b = document.createElement('button');
       b.type = 'button';
       b.setAttribute('role', 'tab');
       b.textContent = label(d);
-      if (d.hasAttribute('data-chosen')) b.dataset.chosen = '';
+      if (ch(d)) b.dataset.chosen = '';
       b.addEventListener('click', () => open(d));
       return b;
     }));
     show();
   }
   const stale = () => {
-    const t = document.querySelector('.switcher-tabs'), dirs = all();
+    const t = q('.switcher-tabs'), dirs = all();
     return !!t && (t.children.length !== dirs.length || dirs.some((d, i) => t.children[i].textContent !== label(d)
-      || t.children[i].hasAttribute('data-chosen') !== d.hasAttribute('data-chosen')));
+      || ch(t.children[i]) !== ch(d)));
   };
   window.ssFrame = frame;
   window.ssShow = show;
@@ -88,7 +89,17 @@ const SWITCHER_JS = `(() => {
       document.querySelectorAll('.card-menu .menu:not([hidden])').forEach((m) => { if (m.previousElementSibling !== b) { m.hidden = true; m.previousElementSibling.setAttribute('aria-expanded', 'false'); } });
       if (b) { const m = b.nextElementSibling; m.hidden = !m.hidden; b.setAttribute('aria-expanded', String(!m.hidden)); return; }
       const u = t.closest('.use-this'), d = u && window.ssPillOf(u);
-      if (d) { history.replaceState(null, '', '#' + encodeURIComponent(d.dataset.ssId)); dispatchEvent(new HashChangeEvent('hashchange')); }
+      if (d) open(d);
+    }, true);
+  }
+  // The canvas hears keys only in its area: on the bar, Esc goes Back and a tab's number opens its direction.
+  if (!window.ssSlimKeys) {
+    window.ssSlimKeys = true;
+    addEventListener('keydown', (e) => {
+      const t = e.target, k = e.key, c = window.ss && window.ss.canvas, d = all()[k - 1], b = q('.frame-back');
+      if (!t.closest || !t.closest('.switcher') || !canvas() || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (k === 'Escape' && c && c.open && b && t.closest('button,a,summary')) { e.preventDefault(); b.click(); }
+      else if (/^[1-9]$/.test(k) && d && t.closest('[role=tab]')) { e.preventDefault(); open(d); }
     }, true);
   }
   if (window.ssSlimWatch) window.ssSlimWatch.disconnect();

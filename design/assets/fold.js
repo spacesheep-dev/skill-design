@@ -869,8 +869,15 @@ function withLines(page) {
   if (!id || ids.has(id)) { id = "round-lines"; for (let k = 2; ids.has(id); k++) id = `round-lines-${k}`; }
   const html = `<div class="no-print" data-round-lines data-ss-id="${id}" aria-hidden="true" data-ss-x="${n(x0)}" data-ss-y="${n(y0)}" style="width:${w}px!important;height:${h}px!important"><svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${paths}</svg></div>\n`;
   if (found) return put(html);
-  const last = all.filter((d) => !d.view).at(-1), at = page.indexOf("\n", last.end) + 1 || last.end;
-  return page.slice(0, at) + html + page.slice(at);
+  const { at, lead } = afterLast(page, all);
+  return page.slice(0, at) + lead + html + page.slice(at);
+}
+// Where something goes after the last direction: the start of the next line when nothing else is on the rest of
+// its line, else right after its </section> on a line of its own (lead), so a page that closes the canvas area
+// on the same line (</section></div>) keeps what is added inside the area.
+function afterLast(page, all) {
+  const end = all.filter((d) => !d.view).at(-1).end, nl = page.indexOf("\n", end);
+  return nl >= 0 && !page.slice(end, nl).trim() ? { at: nl + 1, lead: "" } : { at: end, lead: "\n" };
 }
 const slugOf = (name) => name.normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40).replace(/-+$/, "");
 // The page with the new round in it, or { error }.
@@ -898,8 +905,8 @@ function rounded(page, parent, names) {
   <!-- part:${v.slug} --><div class="drawing" data-ss-id="${v.slug}-drawing"><h2>${esc(v.name)}</h2><p>Being drawn…</p><i></i><i></i><i></i></div><!-- /part:${v.slug} -->
 </section>
 `).join("\n");
-  const last = all.filter((d) => !d.view).at(-1), at = page.indexOf("\n", last.end) + 1 || last.end;
-  let out = page.slice(0, at) + "\n" + sections + page.slice(at);
+  const { at, lead } = afterLast(page, all);
+  let out = page.slice(0, at) + lead + "\n" + sections + page.slice(at);
   // The parent's tokens, as each version's own rule, in the page's <style> that sets them last (a part's own
   // <style>, inside its direction, is left as it is).
   const sel = `[data-ss-id="direction-${p.slug}"]`, inside = directionsOf(out);

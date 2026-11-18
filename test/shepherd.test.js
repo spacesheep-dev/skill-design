@@ -212,3 +212,37 @@ test("each section runs from its opening tag to the </section> after its own par
     assert.ok(md.includes(`<!-- /part:${n} -->`), `shepherd.md names ${n}'s own marker`);
   }
 });
+
+test("on the slim bar, which sits outside the canvas area, Esc on a tab goes Back and a tab's number opens its direction", () => {
+  const js = scripts(PAGE)[0].match(/\/\* switcher: start \*\/[\s\S]*?\/\* switcher: end \*\//)[0];
+  class El {
+    constructor(is = [], data = {}) { this.is = is; this.dataset = data; this.children = []; this.attrs = {}; this.clicks = 0; this.classList = { toggle() {} }; }
+    closest(sel) { return sel.split(",").some((p) => this.is.includes(p.trim())) ? this : null; }
+    hasAttribute(n) { return n in this.attrs; }
+    setAttribute(n, v) { this.attrs[n] = v; }
+    toggleAttribute(n, on) { if (on) this.attrs[n] = ""; else delete this.attrs[n]; }
+    replaceChildren(...k) { this.children = k; }
+    addEventListener() {}
+    contains(x) { return x === this; }
+    click() { this.clicks++; }
+  }
+  const dirs = ["first", "second", "third"].map((s) => new El([], { ssId: `direction-${s}`, ssLabel: s }));
+  const bar = { ".switcher-tabs": new El(), ".frame-back": new El(), ".switcher": new El(), "[data-ss-canvas-area]": new El() };
+  const heard = {}, location = { hash: "" };
+  const document = { querySelector: (s) => bar[s] || null, querySelectorAll: (s) => (s === "section.direction:not([data-view-of])" ? dirs : []),
+    getElementById: () => null, createElement: () => new El(), addEventListener() {}, body: {} };
+  const win = { document, location, history: { replaceState: (a, b, h) => { location.hash = h; } }, CSS: { escape: (s) => s }, HashChangeEvent: class {},
+    MutationObserver: class { observe() {} }, addEventListener: (n, f) => (heard[n] = heard[n] || []).push(f), dispatchEvent() {} };
+  win.window = win;
+  vm.runInNewContext(js, win);
+  const tab = new El(["button", "[role=tab]", ".switcher"]);
+  const key = (k) => { let taken = false; (heard.keydown || []).forEach((f) => f({ key: k, target: tab, preventDefault: () => { taken = true; } })); return taken; };
+  win.ss = { canvas: { open: "direction-second", zoom: 1 } };
+  assert.ok(key("Escape"), "Esc is taken");
+  assert.equal(bar[".frame-back"].clicks, 1, "and goes Back");
+  win.ss = { canvas: { open: null, zoom: 0.3 } };
+  assert.equal(key("Escape"), false, "with nothing open, Esc is left alone");
+  assert.ok(key("3"));
+  assert.equal(location.hash, "#direction-third", "a tab's 3 opens the third direction");
+  assert.equal(key("7"), false, "a number with no direction is left alone");
+});

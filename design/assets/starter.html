@@ -525,8 +525,8 @@ function ssDraw(fn) { fn(); document.addEventListener('ss:live', () => fn()); }
   // On the canvas the number keys go to the directions, which the canvas numbers first (views come after them
   // in the page). A direction's key opens it; pressed again, it steps through the direction's views and back.
   // The canvas opens the frame the address names; this listener is on the window, so it hears the key before
-  // the canvas's own, and takes it only for a direction with views. A live push runs this script again: the
-  // listener is added once.
+  // the canvas's own, and takes it only for a direction with views, or on a tab in the bar, which sits outside the
+  // canvas area, whose keys the canvas no longer hears. A live push runs this script again: the listener is added once.
   if (!window.ssViewKeys) {
     window.ssViewKeys = true;
     addEventListener('keydown', (e) => {
@@ -534,8 +534,8 @@ function ssDraw(fn) { fn(); document.addEventListener('ss:live', () => fn()); }
       if (!canvas() || e.metaKey || e.ctrlKey || e.altKey || !/^[1-9]$/.test(k) || document.body.getAttribute('data-ss-edit') === 'paper') return;
       if (t.closest && !t.closest('[role=tab],[data-ss-canvas-chip]')
         && t.closest('input,textarea,select,button,summary,a,[role=button],[contenteditable=""],[contenteditable=true],[data-ss-ui]')) return;
-      const d = all()[+k - 1], set = d ? [d, ...viewsOf(d)] : [];
-      if (set.length < 2) return;
+      const d = all()[+k - 1], set = d ? [d, ...viewsOf(d)] : [], bar = !!(t.closest && t.closest('[role=tab]') && !t.closest('[data-ss-canvas-area]'));
+      if (!set.length || (set.length < 2 && !bar)) return;
       let id = location.hash.slice(1);
       try { id = decodeURIComponent(id); } catch {}
       const i = set.findIndex((x) => x.dataset.ssId === id || (x.id && x.id === id));
@@ -555,11 +555,12 @@ function ssDraw(fn) { fn(); document.addEventListener('ss:live', () => fn()); }
   }
   if (!window.ssFrameKeys) {
     window.ssFrameKeys = true;
-    // Esc goes back from full page with focus on a button or link too, which the canvas leaves to the page.
+    // Esc goes back from full page with focus on a button or link too, which the canvas leaves to the page. The canvas
+    // hears keys only inside its area, so a tab in the bar (outside it) is the frame's too; a tab or chip inside is the canvas's.
     addEventListener('keydown', (e) => {
       const t = e.target, c = window.ss && window.ss.canvas, b = document.querySelector('.frame-back');
       if (e.key !== 'Escape' || !canvas() || !c || !c.open || !b || !t.closest || !t.closest('button,a,summary,[role=button]')
-        || t.closest('[role=tab],[data-ss-canvas-chip]') || document.querySelector('.export .menu:not([hidden])')) return;
+        || t.closest('[data-ss-canvas-area] :is([role=tab],[data-ss-canvas-chip])') || document.querySelector('.export .menu:not([hidden])')) return;
       e.preventDefault();
       b.click();
     }, true);

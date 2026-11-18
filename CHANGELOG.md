@@ -11,6 +11,8 @@ Each release is a heading with its tag. The release workflow uses the words unde
 - check.js flags a direction outside the area, with its line, and an area that is never closed.
 - shepherd.html's questions card is a block above the bar and the area, and both stay hidden while it shows.
 - The bar no longer shows the canvas's zoom %: the area draws its own zoom and Fit. On the canvas no tab is filled, as before. `fold.js kit` takes the old figure out of an older page's bar.
+- The canvas hears keys only inside its area, and the bar sits above it, so the bar takes its own: on a tab, Esc goes Back from a direction open full page and a number key opens that direction, in base.html, the starter and shepherd.html.
+- `fold.js round` puts a new round, and its lines, after the last direction inside the area even when that direction's `</section>` and the area's `</div>` share a line.
 - SKILL.md, references/shepherd.md, references/after.md (the client copy drops the area's attribute and keeps its div) and references/prototypes.md say where the area is.
 
 ## v1.2.25

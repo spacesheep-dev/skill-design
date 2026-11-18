@@ -225,7 +225,8 @@ test("a view before a direction is flagged: the canvas would number it among the
 });
 
 test("the starter's switcher steps a direction's number key through its views on the canvas, and runs without tabs", () => {
-  assert.match(BASE, /const d = all\(\)\[\+k - 1\], set = d \? \[d, \.\.\.viewsOf\(d\)\] : \[\];\n      if \(set\.length < 2\) return;/);
+  // A direction with no views is the canvas's to open, unless the key comes from a tab in the bar, outside the area.
+  assert.match(BASE, /const d = all\(\)\[\+k - 1\], set = d \? \[d, \.\.\.viewsOf\(d\)\] : \[\], bar = [^\n]*\n      if \(!set\.length \|\| \(set\.length < 2 && !bar\)\) return;/);
   assert.doesNotMatch(BASE, /if \(!tabsNow\(\)\) return;/);
 });
 
@@ -274,23 +275,41 @@ function barPage(flags = {}) {
     replaceChildren(...k) { this.children = k; }
     addEventListener() {}
     contains(x) { return x === this; }
+    // What a stand-in matches: its own simple selectors (is), and whether it sits in the canvas area.
+    closest(sel) {
+      const is = this.is || [], any = (list) => list.split(",").some((p) => is.includes(p.trim()));
+      if (sel === "[data-ss-canvas-area]") return this.inArea ? {} : null;
+      const inner = /^\[data-ss-canvas-area\] :is\((.*)\)$/.exec(sel);
+      if (inner) return this.inArea && any(inner[1]) ? this : null;
+      return any(sel) ? this : null;
+    }
+    click() { this.clicks = (this.clicks || 0) + 1; }
   }
   const dirs = ["first", "second", "third"].map((s) => new El({ ssId: `direction-${s}`, ssLabel: s[0].toUpperCase() + s.slice(1), line: s }));
   const bar = { ".switcher-tabs": new El(), ".switcher-line": new El(), ".switcher-views": new El(), ".frame-back": new El(), ".switcher": new El(), ".frame-use": new El(), ".frame-round": new El(), '[data-ss-canvas-area]': new El(), "section.direction": dirs[0] };
   const document = {
-    body: {}, contains: () => true, getElementById: () => null, createElement: () => new El(),
+    body: { getAttribute: () => null }, contains: () => true, getElementById: () => null, createElement: () => new El(),
     querySelector: (s) => bar[s] || dirs.find((d) => s === `[data-ss-id="${d.dataset.ssId}"]`) || null,
     querySelectorAll: (s) => (s === "section.direction:not([data-view-of])" ? dirs : []),
     addEventListener: (n, f) => (heard[n] = heard[n] || []).push(f),
   };
-  const win = { ...flags, document, location: { hash: "" }, history: { replaceState() {} }, matchMedia: () => ({ matches: false }), CSS: { escape: (s) => s },
-    MutationObserver: class { constructor(f) { watchers.push(f); } observe() {} takeRecords() {} }, HashChangeEvent: class {}, addEventListener() {}, dispatchEvent() {} };
+  const winHeard = {}, location = { hash: "" };
+  const win = { ...flags, document, location, history: { replaceState: (a, b, h) => { location.hash = h; } }, matchMedia: () => ({ matches: false }), CSS: { escape: (s) => s },
+    MutationObserver: class { constructor(f) { watchers.push(f); } observe() {} takeRecords() {} }, HashChangeEvent: class {}, addEventListener: (n, f) => (winHeard[n] = winHeard[n] || []).push(f), dispatchEvent() {} };
   win.window = win;
   // A listener an older frame added, which knows nothing of the pill, as the frame before it did.
   if (flags.ssFrameKeys) heard["ss:canvas"] = [() => {}];
   vm.runInNewContext(BASE.slice(BASE.indexOf("/* switcher: start */\n(() => {"), BASE.indexOf("/* switcher: end */\n/* controls")), win);
   const canvas = (open) => { win.ss = { canvas: { zoom: open ? 0.87 : 0.35, open } }; (heard["ss:canvas"] || []).forEach((f) => f()); };
-  return { dirs, bar: bar[".switcher"], pill: bar[".frame-use"], round: bar[".frame-round"], tabs: bar[".switcher-tabs"], canvas, observe: () => watchers.forEach((f) => f()) };
+  // A key on a stand-in element: whether a listener took it (preventDefault), what Back's clicks and the address are after.
+  const key = (k, target) => {
+    let taken = false;
+    const e = { key: k, target, preventDefault: () => { taken = true; }, stopImmediatePropagation() {}, stopPropagation() {} };
+    (winHeard.keydown || []).forEach((f) => f(e));
+    return { taken, back: bar[".frame-back"].clicks || 0, hash: location.hash };
+  };
+  const tab = (inArea) => Object.assign(new El(), { is: ["button", "[role=tab]"], inArea });
+  return { dirs, key, tab, bar: bar[".switcher"], pill: bar[".frame-use"], round: bar[".frame-round"], tabs: bar[".switcher-tabs"], canvas, observe: () => watchers.forEach((f) => f()) };
 }
 
 test("the bar's pill follows the open direction on a tab an older frame set up, and a live pick marks it and its tab", () => {
@@ -316,6 +335,17 @@ test("the bar's pill follows the open direction on a tab an older frame set up, 
   assert.equal(page.pill.disabled, true, "the pill is pressed out at once");
   assert.ok(page.pill.hasAttribute("data-chosen"), "and reads Chosen");
   assert.deepEqual(page.tabs.children.map((b) => b.hasAttribute("data-chosen")), [false, true, false], "its tab carries the mark");
+});
+
+test("on the bar, which sits outside the canvas area, Esc on a tab goes Back and a tab's number opens its direction; inside the area the canvas keeps them", () => {
+  const page = barPage();
+  page.canvas("direction-second");
+  assert.deepEqual(page.key("Escape", page.tab(false)), { taken: true, back: 1, hash: "" }, "Esc on a bar tab goes Back");
+  assert.equal(page.key("Escape", page.tab(true)).back, 1, "a tab inside the area is the canvas's");
+  page.canvas(null);
+  assert.equal(page.key("Escape", page.tab(false)).back, 1, "with nothing open, Esc does nothing");
+  assert.deepEqual(page.key("3", page.tab(false)), { taken: true, back: 1, hash: "#direction-third" }, "a bar tab's 3 opens the third direction");
+  assert.equal(page.key("2", page.tab(true)).taken, false, "inside the area, a direction with no views is the canvas's to open");
 });
 
 test("a width rule on the window, or a size in vw, is flagged with the frame's way to say it", () => {

@@ -1080,6 +1080,20 @@ test("round replaces only its own lines block, never an element of the page's wh
   }
 });
 
+test("round keeps a new version and its lines inside the canvas area when the last direction closes it on the same line", () => {
+  const { folder, fold } = setup();
+  assert.equal(fold(["start", "--new", "Poster"]).status, 0);
+  const file = path.join(folder, "work", "index.html"), tight = BASE.replace("</section>\n\n</div>\n", "</section></div>\n");
+  assert.notEqual(tight, BASE);
+  fs.writeFileSync(file, tight);
+  assert.equal(fold(["round", "first", "Bolder"]).status, 0);
+  const out = fs.readFileSync(file, "utf8"), open = out.indexOf("<div data-ss-canvas-area>"), close = out.indexOf("</div>\n\n<script>");
+  for (const what of ['data-ss-id="direction-bolder"', " data-round-lines "])
+    assert.ok(out.indexOf(what) > open && out.indexOf(what) < close, `${what} is inside the area`);
+  assert.match(out, /<\/section>\n\n<section class="direction" data-version-of="first"/, "the version starts on a line of its own");
+  assert.match(out, /<\/section>\n<div class="no-print" data-round-lines [^\n]*<\/svg><\/div>\n<\/div>\n\n<script>/, "and the lines close it, then the area");
+});
+
 test("round puts versions before a page's device views, so the views keep the numbers after the directions, and its row below them, in the writer's frame too", () => {
   const { folder, fold } = setup();
   assert.equal(fold(["start", "--new", "Poster"]).status, 0);
