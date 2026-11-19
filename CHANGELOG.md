@@ -2,6 +2,12 @@
 
 Each release is a heading with its tag. The release workflow uses the words under it as the release's notes.
 
+## v1.2.28
+
+- The bar wears Spacesheep's own buttons. Every key on it (Back, the tabs, Tweaks, Use this, Another round, Export, the device views, Keep these) is the app's button at its small size, 28 px (on a touch screen each answers a finger 44 px tall): a face, a 1px edge and a lip along its foot, light and dark, with the app's hover, press and focus ring. Use this and Keep these are the primary; the rest are secondary. The open tab, an open Tweaks or Export, a device view and the chosen Use this are pressed in with the purple edge, no longer filled black. Use this and Another round are two keys side by side, so they no longer break apart when the bar wraps on a phone (base.html, starter.html, shepherd.html).
+- The ⋯ chips on the cards take the same focus ring.
+- shepherd.html may be 26,000 characters (was 25,000), for the keys' light and dark values. use_skill reads up to 40,000.
+
 ## v1.2.27
 
 - Every card's ⋯ menu shows at Fit in a narrow window. The canvas hides a card's menu when the next card's number would sit on it, and with directions 72 px apart that happened to all but the last card below about 1,000 px wide. The starter's three directions (base.html, shepherd.html) and each new round's versions now stand 320 px apart: at Fit in a 360 px window that is still about 22 px, room for the number. A page made before keeps its places.
