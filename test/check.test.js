@@ -287,10 +287,12 @@ function barPage(flags = {}) {
     click() { this.clicks = (this.clicks || 0) + 1; }
   }
   const dirs = ["first", "second", "third"].map((s) => new El({ ssId: `direction-${s}`, ssLabel: s[0].toUpperCase() + s.slice(1), line: s }));
+  // An about block's intro, for the slugs flags.intros gives words to.
+  const intro = (sel) => { const m = /^\.about\[data-about-of="([^"]+)"\] \.about-intro$/.exec(sel), t = m && (flags.intros || {})[m[1]]; return t ? Object.assign(new El(), { textContent: t }) : null; };
   const bar = { ".switcher-tabs": new El(), ".switcher-line": new El(), ".switcher-views": new El(), ".frame-back": new El(), ".switcher": new El(), ".frame-use": new El(), ".frame-round": new El(), '[data-ss-canvas-area]': new El(), "section.direction": dirs[0] };
   const document = {
     body: { getAttribute: () => null }, contains: () => true, getElementById: () => null, createElement: () => new El(),
-    querySelector: (s) => bar[s] || dirs.find((d) => s === `[data-ss-id="${d.dataset.ssId}"]`) || null,
+    querySelector: (s) => bar[s] || dirs.find((d) => s === `[data-ss-id="${d.dataset.ssId}"]`) || intro(s) || null,
     querySelectorAll: (s) => (s === "section.direction:not([data-view-of])" ? dirs : []),
     addEventListener: (n, f) => (heard[n] = heard[n] || []).push(f),
   };
@@ -310,7 +312,7 @@ function barPage(flags = {}) {
     return { taken, back: bar[".frame-back"].clicks || 0, hash: location.hash };
   };
   const tab = (inArea) => Object.assign(new El(), { is: ["button", "[role=tab]"], inArea });
-  return { dirs, key, tab, bar: bar[".switcher"], pill: bar[".frame-use"], round: bar[".frame-round"], tabs: bar[".switcher-tabs"], canvas, observe: () => watchers.forEach((f) => f()) };
+  return { dirs, key, tab, line: bar[".switcher-line"], bar: bar[".switcher"], pill: bar[".frame-use"], round: bar[".frame-round"], tabs: bar[".switcher-tabs"], canvas, observe: () => watchers.forEach((f) => f()) };
 }
 
 test("the bar's pill follows the open direction on a tab an older frame set up, and a live pick marks it and its tab", () => {
@@ -336,6 +338,20 @@ test("the bar's pill follows the open direction on a tab an older frame set up, 
   assert.equal(page.pill.disabled, true, "the pill is pressed out at once");
   assert.ok(page.pill.hasAttribute("data-chosen"), "and reads Chosen");
   assert.deepEqual(page.tabs.children.map((b) => b.hasAttribute("data-chosen")), [false, true, false], "its tab carries the mark");
+});
+
+test("while a direction is open full page the bar's line is its about block's intro, so a phone has it; else the direction's line", () => {
+  const page = barPage({ intros: { second: "Second shows one\n   number.  Press Pay now to try it." } });
+  assert.equal(page.line.textContent, "first", "the canvas: the line of the direction the address names");
+  page.canvas("direction-second");
+  assert.equal(page.line.textContent, "Second shows one number. Press Pay now to try it.", "open: its intro, on one line");
+  page.canvas("direction-third");
+  assert.equal(page.line.textContent, "first", "a direction with no about block keeps the line");
+  page.canvas("direction-second");
+  page.canvas(null);
+  assert.equal(page.line.textContent, "first", "back on the canvas, the line again");
+  page.observe();
+  assert.equal(page.line.textContent, "first", "and a change to the page leaves it");
 });
 
 test("on the bar, which sits outside the canvas area, Esc on a tab goes Back and a tab's number opens its direction; inside the area the canvas keeps them", () => {
@@ -551,6 +567,16 @@ test("each direction's about block has an intro of 2 or 3 sentences, a spec row 
   const quoted = aboutLines(ABOUT_FILLED.replace("for owners who check once a month", "so owners never miss a mooring fee"), "ask: Make sure owners never miss a mooring fee again\n<!-- end brief -->\n");
   assert.deepEqual(quoted.map((l) => l.split("  ")[0]), ["first"], quoted.join("\n"));
   assert.match(quoted[0], /its about block quotes the request \("owners never miss a mooring fee"\): say what the direction does in your own words$/);
-  const older = BASE.replace(/<aside class="about[\s\S]*?<\/aside>\n\n/g, "");
+  // A page made before about blocks has neither the blocks nor the script that numbers them.
+  const older = BASE.replace(/<aside class="about[\s\S]*?<\/aside>\n\n/g, "").replace(/\/\* about: each[\s\S]*?\/\* about: done \*\/\n/, "");
   assert.deepEqual(aboutLines(older), [], "a page made before about blocks isn't asked for them");
+  const none = ABOUT_FILLED.replace(/<aside class="about[\s\S]*?<\/aside>\n\n/g, "");
+  assert.deepEqual(aboutLines(none).map((l) => l.split("  ").filter((x, i) => i !== 1).join("  ").replace(/:.*/, "")), ["first  no about block", "second  no about block", "third  no about block"], "a page whose script stays but whose blocks are all gone");
+  const second = ABOUT_FILLED.match(/<aside class="about no-print" data-about-of="second"[\s\S]*?<\/aside>\n\n/)[0];
+  const outside = ABOUT_FILLED.replace(second, "").replace("</section>\n\n</div>\n", `</section>\n\n</div>\n\n${second}`);
+  assert.match(aboutLines(outside).join("\n"), /^second  work\/index\.html:\d+  its about block is outside the canvas area, where it doesn't show: move it to the start of <div data-ss-canvas-area>$/m);
+  const loose = ABOUT_FILLED.replace('<ol class="about-frames" data-ss-id="third-about-frames">', '<ol data-ss-id="third-about-frames">');
+  assert.deepEqual(aboutLines(loose).map((l) => l.replace(/  work\/index\.html:\d+  /, "  ").replace(/:.*/, "")), ["third  no caption for the frame direction-third"], "a caption outside the numbered list isn't one");
+  const clash = ABOUT_FILLED.replaceAll("second", "first-about");
+  assert.match(aboutLines(clash).join("\n"), /^first-about  work\/index\.html  its slug is first's about block's part name: give it another slug$/m);
 });

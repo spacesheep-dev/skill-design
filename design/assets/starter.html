@@ -101,9 +101,12 @@
   /* about: start */
   /* Each direction's about block (data-about-of="<slug>"): what it is for and how to try it, its spec row, and a
      numbered caption for each of its frames. It sits on the canvas 120 px above its direction, as wide as it, its
-     words at the bottom of its 560 px, outside the design: no picture, PDF, HTML export or build prompt has it,
-     and without the canvas it doesn't show. Its type stays 13 px on screen at any zoom, from 20 to 36 px. */
-  .about { box-sizing: border-box; height: 560px; display: flex; flex-direction: column; justify-content: flex-end; gap: .55em;
+     words from the top of its 560 px, so a row's blocks start on one line and read across, outside the design: no
+     picture, PDF, HTML export or build prompt has it, and without the canvas it doesn't show. Its type stays 13 px
+     on screen at any zoom, from 20 to 36 px. Under 600 px of canvas width (a phone at Fit) the blocks would run into
+     the cards below them: the area is data-narrow there (the about script measures it), they hide, and the bar
+     shows the intro of the direction open full page. */
+  .about { box-sizing: border-box; height: 560px; display: flex; flex-direction: column; justify-content: flex-start; gap: .55em;
     color: var(--bar-ink); font: 400 clamp(20px, calc(13px / var(--ss-cz, 1)), 36px)/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
   [data-ss-canvas-item].about { outline: none; }
   .about p { margin: 0; max-width: 62ch; }
@@ -116,6 +119,7 @@
   .about-frames { margin: 0; padding: 0; list-style: none; font-size: .82em; color: var(--bar-muted); }
   .about-frames li::before { content: attr(data-n) "  "; white-space: pre; color: var(--bar-ink); font: 500 .9em/1.4 ui-monospace, Menlo, monospace; }
   html:not(:has([data-ss-canvas-area])) .about { display: none; }
+  [data-ss-canvas-area][data-narrow] .about { display: none; }
   /* about: end */
   /* the frame's own controls: Back while a direction is open full page (Esc does the same); the canvas area draws its own zoom */
   .frame-back, .frame-use, .frame-round { flex: none; }
@@ -480,16 +484,29 @@ function ssDraw(fn) { fn(); document.addEventListener('ss:live', () => fn()); }
       if (tabs && tabs.children[i]) tabs.children[i].setAttribute('aria-selected', String(x === d));
     });
     views().forEach((x) => x.classList.toggle('on', x === view));
-    if (line) line.textContent = d.dataset.line || '';
+    if (line) line.textContent = lineOf();
     drawDevices();
     frame();
   }
+  // The bar's line: the direction's data-line, or, while a direction (or one of its views) is open full page, the
+  // intro of its about block, so a phone, where the blocks hide, still says what it is for and how to try it.
+  const opened = () => {
+    const c = (window.ss && window.ss.canvas) || {}, at = c.open && (document.getElementById(c.open) || document.querySelector('[data-ss-id="' + CSS.escape(c.open) + '"]'));
+    return at && (at.dataset.viewOf ? dirOf(at) : at);
+  };
+  const introOf = (d) => {
+    const p = d && document.querySelector('.about[data-about-of="' + CSS.escape(slugOf(d)) + '"] .about-intro');
+    return p ? p.textContent.replace(/\s+/g, ' ').trim() : '';
+  };
+  const lineOf = () => { const o = opened(); return (o && all().includes(o) && introOf(o)) || (cur && cur.dataset.line) || ''; };
   // The frame: Back while a frame is open full page, and the bar's canvas view (no tab filled), from Spacesheep's canvas
   // (ss.canvas, and its ss:canvas event on each change). Back is data-ss-canvas-back: the canvas takes its click.
   function frame() {
     const c = (window.ss && window.ss.canvas) || {}, back = document.querySelector('.frame-back'), bar = document.querySelector('.switcher');
     if (back) back.hidden = !c.open;
     if (bar) bar.toggleAttribute('data-canvas-view', canvas() && !c.open && typeof c.zoom === 'number');
+    const line = lineNow();
+    if (line && cur && line.textContent !== lineOf()) line.textContent = lineOf();
     // Use this · Another round for the direction open full page (a view's own direction), when there are several to choose from.
     const use = document.querySelector('.frame-use'), round = document.querySelector('.frame-round'), at = c.open && (document.getElementById(c.open) || document.querySelector('[data-ss-id="' + CSS.escape(c.open) + '"]'));
     const d = at && (at.dataset.viewOf ? dirOf(at) : at), on = !!d && all().length > 1 && all().includes(d);
@@ -548,7 +565,7 @@ function ssDraw(fn) { fn(); document.addEventListener('ss:live', () => fn()); }
     const dirs = all(), tabs = tabsNow(), line = lineNow(), box = viewsNow(), keep = newest();
     if (tabs !== drawn || (tabs && (tabs.children.length !== dirs.length || dirs.some((d, i) => tabs.children[i].textContent !== label(d)
       || tabs.children[i].hasAttribute('data-chosen') !== d.hasAttribute('data-chosen') || tabs.children[i].hasAttribute('data-older') !== older(d, keep))))
-      || !document.contains(cur) || (view && !document.contains(view)) || (line && line.textContent !== (cur.dataset.line || ''))) return true;
+      || !document.contains(cur) || (view && !document.contains(view)) || (line && line.textContent !== lineOf())) return true;
     const n = viewsOf(cur).length;
     return box !== devices || (box && box.children.length !== (n ? n + 1 : 0));
   };
@@ -846,11 +863,14 @@ document.addEventListener('click', (e) => {
 });
 /* about: each about block's captions take their frames' numbers as the canvas gives them (01 for the first frame
    in page order), and its Colour shows its direction's ground, ink and accent as they are now (Tweaks too). It runs
-   again on any change to the page, a live push included, and changes nothing that is already right. */
+   again on any change to the page, a live push included, and changes nothing that is already right. Under 600 px
+   of canvas width it marks the area data-narrow, where the blocks hide (the window's width is the frames' own). */
 (() => {
   window.ssAbout = () => {
     const area = document.querySelector('[data-ss-canvas-area]');
     if (!area) return;
+    const narrow = area.clientWidth > 0 && area.clientWidth < 600;
+    if (area.hasAttribute('data-narrow') !== narrow) area.toggleAttribute('data-narrow', narrow);
     const frames = [...area.querySelectorAll('[data-ss-frame]')];
     for (const li of area.querySelectorAll('.about-frames li[data-frame]')) {
       const at = frames.findIndex((f) => f.dataset.ssId === li.dataset.frame), n = at < 0 ? '' : String(at + 1).padStart(2, '0');
@@ -870,6 +890,7 @@ document.addEventListener('click', (e) => {
   };
   if (!window.ssAboutHeard) {
     window.ssAboutHeard = true;
+    addEventListener('resize', () => window.ssAbout());
     let raf = 0;
     new MutationObserver(() => { cancelAnimationFrame(raf); raf = requestAnimationFrame(() => window.ssAbout()); })
       .observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'data-ss-id', 'data-frame', 'data-about-of', 'data-ss-frame'] });

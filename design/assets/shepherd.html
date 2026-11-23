@@ -73,7 +73,7 @@ html:has([data-ss-canvas-area] > [data-ss-canvas-stage]) .switcher{flex:none;}
 [data-ss-canvas-area]:has(> [data-ss-canvas-stage]){flex:1 1 auto;height:auto;min-height:320px;}
 html:not(:has([data-ss-canvas-area])) .direction:not(.on){display:none;}
 .direction,[data-ss-frame]{container-type:inline-size;}
-.about{box-sizing:border-box;height:560px;display:flex;flex-direction:column;justify-content:flex-end;gap:.55em;color:var(--bar-ink);font:400 clamp(20px,calc(13px / var(--ss-cz,1)),36px)/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;}
+.about{box-sizing:border-box;height:560px;display:flex;flex-direction:column;justify-content:flex-start;gap:.55em;color:var(--bar-ink);font:400 clamp(20px,calc(13px / var(--ss-cz,1)),36px)/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;}
 [data-ss-canvas-item].about{outline:none;}
 .about p{margin:0;max-width:62ch;}
 .about-spec{display:flex;flex-wrap:wrap;gap:.2em 1.4em;margin:0;font-size:.82em;}
@@ -84,6 +84,7 @@ html:not(:has([data-ss-canvas-area])) .direction:not(.on){display:none;}
 .about-frames{margin:0;padding:0;list-style:none;font-size:.82em;color:var(--bar-muted);}
 .about-frames li::before{content:attr(data-n) " ";white-space:pre;color:var(--bar-ink);font:500 .9em/1.4 ui-monospace,Menlo,monospace;}
 html:not(:has([data-ss-canvas-area])) .about{display:none;}
+[data-ss-canvas-area][data-narrow] .about{display:none;}
 .frame-back,.frame-use,.frame-round{flex:none;}
 .frame-use{margin-left:auto;}
 .switcher{container-type:inline-size;}
@@ -205,8 +206,15 @@ const m = u.closest('.card-menu');
 if (m) m.title = on ? 'Chosen' : '';
 });
 }
+const lineOf = (d) => {
+const c = (window.ss && window.ss.canvas) || {}, o = c.open && dirAt(byId(c.open));
+const p = o && q('.about[data-about-of="' + CSS.escape(o.dataset.ssId.slice(10)) + '"] .about-intro');
+return (p && p.textContent.replace(/s+/g, ' ').trim()) || (d && d.dataset.line) || '';
+};
 function frame() {
 const c = (window.ss && window.ss.canvas) || {};
+const ln = q('.switcher-line'), t = lineOf(pick());
+if (ln && ln.textContent !== t) ln.textContent = t;
 const back = q('.frame-back'), bar = q('.switcher'), use = q('.frame-use'), round = q('.frame-round');
 if (back) back.hidden = !c.open;
 if (bar) bar.toggleAttribute('data-canvas-view', canvas() && !c.open && typeof c.zoom === 'number');
@@ -219,12 +227,11 @@ if (round) { round.hidden = !on; if (on) round.dataset.ssSay = round.title = 'An
 pills();
 }
 function show() {
-const d = pick(), tabs = q('.switcher-tabs'), line = q('.switcher-line');
+const d = pick(), tabs = q('.switcher-tabs');
 all().forEach((x, i) => {
 x.classList.toggle('on', x === d);
 if (tabs && tabs.children[i]) tabs.children[i].setAttribute('aria-selected', String(x === d));
 });
-if (line && d && line.textContent !== (d.dataset.line || '')) line.textContent = d.dataset.line || '';
 frame();
 }
 function draw() {
@@ -282,6 +289,8 @@ draw();
 window.ssAbout = () => {
 const area = document.querySelector('[data-ss-canvas-area]');
 if (!area) return;
+const narrow = area.clientWidth > 0 && area.clientWidth < 600;
+if (area.hasAttribute('data-narrow') !== narrow) area.toggleAttribute('data-narrow', narrow);
 const frames = [...area.querySelectorAll('[data-ss-frame]')];
 for (const li of area.querySelectorAll('.about-frames li[data-frame]')) {
 const at = frames.findIndex((f) => f.dataset.ssId === li.dataset.frame), n = at < 0 ? '' : String(at + 1).padStart(2, '0');
@@ -301,6 +310,7 @@ s.replaceChildren(...want.map((c) => { const i = document.createElement('i'); i.
 };
 if (!window.ssAboutHeard) {
 window.ssAboutHeard = true;
+addEventListener('resize', () => window.ssAbout());
 let raf = 0;
 new MutationObserver(() => { cancelAnimationFrame(raf); raf = requestAnimationFrame(() => window.ssAbout()); })
 .observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'data-ss-id', 'data-frame', 'data-about-of', 'data-ss-frame'] });

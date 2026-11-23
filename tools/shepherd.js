@@ -37,8 +37,15 @@ const SWITCHER_JS = `(() => {
       if (m) m.title = on ? 'Chosen' : '';
     });
   }
+  const lineOf = (d) => {
+    const c = (window.ss && window.ss.canvas) || {}, o = c.open && dirAt(byId(c.open));
+    const p = o && q('.about[data-about-of="' + CSS.escape(o.dataset.ssId.slice(10)) + '"] .about-intro');
+    return (p && p.textContent.replace(/\s+/g, ' ').trim()) || (d && d.dataset.line) || '';
+  };
   function frame() {
     const c = (window.ss && window.ss.canvas) || {};
+    const ln = q('.switcher-line'), t = lineOf(pick());
+    if (ln && ln.textContent !== t) ln.textContent = t;
     const back = q('.frame-back'), bar = q('.switcher'), use = q('.frame-use'), round = q('.frame-round');
     if (back) back.hidden = !c.open;
     if (bar) bar.toggleAttribute('data-canvas-view', canvas() && !c.open && typeof c.zoom === 'number');
@@ -51,12 +58,11 @@ const SWITCHER_JS = `(() => {
     pills();
   }
   function show() {
-    const d = pick(), tabs = q('.switcher-tabs'), line = q('.switcher-line');
+    const d = pick(), tabs = q('.switcher-tabs');
     all().forEach((x, i) => {
       x.classList.toggle('on', x === d);
       if (tabs && tabs.children[i]) tabs.children[i].setAttribute('aria-selected', String(x === d));
     });
-    if (line && d && line.textContent !== (d.dataset.line || '')) line.textContent = d.dataset.line || '';
     frame();
   }
   function draw() {

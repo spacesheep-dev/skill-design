@@ -1142,6 +1142,8 @@ test("round refuses a parent the page hasn't got, a name already taken or one of
     [["round", "night-watch", "Bolder"], /round: give the slug of the direction the versions come from \(first, second, third\)/],
     [["round", "first", "Second"], /round: a direction is already called second: give "Second" another name/],
     [["round", "first", "Card"], /round: draw\/card is one of fold.js's own files: give "Card" another name/],
+    [["round", "first", "First About"], /round: "First About" makes first-about, which shares a part name with first's about block: give it another name/],
+    [["round", "first", "Plain", "Plain About"], /round: "Plain About" makes plain-about, which shares a part name with plain's about block: give it another name/],
     [["round", "first", "A", "B", "C", "D", "E", "F"], /round: give the direction the versions come from, then each version's name, 1 to 5 of them/],
     [["round", "first"], /1 to 5 of them/],
   ];
@@ -1152,6 +1154,20 @@ test("round refuses a parent the page hasn't got, a name already taken or one of
   assert.equal(r.status, 2);
   assert.match(r.stderr, /round: second has no data-ss-frame size or no data-ss-x and data-ss-y/);
   assert.equal(fs.readFileSync(file, "utf8"), before.replace(' data-ss-x="1600" data-ss-y="0"', ""), "nothing changed");
+});
+
+test("round reads and writes only the about blocks on the canvas, never one quoted in a comment or a script after it", () => {
+  const { folder, fold } = setup();
+  assert.equal(fold(["start", "--new", "Poster"]).status, 0);
+  const file = path.join(folder, "work", "index.html"), quoted = '<!-- an example: <aside data-about-of="example"></aside> -->';
+  const page = fs.readFileSync(file, "utf8"), at = page.indexOf("<!-- design: end -->");
+  fs.writeFileSync(file, page.slice(0, at) + quoted + "\n" + page.slice(at));
+  const r = fold(["round", "second", "Bolder"]);
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  const out = fs.readFileSync(file, "utf8"), area = out.indexOf("\n<div data-ss-canvas-area>");
+  assert.ok(out.includes(quoted + "\n<!-- design: end -->"), "the comment is as it was");
+  const bolder = out.indexOf('<aside class="about no-print" data-about-of="bolder"');
+  assert.ok(bolder > area && bolder < out.indexOf('<section class="direction"', area), "the version's about block is with the others, at the area's start");
 });
 
 // A page from before the canvas area: the whole-page meta, its directions loose in the body, and the starter's

@@ -581,8 +581,8 @@ function nameParts() {
       .replace(`data-ss-id="${old}-drawing"`, `data-ss-id="${slug}-drawing"`)
       .replace(/<h2>[^<]*<\/h2>/, (h) => { const l = open.match(/data-ss-label="([^"]*)"/); return l ? `<h2>${l[1]}</h2>` : h; })}<!-- /part:${slug} -->`)));
   // The starter's about blocks follow their directions' new slugs and names, then stand where their directions are.
-  named = placeAbout(named.replace(ABOUT, (block) => {
-    const old = attrOf(block.match(/^<aside\b[^>]*>/)[0], "data-about-of"), to = renamed.get(old);
+  named = placeAbout(eachAbout(named, (block, old) => {
+    const to = renamed.get(old);
     if (!to || !block.includes(`<!-- part:${old}-about -->`)) return block;
     return block.replace(`data-about-of="${old}"`, `data-about-of="${to.slug}"`).replace(`data-ss-id="${old}-about"`, `data-ss-id="${to.slug}-about"`)
       .replace(new RegExp(`<!-- (/?)part:${old}-about -->`, "g"), `<!-- $1part:${to.slug}-about -->`)
@@ -835,12 +835,28 @@ const aboutBlock = (slug, name, x, y, w) => `<aside class="about no-print" data-
   <!-- part:${slug}-about --><p data-ss-id="${slug}-about-drawing">What ${name} is for and how to try it, once it is drawn.</p><!-- /part:${slug}-about -->
 </aside>
 `;
+// The page's real about blocks, last first: [{ at, end, block, of }], each in the canvas area (after its opening tag)
+// and none quoted in a comment, a script or a style, so no fold reads or writes one that isn't on the canvas.
+function aboutsOf(page) {
+  const flat = page.replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>|<!--[\s\S]*?-->/gi, (c) => c.replace(/[^\n]/g, " "));
+  const area = /<div\b[^>]*\sdata-ss-canvas-area(?=[\s=>])[^>]*>/i.exec(flat);
+  return [...flat.matchAll(ABOUT)].filter((m) => !area || m.index > area.index)
+    .map((m) => { const block = page.slice(m.index, m.index + m[0].length); return { at: m.index, end: m.index + m[0].length, block, of: attrOf(block.match(/^<aside\b[^>]*>/)[0], "data-about-of") }; }).reverse();
+}
+// The page with each real about block put through fn(block, of): "" takes it out, with its line's end.
+function eachAbout(page, fn) {
+  for (const a of aboutsOf(page)) {
+    const to = fn(a.block, a.of), end = !to && page[a.end] === "\n" ? a.end + 1 : a.end;
+    if (to !== a.block) page = page.slice(0, a.at) + to + page.slice(end);
+  }
+  return page;
+}
 // Each about block where its direction is. One the starter made for a direction that is gone (one design keeps one
 // section) goes with it; one for no direction otherwise stays as it is, for check.js to name.
 function placeAbout(page) {
   const by = new Map(directionsOf(page).filter((d) => !d.view).map((d) => [d.slug, d]));
-  return page.replace(new RegExp(`${ABOUT.source}\\n?`, "g"), (block) => {
-    const open = block.match(/^<aside\b[^>]*>/)[0], d = by.get(attrOf(open, "data-about-of") || "");
+  return eachAbout(page, (block, of) => {
+    const open = block.match(/^<aside\b[^>]*>/)[0], d = by.get(of || "");
     if (!d) return /data-ss-id="(first|second|third)-about-drawing"/.test(block) ? "" : block;
     if ([d.x, d.y, d.w].some((v) => v === null)) return block;
     let tag = open;
@@ -892,7 +908,7 @@ function withLines(page) {
     .filter((pv) => pv.every((d) => [d.x, d.y, d.w, d.h].every((n) => n !== null)));
   if (!pairs.length) return found ? put("") : page;
   // A version with an about block above it is joined at the block's top, so the line never crosses its words.
-  const abouts = new Set([...page.matchAll(ABOUT)].map((m) => attrOf(m[0].match(/^<aside\b[^>]*>/)[0], "data-about-of")));
+  const abouts = new Set(aboutsOf(page).map((a) => a.of));
   const lines = pairs.map(([p, v]) => {
     const ax = p.x + p.w / 2, ay = p.y + p.h, bx = v.x + v.w / 2, by = v.y - (abouts.has(v.slug) ? ABOUT_LIFT : 0);
     const mid = by - ROW_GAP * 0.7 > ay + 24 ? by - ROW_GAP * 0.7 : (ay + by) / 2;
@@ -934,13 +950,16 @@ function rounded(page, parent, names) {
     const slug = slugOf(name);
     if (!slug) return { error: `round: "${name}" makes no slug: name each version in letters or numbers` };
     if (taken.has(slug) || ids.has(`direction-${slug}`) || versions.some((v) => v.slug === slug)) return { error: `round: a direction is already called ${slug}: give "${name}" another name` };
+    // Each direction's about block is the part <slug>-about, so no slug may be another's slug and -about.
+    const clash = [...taken, ...versions.map((v) => v.slug)].find((t) => slug === `${t}-about` || t === `${slug}-about`);
+    if (clash) return { error: `round: "${name}" makes ${slug}, which shares a part name with ${clash}'s about block: give it another name` };
     if (here(`draw/${slug}`) && !fs.statSync(`draw/${slug}`).isDirectory()) return { error: `round: draw/${slug} is one of fold.js's own files: give "${name}" another name` };
     versions.push({ name, slug });
   }
   // The page's directions are round 1, and each round after takes the next number (a version without one counts as 2).
   const n = Math.max(1, ...all.filter((d) => d.of).map((d) => d.round || 2)) + 1;
   // A page made with about blocks gives each version one too, above it, so the row stands that much lower.
-  const about = new RegExp(ABOUT.source).test(page);
+  const about = aboutsOf(page).length > 0;
   const top = Math.max(...all.map((d) => d.y + d.h)) + ROW_GAP + (about ? ABOUT_LIFT : 0), width = names.length * p.w + (names.length - 1) * FRAME_GAP;
   const left = Math.round(p.x + p.w / 2 - width / 2);
   const sections = versions.map((v, i) => `<section class="direction" data-version-of="${p.slug}" data-round="${n}" data-ss-frame="${p.frame}" data-ss-section data-ss-id="direction-${v.slug}" data-ss-thing="direction/${v.slug}" data-ss-label="${esc(v.name)}" data-line="What it changes from ${p.label || p.slug}, and what that gives up." data-ss-x="${left + i * (p.w + FRAME_GAP)}" data-ss-y="${top}">
@@ -952,7 +971,7 @@ function rounded(page, parent, names) {
   let out = page.slice(0, at) + lead + "\n" + sections + page.slice(at);
   // Their about blocks go after the page's last one, where the starter keeps them, at the area's start.
   if (about) {
-    const end = [...out.matchAll(ABOUT)].at(-1), cut = end.index + end[0].length;
+    const cut = aboutsOf(out)[0].end;
     out = out.slice(0, cut) + "\n\n" + versions.map((v, i) => aboutBlock(v.slug, esc(v.name), left + i * (p.w + FRAME_GAP), top, p.w).trimEnd()).join("\n\n") + out.slice(cut);
   }
   // The parent's tokens, as each version's own rule, in the page's <style> that sets them last (a part's own
@@ -1003,7 +1022,7 @@ if (cmd === "copy") {
   if (!d) { console.error(`copy: give a direction on the page (${all.filter((x) => !x.view).map((x) => x.slug).join(", ") || "it has none"})`); process.exit(2); }
   let out = page;
   for (const x of all.slice().reverse()) if (x !== d && x.view !== slug) out = out.slice(0, x.start) + out.slice(x.end).replace(/^\n/, "");
-  out = out.replace(new RegExp(`${ABOUT.source}\\n?`, "g"), (b) => attrOf(b.match(/^<aside\b[^>]*>/)[0], "data-about-of") === slug ? b : "");
+  out = eachAbout(out, (b, of) => (of === slug ? b : ""));
   const name = (d.label || slug).replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
   out = titled(out.replace(LINES, ""), name);
   out = withFocus(out, `direction-${slug}`) || out;

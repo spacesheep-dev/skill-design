@@ -423,8 +423,13 @@ for (const d of dirs) {
 // its size. It is read from its parts (draw/<slug>-about/), else from the page. Its words are for the person choosing,
 // so they never quote the request either.
 const ABOUT_LIFT = 680, SIZES = { desktop: [1280, 800], tablet: [820, 1180], phone: [390, 844] };
-const aboutTags = [...page.replace(/<!--[\s\S]*?-->/g, (c) => " ".repeat(c.length)).matchAll(/<aside\b[^>]*\sdata-about-of="[^"]*"[^>]*>/g)];
-if (aboutTags.length) for (const d of dirs.filter((x) => !x.of)) {
+// A page from a starter with them has the about script (window.ssAbout), which stays when every block is taken out.
+const aboutTags = [...page.replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>|<!--[\s\S]*?-->/gi, (c) => c.replace(/[^\n]/g, " ")).matchAll(/<aside\b[^>]*\sdata-about-of="[^"]*"[^>]*>/g)];
+const aboutPage = aboutTags.length > 0 || /window\.ssAbout\s*=/.test(page);
+// Each about block is the part <slug>-about, so no direction's slug may be another's and -about.
+if (aboutPage) for (const d of dirs) if (dirs.some((o) => d.slug === `${o.slug}-about`))
+  fail(d.slug, "work/index.html", `its slug is ${d.slug.replace(/-about$/, "")}'s about block's part name: give it another slug`);
+if (aboutPage) for (const d of dirs.filter((x) => !x.of)) {
   const open = page.slice(d.start, page.indexOf(">", d.start) + 1), a = attrs(open.slice(8, -1));
   const tag = aboutTags.find((m) => attrs(m[0].slice(6, -1))["data-about-of"] === d.slug);
   const fix = `write its about block, draw/${d.slug}-about/01.html: a <p class="about-intro">, a <dl class="about-spec"> and an <ol class="about-frames"> (references/directions.md, About blocks)`;
@@ -449,7 +454,9 @@ if (aboutTags.length) for (const d of dirs.filter((x) => !x.of)) {
   const missing = ["Type", "Colour", "Density", "Modes"].filter((k) => !terms.get(k.toLowerCase()));
   if (missing.length) fail(d.slug, file, `its about spec row lacks ${missing.join(", ")}: a <dl class="about-spec" data-ss-id="${d.slug}-about-spec"> with a <div><dt>…</dt><dd>…</dd></div> for each of Type, Colour, Density and Modes`);
   const frames = [d, ...every.filter((v) => v.of === d.slug)];
-  const caps = new Map([...text.matchAll(/<li\b([^>]*)>([\s\S]*?)<\/li>/g)].map((m) => [attrs(m[1])["data-frame"], shown(m[2])]).filter(([k]) => k));
+  // Captions count only in the block's numbered list, where the canvas numbers them.
+  const list = (text.match(/<ol\b[^>]*class="[^"]*\babout-frames\b[^"]*"[^>]*>([\s\S]*?)<\/ol>/) || [])[1] || "";
+  const caps = new Map([...list.matchAll(/<li\b([^>]*)>([\s\S]*?)<\/li>/g)].map((m) => [attrs(m[1])["data-frame"], shown(m[2])]).filter(([k]) => k));
   for (const f of frames) {
     const fo = attrs(page.slice(f.start + 8, page.indexOf(">", f.start))), kind = fo["data-ss-frame"] || "desktop";
     const size = SIZES[kind] || (/^(\d+)x(\d+)$/i.exec(kind) || []).slice(1).map(Number);
@@ -510,6 +517,9 @@ if (!only) {
   if (open && end >= 0) for (const m of flat.matchAll(/<section\b[^>]*class="[^"]*\bdirection\b[^"]*"[^>]*>/g))
     if (m.index < open.index || m.index > end)
       fail("page", `work/index.html:${lineAt(page, m.index)}`, `${(m[0].match(/data-ss-id="([^"]*)"/) || [])[1] || "a direction"} is outside the canvas area: move it inside <div data-ss-canvas-area>, after the last direction`);
+  if (open && end >= 0) for (const m of flat.matchAll(/<aside\b[^>]*\sdata-about-of="([^"]*)"[^>]*>/g))
+    if (m.index < open.index || m.index > end)
+      fail(m[1] || "page", `work/index.html:${lineAt(page, m.index)}`, `its about block is outside the canvas area, where it doesn't show: move it to the start of <div data-ss-canvas-area>`);
 }
 
 // Controls: the inputs in the page's .tweaks pane, its Tweaks. At most 6, each named by its
