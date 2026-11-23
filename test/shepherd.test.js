@@ -17,11 +17,11 @@ test("shepherd.html is what tools/shepherd.js makes from base.html", () => {
 });
 
 test("it fits in one use_skill read and keeps the starter's metas, with no ss-workspace and no Export", () => {
-  assert.ok([...PAGE].length <= 26000, `${[...PAGE].length} characters`);
+  assert.ok([...PAGE].length <= 30000, `${[...PAGE].length} characters`);
   for (const meta of ['<meta name="ss-chat" content="open">', '<meta name="ss-canvas-focus" content="all">'])
     assert.ok(PAGE.includes(meta), meta);
   assert.doesNotMatch(PAGE, /<meta name="ss-canvas"[ >]/, "no whole-page canvas meta");
-  assert.match(PAGE, /\n<div data-ss-canvas-area>\n\n<section class="direction"[\s\S]*<\/section>\n\n<\/div>\n/, "the directions are in the canvas area");
+  assert.match(PAGE, /\n<div data-ss-canvas-area>\n\n<aside class="about[\s\S]*<\/aside>\n\n<section class="direction"[\s\S]*<\/section>\n\n<\/div>\n/, "the directions are in the canvas area");
   assert.doesNotMatch(PAGE, /ss-workspace/);
   assert.doesNotMatch(PAGE, /class="export|switcher-views|ss-check/);
   assert.ok(PAGE.endsWith("<!-- design: end -->\n</body>\n</html>\n"));

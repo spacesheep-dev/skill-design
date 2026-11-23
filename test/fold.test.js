@@ -204,12 +204,34 @@ test("start says the next step, and push names the starter's placeholders after 
   fs.writeFileSync(page, edited);
   assert.equal(fold(["push"]).status, 0);
   const named = fs.readFileSync(page, "utf8");
-  // Only the first section changes: its menu's name and lines, and its placeholder's marker, id and heading. "second" keeps its names.
+  // Only the first section and its about block change: its menu's name and lines, and its placeholders' markers, ids and
+  // words. "second" keeps its names.
   const expected = edited.replace('aria-label="Menu for First"', 'aria-label="Menu for Night &amp; Watch"').replace('data-ss-say="Use First" title="Use First">', 'data-ss-say="Use Night &amp; Watch" title="Use Night &amp; Watch">')
-    .replace('data-ss-say="Another round of First" title="Another round of First">', 'data-ss-say="Another round of Night &amp; Watch" title="Another round of Night &amp; Watch">').replace('<!-- part:first --><div class="drawing" data-ss-id="first-drawing"><h2>First</h2>', '<!-- part:night-watch --><div class="drawing" data-ss-id="night-watch-drawing"><h2>Night &amp; Watch</h2>').replace("<!-- /part:first -->", "<!-- /part:night-watch -->");
+    .replace('data-ss-say="Another round of First" title="Another round of First">', 'data-ss-say="Another round of Night &amp; Watch" title="Another round of Night &amp; Watch">').replace('<!-- part:first --><div class="drawing" data-ss-id="first-drawing"><h2>First</h2>', '<!-- part:night-watch --><div class="drawing" data-ss-id="night-watch-drawing"><h2>Night &amp; Watch</h2>').replace("<!-- /part:first -->", "<!-- /part:night-watch -->")
+    // and its about block, which follows its slug and name
+    .replace('data-about-of="first" data-ss-id="first-about"', 'data-about-of="night-watch" data-ss-id="night-watch-about"')
+    .replace('<!-- part:first-about --><p data-ss-id="first-about-drawing">What First is', '<!-- part:night-watch-about --><p data-ss-id="night-watch-about-drawing">What Night &amp; Watch is')
+    .replace("<!-- /part:first-about -->", "<!-- /part:night-watch-about -->");
   assert.notEqual(expected, edited);
   assert.equal(named, expected);
   assert.equal(sent().at(-1).html, named, "the named page is the one pushed");
+});
+
+test("push keeps one design's about block, follows its name, puts it above its section, and drops the starter's others", () => {
+  const { folder, fold } = setup();
+  assert.equal(fold(["start", "--new", "Poster"]).status, 0);
+  const page = path.join(folder, "work", "index.html");
+  // One design: the first section kept as a flyer, moved, the other two removed.
+  const one = BASE.replace('data-ss-id="direction-first" data-ss-thing="direction/first" data-ss-label="First"', 'data-ss-id="direction-flyer" data-ss-thing="direction/flyer" data-ss-label="Flyer"')
+    .replace(/data-ss-id="direction-flyer"([^>]*) data-ss-x="0" data-ss-y="0"/, 'data-ss-id="direction-flyer"$1 data-ss-x="200" data-ss-y="100"')
+    .replace(/\n<section class="direction"[^>]*data-ss-id="direction-(second|third)"[\s\S]*?<\/section>\n/g, "");
+  fs.writeFileSync(page, one);
+  assert.equal(fold(["push"]).status, 0);
+  const named = fs.readFileSync(page, "utf8"), abouts = [...named.matchAll(/<aside class="about[^>]*>/g)].map((m) => m[0]);
+  assert.deepEqual(abouts, ['<aside class="about no-print" data-about-of="flyer" data-ss-id="flyer-about" data-ss-x="200" data-ss-y="-580" style="width:1280px">']);
+  assert.ok(named.includes('<!-- part:flyer-about --><p data-ss-id="flyer-about-drawing">What Flyer is for and how to try it, once it is drawn.</p><!-- /part:flyer-about -->'));
+  assert.equal(fold(["push"]).status, 0);
+  assert.equal(fs.readFileSync(page, "utf8"), named, "a second push changes nothing");
 });
 
 test("push names each pill after its section word for word, a name with $&, $` or $' too", () => {
@@ -987,6 +1009,7 @@ test("copy puts one direction alone, its views with it, in a new space named aft
   assert.match(copy, /<title>Second<\/title>/);
   assert.match(copy, /<meta name="ss-canvas-focus" content="direction-second">/);
   assert.ok(before.includes("data-round-lines data-ss-id") && !copy.includes("data-round-lines data-ss-id"), "no lines to directions that aren't there");
+  assert.deepEqual([...copy.matchAll(/<aside class="about[^>]*data-about-of="([a-z-]+)"/g)].map((m) => m[1]), ["second"], "its own about block, and no other");
   const wrong = fold(["copy", "fourth"]);
   assert.equal(wrong.status, 2);
   assert.match(wrong.stderr, /^copy: give a direction on the page \(first, second, third, bolder\)$/m);
@@ -1009,10 +1032,10 @@ test("round puts each version in a row of its own below everything, joined to it
   assert.deepEqual(all.slice(0, 3), sectionsOf(before), "the first round's sections are as they were");
   const versions = all.slice(3);
   assert.deepEqual(versions.map((s) => [attr(s, "data-ss-id"), attr(s, "data-version-of"), attr(s, "data-ss-frame"), attr(s, "data-ss-label"), attr(s, "data-ss-x"), attr(s, "data-ss-y")]), [
-    ["direction-bolder", "second", "desktop", "Bolder", "0", "1120"],
-    ["direction-quieter", "second", "desktop", "Quieter", "1600", "1120"],
-    ["direction-wider", "second", "desktop", "Wider", "3200", "1120"],
-  ], "a row under the first, 320 px below its bottom, centred under Second");
+    ["direction-bolder", "second", "desktop", "Bolder", "0", "1800"],
+    ["direction-quieter", "second", "desktop", "Quieter", "1600", "1800"],
+    ["direction-wider", "second", "desktop", "Wider", "3200", "1800"],
+  ], "a row under the first, centred under Second, 320 px below its bottom to the top of its about blocks, which stand 680 px above it");
   for (const v of ["bolder", "quieter", "wider"]) {
     const s = versions.find((x) => attr(x, "data-ss-id") === `direction-${v}`);
     const n = v[0].toUpperCase() + v.slice(1);
@@ -1023,11 +1046,14 @@ test("round puts each version in a row of its own below everything, joined to it
   }
   const lines = page.match(/<div class="no-print" data-round-lines data-ss-id="round-lines" aria-hidden="true" data-ss-x="([-\d.]+)" data-ss-y="([-\d.]+)" style="width:([\d.]+)px!important;height:([\d.]+)px!important"><svg[^>]*>((?:<path d="[^"]*"\/>)*)<\/svg><\/div>/);
   assert.ok(lines, "one lines block");
-  assert.deepEqual(lines.slice(1, 5), ["638", "800", "3204", "320"], "from Second's bottom to the versions' tops");
+  assert.deepEqual(lines.slice(1, 5), ["638", "800", "3204", "320"], "from Second's bottom to the tops of the versions' about blocks");
   assert.deepEqual([...lines[5].matchAll(/d="([^"]*)"/g)].map((m) => m[1]), [
     "M2 320V112Q2 96 18 96H1586Q1602 96 1602 80V0", "M1602 320V0", "M3202 320V112Q3202 96 3186 96H1618Q1602 96 1602 80V0",
   ], "each line from its version's top middle up, across 96 px under Second, and up to Second's bottom middle");
   assert.ok(sectionsOf(page.slice(page.indexOf(lines[0]))).length === 0, "the lines come after the last direction");
+  const abouts = [...page.matchAll(/<aside class="about no-print" data-about-of="([a-z-]+)" data-ss-id="\1-about" data-ss-x="(-?\d+)" data-ss-y="(-?\d+)" style="width:(\d+)px">\n  <!-- part:\1-about -->/g)].map((m) => m.slice(1));
+  assert.deepEqual(abouts.slice(3), [["bolder", "0", "1120", "1280"], ["quieter", "1600", "1120", "1280"], ["wider", "3200", "1120", "1280"]], "each version's about block, 640 px above it, after the page's others");
+  assert.ok(page.indexOf('data-about-of="wider"') < page.indexOf('<section class="direction"', page.indexOf("\n<div data-ss-canvas-area>")), "the about blocks come before the directions");
   assert.equal(page.match(/\/\* rounds: start \*\//g).length, 1, "the lines' rules once");
   assert.match(page, /<meta name="ss-canvas-focus" content="all">/);
   assert.equal(sent().length, pushes, "nothing pushed");
@@ -1035,7 +1061,7 @@ test("round puts each version in a row of its own below everything, joined to it
   assert.equal(fold(["round", "bolder", "Bolder Still", "Plain"]).status, 0);
   const again = fs.readFileSync(file, "utf8"), next = sectionsOf(again);
   assert.deepEqual(next.slice(0, 6), all, "the first two rounds are as they were");
-  assert.deepEqual(next.slice(6).map((s) => [attr(s, "data-version-of"), attr(s, "data-ss-x"), attr(s, "data-ss-y")]), [["bolder", "-800", "2240"], ["bolder", "800", "2240"]]);
+  assert.deepEqual(next.slice(6).map((s) => [attr(s, "data-version-of"), attr(s, "data-ss-x"), attr(s, "data-ss-y")]), [["bolder", "-800", "3600"], ["bolder", "800", "3600"]]);
   assert.deepEqual(next.map((s) => attr(s, "data-round") || null), [null, null, null, "2", "2", "2", "3", "3"], "the directions are round 1, and each round takes the next number");
   assert.equal(again.match(/<div class="no-print" data-round-lines data-ss-id="round-lines" /g).length, 1);
   assert.equal(linesOf(again).match(/<path /g).length, 5);
@@ -1105,7 +1131,7 @@ test("round puts versions before a page's device views, so the views keep the nu
   const all = sectionsOf(fs.readFileSync(file, "utf8"));
   assert.equal(fs.readFileSync(path.join(folder, "draw", "frame.html"), "utf8"), fs.readFileSync(file, "utf8"), "the writer's frame gets the same round");
   assert.deepEqual(all.map((s) => attr(s, "data-ss-id")), ["direction-first", "direction-second", "direction-third", "direction-calmer", "direction-louder", "direction-first-phone"]);
-  assert.deepEqual(all.slice(3, 5).map((s) => attr(s, "data-ss-y")), ["2060", "2060"], "below the phone view's bottom (896 + 844), 320 px down");
+  assert.deepEqual(all.slice(3, 5).map((s) => attr(s, "data-ss-y")), ["2740", "2740"], "below the phone view's bottom (896 + 844), 320 px down to their about blocks, 680 px above them");
 });
 
 test("round refuses a parent the page hasn't got, a name already taken or one of fold.js's own files, more than five, and a direction with no place, and changes nothing", () => {

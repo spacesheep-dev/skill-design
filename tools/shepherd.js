@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Makes design/assets/shepherd.html from design/assets/base.html: the page a Shepherd turn copies whole, since
 // it has no shell for fold.js and writes a blank page as one document (references/shepherd.md). It keeps
-// base.html's metas, bar, tokens, sections and Tweaks, with a slim switcher (tabs, Back, Use this ·
+// base.html's metas, bar, tokens, sections, about blocks and Tweaks, with a slim switcher (tabs, Back, Use this ·
 // Another round, the card menus) and nothing else: no Export, device row, rounds, kit parts or layout check.
 // Its switcher spans keep their marks, so `fold.js kit` later brings such a page up to the full starter.
 //   node tools/shepherd.js           writes it
@@ -252,13 +252,16 @@ function make(base) {
     .replace(/\s*<div class="switcher-views"[^>]*><\/div>/, "");
   const tokens = body.slice(body.indexOf("<style>", body.indexOf("</nav>")), body.indexOf("</style>", body.indexOf("</nav>")) + 8);
   const sections = [...body.matchAll(/^<section class="direction"[\s\S]*?^<\/section>$/gm)].map((m) => m[0]);
+  // Each direction's about block (its intro, spec row and frames' captions), and the script that numbers the captions.
+  const abouts = [...body.matchAll(/^<aside class="about[\s\S]*?^<\/aside>$/gm)].map((m) => m[0]);
   const draw = base.match(/function ssDraw\(fn\)[^\n]*/)[0];
   const script = base.slice(base.lastIndexOf("<script>") + 8, base.lastIndexOf("</script>"));
   const controls = script.slice(script.indexOf("/* controls:"), script.indexOf("/* kit:"));
-  const js = `/* switcher: start */\n${SWITCHER_JS.split("\n").map((l) => l.trim()).join("\n")}\n/* switcher: end */\n${bare(controls)}`;
-  for (const [what, ok] of [["metas", /ss-canvas/.test(head)], ["nav", /switcher-row/.test(nav)], ["tokens", /direction-first/.test(tokens)], ["sections", sections.length === 3], ["controls", /function ssControls/.test(controls)]])
+  const about = script.slice(script.indexOf("/* about: each"), script.indexOf("/* about: done */"));
+  const js = `/* switcher: start */\n${SWITCHER_JS.split("\n").map((l) => l.trim()).join("\n")}\n/* switcher: end */\n${bare(about)}\n${bare(controls)}`;
+  for (const [what, ok] of [["metas", /ss-canvas/.test(head)], ["nav", /switcher-row/.test(nav)], ["tokens", /direction-first/.test(tokens)], ["sections", sections.length === 3], ["about blocks", abouts.length === 3], ["about script", /window\.ssAbout =/.test(about)], ["controls", /function ssControls/.test(controls)]])
     if (!ok) throw new Error(`base.html: its ${what} weren't found`);
-  return `<!DOCTYPE html>\n${HEADER}\n${head}<style>\n${QUESTIONS_CSS}\n</style>\n</head>\n<body>\n\n${QUESTIONS}\n\n<style>\n${css}\n</style>\n\n${nav}\n\n${tokens}\n\n<div data-ss-canvas-area>\n\n${sections.join("\n\n")}\n\n</div>\n\n<script>\n${draw}\n${js}\n${QUESTIONS_JS.split("\n").map((l) => l.trim()).join("\n")}\n</script>\n<!-- design: end -->\n</body>\n</html>\n`;
+  return `<!DOCTYPE html>\n${HEADER}\n${head}<style>\n${QUESTIONS_CSS}\n</style>\n</head>\n<body>\n\n${QUESTIONS}\n\n<style>\n${css}\n</style>\n\n${nav}\n\n${tokens}\n\n<div data-ss-canvas-area>\n\n${abouts.join("\n\n")}\n\n${sections.join("\n\n")}\n\n</div>\n\n<script>\n${draw}\n${js}\n${QUESTIONS_JS.split("\n").map((l) => l.trim()).join("\n")}\n</script>\n<!-- design: end -->\n</body>\n</html>\n`;
 }
 
 module.exports = { make };

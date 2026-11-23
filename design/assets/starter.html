@@ -12,6 +12,8 @@
   <div data-ss-canvas-area> that holds every direction, view and round, under the bar) and the ids. The person's answers, when you asked: references/questions.md.
   A direction's phone or tablet view is a section of its own after the last direction, with data-view-of:
   SKILL.md, section 2.
+  Each direction's about block (its intro, spec row and frames' captions) is an aside at the start of the canvas
+  area, above its direction: its words are its part:slug-about, written last (references/directions.md, About blocks).
 -->
 <html lang="en">
 <head>
@@ -96,6 +98,25 @@
     stroke-dasharray: 0 min(calc(24px / var(--ss-cz, 1)), 200px) 100000; }
   html:not(:has([data-ss-canvas-area])) [data-round-lines] { display: none; }
   /* rounds: end */
+  /* about: start */
+  /* Each direction's about block (data-about-of="<slug>"): what it is for and how to try it, its spec row, and a
+     numbered caption for each of its frames. It sits on the canvas 120 px above its direction, as wide as it, its
+     words at the bottom of its 560 px, outside the design: no picture, PDF, HTML export or build prompt has it,
+     and without the canvas it doesn't show. Its type stays 13 px on screen at any zoom, from 20 to 36 px. */
+  .about { box-sizing: border-box; height: 560px; display: flex; flex-direction: column; justify-content: flex-end; gap: .55em;
+    color: var(--bar-ink); font: 400 clamp(20px, calc(13px / var(--ss-cz, 1)), 36px)/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  [data-ss-canvas-item].about { outline: none; }
+  .about p { margin: 0; max-width: 62ch; }
+  .about-spec { display: flex; flex-wrap: wrap; gap: .2em 1.4em; margin: 0; font-size: .82em; }
+  .about-spec div { display: flex; gap: .45em; align-items: baseline; }
+  .about-spec dt { color: var(--bar-muted); font: 500 .8em/1.4 ui-monospace, Menlo, monospace; text-transform: uppercase; letter-spacing: .06em; }
+  .about-spec dd { margin: 0; }
+  .about-swatch { display: inline-block; width: .8em; height: .8em; margin-right: .2em; border-radius: 2px; vertical-align: -.05em;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bar-ink) 30%, transparent); }
+  .about-frames { margin: 0; padding: 0; list-style: none; font-size: .82em; color: var(--bar-muted); }
+  .about-frames li::before { content: attr(data-n) "  "; white-space: pre; color: var(--bar-ink); font: 500 .9em/1.4 ui-monospace, Menlo, monospace; }
+  html:not(:has([data-ss-canvas-area])) .about { display: none; }
+  /* about: end */
   /* the frame's own controls: Back while a direction is open full page (Esc does the same); the canvas area draws its own zoom */
   .frame-back, .frame-use, .frame-round { flex: none; }
   /* Use this and Another round, at the bar's right end while a direction is open: the primary key, then a secondary
@@ -664,7 +685,7 @@ function ssDraw(fn) { fn(); document.addEventListener('ss:live', () => fn()); }
   function file(html, d) {
     const x = new DOMParser().parseFromString(html, 'text/html'), w = x.createTreeWalker(x.body, NodeFilter.SHOW_COMMENT);
     for (let n; (n = w.nextNode()); ) if (n.data.trim() === 'design: end') { while (n.nextSibling) n.nextSibling.remove(); break; }
-    x.querySelectorAll('[data-ss-chrome], nav.switcher, .card-menu, .use-this, [data-round-lines], meta[name^="ss-"]').forEach((e) => e.remove());
+    x.querySelectorAll('[data-ss-chrome], nav.switcher, .card-menu, .use-this, [data-round-lines], .about, meta[name^="ss-"]').forEach((e) => e.remove());
     x.querySelectorAll('section.direction').forEach((e) => { if (e.dataset.ssId !== d.dataset.ssId) e.remove(); });
     const s = x.querySelector('section.direction');
     if (!s) throw new Error('it isn’t in the saved page yet');
@@ -823,6 +844,39 @@ document.addEventListener('click', (e) => {
   f.toggleAttribute('data-open');
   b.setAttribute('aria-expanded', String(f.hasAttribute('data-open')));
 });
+/* about: each about block's captions take their frames' numbers as the canvas gives them (01 for the first frame
+   in page order), and its Colour shows its direction's ground, ink and accent as they are now (Tweaks too). It runs
+   again on any change to the page, a live push included, and changes nothing that is already right. */
+(() => {
+  window.ssAbout = () => {
+    const area = document.querySelector('[data-ss-canvas-area]');
+    if (!area) return;
+    const frames = [...area.querySelectorAll('[data-ss-frame]')];
+    for (const li of area.querySelectorAll('.about-frames li[data-frame]')) {
+      const at = frames.findIndex((f) => f.dataset.ssId === li.dataset.frame), n = at < 0 ? '' : String(at + 1).padStart(2, '0');
+      if (li.dataset.n !== n) li.dataset.n = n;
+    }
+    for (const a of area.querySelectorAll('.about[data-about-of]')) {
+      const d = area.querySelector('section.direction[data-ss-id="direction-' + CSS.escape(a.dataset.aboutOf) + '"]');
+      const dd = [...a.querySelectorAll('.about-spec dt')].find((t) => /^colou?r$/i.test(t.textContent.trim()))?.nextElementSibling;
+      if (!d || !dd) continue;
+      const cs = getComputedStyle(d), want = ['--brand-ground', '--brand-ink', '--brand-accent'].map((v) => cs.getPropertyValue(v).trim()).filter(Boolean);
+      let s = dd.querySelector(':scope > .about-swatches');
+      if (s && s.dataset.of === want.join('|')) continue;
+      if (!s) { s = document.createElement('span'); s.className = 'about-swatches'; s.setAttribute('aria-hidden', 'true'); dd.prepend(s); }
+      s.dataset.of = want.join('|');
+      s.replaceChildren(...want.map((c) => { const i = document.createElement('i'); i.className = 'about-swatch'; i.style.background = c; return i; }));
+    }
+  };
+  if (!window.ssAboutHeard) {
+    window.ssAboutHeard = true;
+    let raf = 0;
+    new MutationObserver(() => { cancelAnimationFrame(raf); raf = requestAnimationFrame(() => window.ssAbout()); })
+      .observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'data-ss-id', 'data-frame', 'data-about-of', 'data-ss-frame'] });
+  }
+  window.ssAbout();
+})();
+/* about: done */
 /* check: start */
 /* check: only when the address has ?ss-check (the save's pictures), never in a person's view. Once the page
    has loaded, it measures each direction at this width for what a picture can't be trusted to show:

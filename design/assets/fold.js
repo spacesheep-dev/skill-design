@@ -52,7 +52,8 @@
 //   node fold.js -C <folder> round <slug> "<name>"…   a new round: 1 to 5 versions of that direction, each named,
 //                                               in a row of their own below everything on the canvas, each
 //                                               joined to it by a line and starting from its tokens, with a
-//                                               ⋯ menu and an empty part; the canvas then shows every direction;
+//                                               ⋯ menu and an empty part (and an about block above it, on a
+//                                               page made with them); the canvas then shows every direction;
 //                                               nothing earlier changes and nothing is pushed
 //   node fold.js -C <folder> copy <slug>         its own space, only when asked: that direction alone, its views
 //                                               with it, in a new private space named after it; this one stays
@@ -490,7 +491,7 @@ function isBlank(h) {
 // The starter with the space's own title: a design never renames the space unasked (`title` does, on the person's pick).
 const titled = (base, title) => base.replace(/<title>[^<]*<\/title>/, () => `<title>${esc(title)}</title>`);
 // The starter with no directions: the canvas and its frame, pushed the moment a blank page is known, before any design.
-const emptyCanvas = (base) => base.replace(/^<section class="direction"[\s\S]*?^<\/section>\n*/gm, "");
+const emptyCanvas = (base) => base.replace(/^<section class="direction"[\s\S]*?^<\/section>\n*/gm, "").replace(/^<aside class="about[\s\S]*?^<\/aside>\n*/gm, "");
 // One space per folder: start never points a folder at a second space.
 // The folder's space, kept in draw/space: false (and said why) when the folder is another space's or can't be written.
 function keep(id) {
@@ -571,13 +572,22 @@ function cardMenu(n) {
 function nameParts() {
   const page = read("work/index.html");
   if (!page || job("writer").state === "open") return;
-  const named = page.replace(/(<section\b[^>]*data-ss-id="direction-([a-z0-9-]+)"[^>]*>)([\s\S]*?)(?=<\/section>)/g, (m, open, slug, body) =>
+  const renamed = new Map();
+  let named = page.replace(/(<section\b[^>]*data-ss-id="direction-([a-z0-9-]+)"[^>]*>)([\s\S]*?)(?=<\/section>)/g, (m, open, slug, body) =>
     open + body.replace(/<div class="card-menu[^"]*" data-ss-canvas="label">[\s\S]*?<\/div><\/div>|<button type="button" class="use-this[^"]*"[^>]*>/, (b) => {
       const l = open.match(/data-ss-label="([^"]*)"/);
       return !l ? b : b.startsWith("<div") ? cardMenu(l[1]) : b.replace(/ data-ss-say="[^"]*"/, () => ` data-ss-say="Use ${l[1]}"`).replace(/ title="[^"]*"/, () => ` title="Use ${l[1]}"`);
-    }).replace(/<!-- part:(first|second|third) -->([\s\S]*?)<!-- \/part:\1 -->/, (p, old, inner) => old === slug ? p : `<!-- part:${slug} -->${inner
+    }).replace(/<!-- part:(first|second|third) -->([\s\S]*?)<!-- \/part:\1 -->/, (p, old, inner) => old === slug ? p : (renamed.set(old, { slug, label: (open.match(/data-ss-label="([^"]*)"/) || [])[1] || slug }), `<!-- part:${slug} -->${inner
       .replace(`data-ss-id="${old}-drawing"`, `data-ss-id="${slug}-drawing"`)
-      .replace(/<h2>[^<]*<\/h2>/, (h) => { const l = open.match(/data-ss-label="([^"]*)"/); return l ? `<h2>${l[1]}</h2>` : h; })}<!-- /part:${slug} -->`));
+      .replace(/<h2>[^<]*<\/h2>/, (h) => { const l = open.match(/data-ss-label="([^"]*)"/); return l ? `<h2>${l[1]}</h2>` : h; })}<!-- /part:${slug} -->`)));
+  // The starter's about blocks follow their directions' new slugs and names, then stand where their directions are.
+  named = placeAbout(named.replace(ABOUT, (block) => {
+    const old = attrOf(block.match(/^<aside\b[^>]*>/)[0], "data-about-of"), to = renamed.get(old);
+    if (!to || !block.includes(`<!-- part:${old}-about -->`)) return block;
+    return block.replace(`data-about-of="${old}"`, `data-about-of="${to.slug}"`).replace(`data-ss-id="${old}-about"`, `data-ss-id="${to.slug}-about"`)
+      .replace(new RegExp(`<!-- (/?)part:${old}-about -->`, "g"), `<!-- $1part:${to.slug}-about -->`)
+      .replace(`data-ss-id="${old}-about-drawing"`, `data-ss-id="${to.slug}-about-drawing"`).replace(/What .*? is for and how to try it/, () => `What ${to.label} is for and how to try it`);
+  }));
   if (named !== page) rework(named);
 }
 // A new build drawn straight into work/index.html, not as parts: no part marker is left, so no part's status
@@ -719,8 +729,8 @@ if (cmd === "focus") {
 }
 // Spacesheep's canvas is one block of the page, <div data-ss-canvas-area>, and only what is in it is on the canvas;
 // the whole-page <meta name="ss-canvas"> is gone, so a page that still has it shows its directions as a plain page.
-// Such a page loses the meta and gets the area, from its first direction (or the rounds' lines, if they come first)
-// to the end of its last, so the views, versions and lines between them are in it, and the bar stays above it. Its
+// Such a page loses the meta and gets the area, from its first direction (or the rounds' lines or an about block, if
+// one comes first) to the end of its last, so the views, versions, lines and about blocks between them are in it, and the bar stays above it. Its
 // own canvas tests (meta[name="ss-canvas"][content="on"], in its styles and scripts) become the area's. A page
 // without the meta, or with the area already, comes back as it is.
 function areaed(page) {
@@ -738,6 +748,7 @@ function areaed(page) {
   if (b < 0) return out;
   const lines = /<div\b[^>]*\sdata-round-lines(?=[\s=>])[^>]*>(?:(?!<\/?div\b)[\s\S])*<\/div>/i.exec(flat);
   if (lines) { a = Math.min(a, lines.index); b = Math.max(b, lines.index + lines[0].length); }
+  for (const m of flat.matchAll(/<aside\b[^>]*\sdata-about-of="[^"]*"[^>]*>(?:(?!<aside\b)[\s\S])*?<\/aside>/g)) { a = Math.min(a, m.index); b = Math.max(b, m.index + m[0].length); }
   return out.slice(0, a) + "<div data-ss-canvas-area>\n\n" + out.slice(a, b) + "\n\n</div>" + out.slice(b);
 }
 // A page made before device views has a switcher that would make a view a tab, kit rules that follow the
@@ -815,6 +826,31 @@ if (cmd === "kit") {
 // direction. It changes work/index.html and the writer's frame, if there is one, and pushes nothing: the versions'
 // Edits come next.
 const FRAME_SIZES = { desktop: [1280, 800], tablet: [820, 1180], phone: [390, 844] };
+// Each direction's about block, <aside class="about" data-about-of="<slug>">: what it is for and how to try it, its
+// spec row and its frames' captions, on the canvas above it and outside the design. It stands ABOUT_LIFT above its
+// direction (its own 560 px, then 120 px for the direction's label row and its ⋯ chip), at the same x and as wide as its frame.
+const ABOUT_LIFT = 680;
+const ABOUT = /<aside\b[^>]*\sdata-about-of="[^"]*"[^>]*>(?:(?!<aside\b)[\s\S])*?<\/aside>/g;
+const aboutBlock = (slug, name, x, y, w) => `<aside class="about no-print" data-about-of="${slug}" data-ss-id="${slug}-about" data-ss-x="${x}" data-ss-y="${y - ABOUT_LIFT}" style="width:${w}px">
+  <!-- part:${slug}-about --><p data-ss-id="${slug}-about-drawing">What ${name} is for and how to try it, once it is drawn.</p><!-- /part:${slug}-about -->
+</aside>
+`;
+// Each about block where its direction is. One the starter made for a direction that is gone (one design keeps one
+// section) goes with it; one for no direction otherwise stays as it is, for check.js to name.
+function placeAbout(page) {
+  const by = new Map(directionsOf(page).filter((d) => !d.view).map((d) => [d.slug, d]));
+  return page.replace(new RegExp(`${ABOUT.source}\\n?`, "g"), (block) => {
+    const open = block.match(/^<aside\b[^>]*>/)[0], d = by.get(attrOf(open, "data-about-of") || "");
+    if (!d) return /data-ss-id="(first|second|third)-about-drawing"/.test(block) ? "" : block;
+    if ([d.x, d.y, d.w].some((v) => v === null)) return block;
+    let tag = open;
+    for (const [k, v] of [["data-ss-x", d.x], ["data-ss-y", d.y - ABOUT_LIFT]])
+      tag = attrOf(tag, k) === null ? tag.replace(/>$/, ` ${k}="${v}">`) : tag.replace(new RegExp(`\\s${k}="[^"]*"`), ` ${k}="${v}"`);
+    tag = !/\sstyle="[^"]*"/.test(tag) ? tag.replace(/>$/, ` style="width:${d.w}px">`)
+      : tag.replace(/\sstyle="[^"]*"/, (m) => /width:\s*[\d.]+px/.test(m) ? m.replace(/width:\s*[\d.]+px/, `width:${d.w}px`) : m.replace(/;?\s*"$/, `;width:${d.w}px"`));
+    return tag + block.slice(open.length);
+  });
+}
 // Frames in a row stand 320 px apart, as the starter's three directions do: at Fit in a 360 px window that is
 // still about 22 px, room for the next frame's number beside a frame's ⋯ menu, which the canvas hides when they meet.
 const ROW_GAP = 320, FRAME_GAP = 320;
@@ -842,7 +878,8 @@ function directionsOf(html) {
   }
   return out;
 }
-// The lines block for the page as it stands: from the top middle of each version up, across and up to its parent's
+// The lines block for the page as it stands: from the top middle of each version (of its about block, when it has
+// one) up, across and up to its parent's
 // bottom middle, turning 96 px under the parent's row. None, with no versions. The block is the one <div> marked
 // data-round-lines, holding only its picture: nothing else on the page is taken for it or replaced, whatever its
 // class or id, and its id is one no other element has.
@@ -854,8 +891,10 @@ function withLines(page) {
   const pairs = all.filter((v) => v.of && by.has(v.of)).map((v) => [by.get(v.of), v])
     .filter((pv) => pv.every((d) => [d.x, d.y, d.w, d.h].every((n) => n !== null)));
   if (!pairs.length) return found ? put("") : page;
+  // A version with an about block above it is joined at the block's top, so the line never crosses its words.
+  const abouts = new Set([...page.matchAll(ABOUT)].map((m) => attrOf(m[0].match(/^<aside\b[^>]*>/)[0], "data-about-of")));
   const lines = pairs.map(([p, v]) => {
-    const ax = p.x + p.w / 2, ay = p.y + p.h, bx = v.x + v.w / 2, by = v.y;
+    const ax = p.x + p.w / 2, ay = p.y + p.h, bx = v.x + v.w / 2, by = v.y - (abouts.has(v.slug) ? ABOUT_LIFT : 0);
     const mid = by - ROW_GAP * 0.7 > ay + 24 ? by - ROW_GAP * 0.7 : (ay + by) / 2;
     return { ax, ay, bx, by, mid };
   });
@@ -900,7 +939,9 @@ function rounded(page, parent, names) {
   }
   // The page's directions are round 1, and each round after takes the next number (a version without one counts as 2).
   const n = Math.max(1, ...all.filter((d) => d.of).map((d) => d.round || 2)) + 1;
-  const top = Math.max(...all.map((d) => d.y + d.h)) + ROW_GAP, width = names.length * p.w + (names.length - 1) * FRAME_GAP;
+  // A page made with about blocks gives each version one too, above it, so the row stands that much lower.
+  const about = new RegExp(ABOUT.source).test(page);
+  const top = Math.max(...all.map((d) => d.y + d.h)) + ROW_GAP + (about ? ABOUT_LIFT : 0), width = names.length * p.w + (names.length - 1) * FRAME_GAP;
   const left = Math.round(p.x + p.w / 2 - width / 2);
   const sections = versions.map((v, i) => `<section class="direction" data-version-of="${p.slug}" data-round="${n}" data-ss-frame="${p.frame}" data-ss-section data-ss-id="direction-${v.slug}" data-ss-thing="direction/${v.slug}" data-ss-label="${esc(v.name)}" data-line="What it changes from ${p.label || p.slug}, and what that gives up." data-ss-x="${left + i * (p.w + FRAME_GAP)}" data-ss-y="${top}">
   ${cardMenu(esc(v.name))}
@@ -909,6 +950,11 @@ function rounded(page, parent, names) {
 `).join("\n");
   const { at, lead } = afterLast(page, all);
   let out = page.slice(0, at) + lead + "\n" + sections + page.slice(at);
+  // Their about blocks go after the page's last one, where the starter keeps them, at the area's start.
+  if (about) {
+    const end = [...out.matchAll(ABOUT)].at(-1), cut = end.index + end[0].length;
+    out = out.slice(0, cut) + "\n\n" + versions.map((v, i) => aboutBlock(v.slug, esc(v.name), left + i * (p.w + FRAME_GAP), top, p.w).trimEnd()).join("\n\n") + out.slice(cut);
+  }
   // The parent's tokens, as each version's own rule, in the page's <style> that sets them last (a part's own
   // <style>, inside its direction, is left as it is).
   const sel = `[data-ss-id="direction-${p.slug}"]`, inside = directionsOf(out);
@@ -957,6 +1003,7 @@ if (cmd === "copy") {
   if (!d) { console.error(`copy: give a direction on the page (${all.filter((x) => !x.view).map((x) => x.slug).join(", ") || "it has none"})`); process.exit(2); }
   let out = page;
   for (const x of all.slice().reverse()) if (x !== d && x.view !== slug) out = out.slice(0, x.start) + out.slice(x.end).replace(/^\n/, "");
+  out = out.replace(new RegExp(`${ABOUT.source}\\n?`, "g"), (b) => attrOf(b.match(/^<aside\b[^>]*>/)[0], "data-about-of") === slug ? b : "");
   const name = (d.label || slug).replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
   out = titled(out.replace(LINES, ""), name);
   out = withFocus(out, `direction-${slug}`) || out;

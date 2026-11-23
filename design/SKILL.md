@@ -83,6 +83,7 @@ The frame goes up from the request alone (step 2); the rest is read after it (st
   - **Its look:** its ids start `<slug>-phone-`, and the direction's token rule lists it beside the direction, `[data-ss-id="direction-<slug>"], [data-view-of="<slug>"] { … }`, as does any of the direction's CSS it shares.
   - **Drawn for its width:** every fact, word, brand value and control of its direction, arranged for a hand: one column, the main action within a thumb's reach, the nav folded into the kit's bar. Never the desktop frame copied or scaled down.
   - **In a new build,** add each view's section in the frame's Edits (step 2) with its own empty `<!-- part:<slug>-phone --><!-- /part:<slug>-phone -->`, and name it in its direction's helper prompt ("Its phone view: `night-watch-phone`"). On a page without the canvas (the client copy), the switcher shows Desktop / Phone buttons for a direction with views, and a phone opens on the phone view.
+- **Each has an about block:** references/directions.md, "About blocks".
 - **Name each direction by its idea** in 1 to 3 words ("Harbour Chart", "Night Watch", "Logbook"), never "Option A". Its line says what it is for and what it gives up ("Calm and plain, for owners who check once a month; no totals at a glance").
 - **When the person picks one** ("go with the third", "the third, but bolder", or "Use Harbour Chart" from its ⋯ menu or the bar), change only that direction, mark it chosen (`data-chosen` on its section, and on no other), make it the one the space opens on (`data-default`), point the canvas at it (`fold.js focus <slug>`), and record the pick under Decisions (section 6). A pick from a pill carries no reason: in that reply, ask once, in words and not as a form, what made them pick it, add their answer to its Decisions line if one comes, and never hold anything for it. Keep the others, so they can still compare or come back. Remove them only when the person says so ("drop the others", "just that one").
 
@@ -181,4 +182,4 @@ Then "The third one, but bolder. Don't touch the words." Change only the type an
 - references/after.md: approval, hand-off, saving a brand and the limits. Read it when one comes up.
 - references/handoff.md: the "For developers" section. Read it before a hand-off.
 - references/shepherd.md, assets/shepherd.html: a Shepherd turn.
-- references/coverage.md: background for maintainers, not needed for a turn.
+- references/coverage.md: for maintainers only.

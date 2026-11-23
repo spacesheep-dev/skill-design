@@ -417,6 +417,53 @@ for (const d of dirs) {
     }
   }
 }
+// Each direction's about block, once the page has them (the starter's do): <aside class="about" data-about-of="<slug>">
+// on the canvas above its direction, with what it is for and how to try it (2 or 3 sentences), its spec row (Type,
+// Colour, Density, Modes) and a caption for each of its frames (the direction, then its views) saying what it shows and
+// its size. It is read from its parts (draw/<slug>-about/), else from the page. Its words are for the person choosing,
+// so they never quote the request either.
+const ABOUT_LIFT = 680, SIZES = { desktop: [1280, 800], tablet: [820, 1180], phone: [390, 844] };
+const aboutTags = [...page.replace(/<!--[\s\S]*?-->/g, (c) => " ".repeat(c.length)).matchAll(/<aside\b[^>]*\sdata-about-of="[^"]*"[^>]*>/g)];
+if (aboutTags.length) for (const d of dirs.filter((x) => !x.of)) {
+  const open = page.slice(d.start, page.indexOf(">", d.start) + 1), a = attrs(open.slice(8, -1));
+  const tag = aboutTags.find((m) => attrs(m[0].slice(6, -1))["data-about-of"] === d.slug);
+  const fix = `write its about block, draw/${d.slug}-about/01.html: a <p class="about-intro">, a <dl class="about-spec"> and an <ol class="about-frames"> (references/directions.md, About blocks)`;
+  if (!tag) { fail(d.slug, "work/index.html", `no about block: add <aside class="about no-print" data-about-of="${d.slug}" data-ss-id="${d.slug}-about"> at the start of the canvas area, then ${fix.replace("write its about block, ", "")}`); continue; }
+  const t = attrs(tag[0].slice(6, -1)), where = `work/index.html:${lineAt(page, tag.index)}`;
+  const x = +a["data-ss-x"], y = +a["data-ss-y"], w = (SIZES[a["data-ss-frame"]] || (/^(\d+)x\d+$/i.exec(a["data-ss-frame"] || "") || [, NaN]).slice(1).map(Number))[0];
+  if (isFinite(x) && isFinite(y) && (+t["data-ss-x"] !== x || +t["data-ss-y"] !== y - ABOUT_LIFT))
+    fail(d.slug, where, `its about block stands apart from it: give it data-ss-x="${x}" data-ss-y="${y - ABOUT_LIFT}", ${ABOUT_LIFT} px above its direction`);
+  if (isFinite(w) && !new RegExp(`(^|;)\\s*width:\\s*${w}px`).test(t.style || "")) fail(d.slug, where, `its about block is not as wide as its frame: give it style="width:${w}px"`);
+  const dir = `draw/${d.slug}-about`, files = htmlIn(dir);
+  const units = files.length ? files.map((f) => ({ file: path.join(dir, f), text: read(path.join(dir, f)) || "" }))
+    : [{ file: where, text: page.slice(tag.index, page.indexOf("</aside>", tag.index)) }];
+  const text = units.map((u) => u.text).join("\n"), file = units[units.length - 1].file;
+  if (new RegExp(`data-ss-id="${d.slug}-about-drawing"|once it is drawn`).test(text)) { fail(d.slug, file, `its about block still says it is being drawn: ${fix}`); continue; }
+  const shown = (h) => norm(shownText(h || "")).replace(/\s+/g, " ").trim();
+  const intro = (text.match(/<p\b[^>]*class="[^"]*\babout-intro\b[^"]*"[^>]*>([\s\S]*?)<\/p>/) || [])[1];
+  const said_ = shown(intro), sentences = said_.split(/(?<=[.!?])\s+(?=\S)/).filter((x) => words(x).length), n = words(said_).length;
+  if (!intro) fail(d.slug, file, `its about block has no intro: a <p class="about-intro" data-ss-id="${d.slug}-about-intro"> of 2 or 3 sentences, what it is for and how to try it`);
+  else if (sentences.length < 2 || sentences.length > 3 || n > 60) fail(d.slug, file, `its about intro is ${sentences.length} sentence${sentences.length === 1 ? "" : "s"} and ${n} words: 2 or 3 sentences, at most 60 words, what it is for and how to try it`);
+  const spec = (text.match(/<dl\b[^>]*class="[^"]*\babout-spec\b[^"]*"[^>]*>([\s\S]*?)<\/dl>/) || [])[1] || "";
+  const terms = new Map([...spec.matchAll(/<dt\b[^>]*>([\s\S]*?)<\/dt>\s*<dd\b[^>]*>([\s\S]*?)<\/dd>/g)].map((m) => [shown(m[1]).toLowerCase().replace("color", "colour"), shown(m[2])]));
+  const missing = ["Type", "Colour", "Density", "Modes"].filter((k) => !terms.get(k.toLowerCase()));
+  if (missing.length) fail(d.slug, file, `its about spec row lacks ${missing.join(", ")}: a <dl class="about-spec" data-ss-id="${d.slug}-about-spec"> with a <div><dt>…</dt><dd>…</dd></div> for each of Type, Colour, Density and Modes`);
+  const frames = [d, ...every.filter((v) => v.of === d.slug)];
+  const caps = new Map([...text.matchAll(/<li\b([^>]*)>([\s\S]*?)<\/li>/g)].map((m) => [attrs(m[1])["data-frame"], shown(m[2])]).filter(([k]) => k));
+  for (const f of frames) {
+    const fo = attrs(page.slice(f.start + 8, page.indexOf(">", f.start))), kind = fo["data-ss-frame"] || "desktop";
+    const size = SIZES[kind] || (/^(\d+)x(\d+)$/i.exec(kind) || []).slice(1).map(Number);
+    const cap = caps.get(`direction-${f.slug}`);
+    const named = size.length === 2 && cap && new RegExp(`${size[0]}\\s*[×x]\\s*${size[1]}`).test(cap) && (!SIZES[kind] || new RegExp(`\\b${kind}\\b`, "i").test(cap));
+    if (!cap) fail(d.slug, file, `no caption for the frame direction-${f.slug}: an <li data-frame="direction-${f.slug}"> in its about block's <ol class="about-frames">, what it shows and its size (${SIZES[kind] ? kind[0].toUpperCase() + kind.slice(1) + " " : ""}${size.join(" × ")})`);
+    else if (!named) fail(d.slug, file, `the caption for direction-${f.slug} doesn't give its size: say ${SIZES[kind] ? kind[0].toUpperCase() + kind.slice(1) + " " : ""}${size.join(" × ")}, then what it shows`);
+    else if (words(cap.replace(new RegExp(`${size[0]}\\s*[×x]\\s*${size[1]}`), "")).length < 5) fail(d.slug, file, `the caption for direction-${f.slug} says too little: its name or state, its size, and what the frame shows`);
+  }
+  for (const k of caps.keys()) if (!frames.some((f) => `direction-${f.slug}` === k)) fail(d.slug, file, `a caption names ${k}, which is not one of this direction's frames`);
+  const flat = ` ${words(shownText(text)).join(" ")} `;
+  for (const { q, why } of quotes) if (why.startsWith("the request") && flat.includes(` ${q.join(" ")} `)) { fail(d.slug, file, `its about block quotes the request ("${q.join(" ")}"): say what the direction does in your own words`); break; }
+}
+
 // The same rule in the page's own styles (the head, or between directions), where a direction's checks don't look.
 for (const b of split(page)) if (b.kind === "style" && !every.some((d) => b.start >= d.start && b.start < d.end))
   for (const d of decls(b.body)) if (pinsFrame(d)) fail("page", `work/index.html:${lineAt(page, b.bodyAt + d.at)}`, pinsFrame(d));

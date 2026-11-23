@@ -73,6 +73,17 @@ html:has([data-ss-canvas-area] > [data-ss-canvas-stage]) .switcher{flex:none;}
 [data-ss-canvas-area]:has(> [data-ss-canvas-stage]){flex:1 1 auto;height:auto;min-height:320px;}
 html:not(:has([data-ss-canvas-area])) .direction:not(.on){display:none;}
 .direction,[data-ss-frame]{container-type:inline-size;}
+.about{box-sizing:border-box;height:560px;display:flex;flex-direction:column;justify-content:flex-end;gap:.55em;color:var(--bar-ink);font:400 clamp(20px,calc(13px / var(--ss-cz,1)),36px)/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;}
+[data-ss-canvas-item].about{outline:none;}
+.about p{margin:0;max-width:62ch;}
+.about-spec{display:flex;flex-wrap:wrap;gap:.2em 1.4em;margin:0;font-size:.82em;}
+.about-spec div{display:flex;gap:.45em;align-items:baseline;}
+.about-spec dt{color:var(--bar-muted);font:500 .8em/1.4 ui-monospace,Menlo,monospace;text-transform:uppercase;letter-spacing:.06em;}
+.about-spec dd{margin:0;}
+.about-swatch{display:inline-block;width:.8em;height:.8em;margin-right:.2em;border-radius:2px;vertical-align:-.05em;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--bar-ink) 30%,transparent);}
+.about-frames{margin:0;padding:0;list-style:none;font-size:.82em;color:var(--bar-muted);}
+.about-frames li::before{content:attr(data-n) " ";white-space:pre;color:var(--bar-ink);font:500 .9em/1.4 ui-monospace,Menlo,monospace;}
+html:not(:has([data-ss-canvas-area])) .about{display:none;}
 .frame-back,.frame-use,.frame-round{flex:none;}
 .frame-use{margin-left:auto;}
 .switcher{container-type:inline-size;}
@@ -138,6 +149,18 @@ section.direction :is(.use-this,.card-menu),html:has(.frame-back:not([hidden])) 
 </style>
 
 <div data-ss-canvas-area>
+
+<aside class="about no-print" data-about-of="first" data-ss-id="first-about" data-ss-x="0" data-ss-y="-680" style="width:1280px">
+  <!-- part:first-about --><p data-ss-id="first-about-drawing">What First is for and how to try it, once it is drawn.</p><!-- /part:first-about -->
+</aside>
+
+<aside class="about no-print" data-about-of="second" data-ss-id="second-about" data-ss-x="1600" data-ss-y="-680" style="width:1280px">
+  <!-- part:second-about --><p data-ss-id="second-about-drawing">What Second is for and how to try it, once it is drawn.</p><!-- /part:second-about -->
+</aside>
+
+<aside class="about no-print" data-about-of="third" data-ss-id="third-about" data-ss-x="3200" data-ss-y="-680" style="width:1280px">
+  <!-- part:third-about --><p data-ss-id="third-about-drawing">What Third is for and how to try it, once it is drawn.</p><!-- /part:third-about -->
+</aside>
 
 <section class="direction" data-ss-frame="desktop" data-ss-section data-ss-id="direction-first" data-ss-thing="direction/first" data-ss-label="First" data-line="One line on what it leads with." data-ss-x="0" data-ss-y="0">
   <div class="card-menu no-print" data-ss-canvas="label"><button type="button" class="menu-open" aria-haspopup="menu" aria-expanded="false" aria-label="Menu for First">⋯</button><div class="menu" role="menu" hidden><button type="button" class="use-this" role="menuitem" data-ss-say="Use First" title="Use First"><span class="use">Use this</span><span class="chosen">✓ Chosen</span></button><button type="button" class="round" role="menuitem" data-ss-say="Another round of First" title="Another round of First">Another round</button></div></div>
@@ -255,6 +278,35 @@ window.ssSlimWatch.observe(document.body, { childList: true, subtree: true, attr
 draw();
 })();
 /* switcher: end */
+(() => {
+window.ssAbout = () => {
+const area = document.querySelector('[data-ss-canvas-area]');
+if (!area) return;
+const frames = [...area.querySelectorAll('[data-ss-frame]')];
+for (const li of area.querySelectorAll('.about-frames li[data-frame]')) {
+const at = frames.findIndex((f) => f.dataset.ssId === li.dataset.frame), n = at < 0 ? '' : String(at + 1).padStart(2, '0');
+if (li.dataset.n !== n) li.dataset.n = n;
+}
+for (const a of area.querySelectorAll('.about[data-about-of]')) {
+const d = area.querySelector('section.direction[data-ss-id="direction-' + CSS.escape(a.dataset.aboutOf) + '"]');
+const dd = [...a.querySelectorAll('.about-spec dt')].find((t) => /^colou?r$/i.test(t.textContent.trim()))?.nextElementSibling;
+if (!d || !dd) continue;
+const cs = getComputedStyle(d), want = ['--brand-ground', '--brand-ink', '--brand-accent'].map((v) => cs.getPropertyValue(v).trim()).filter(Boolean);
+let s = dd.querySelector(':scope > .about-swatches');
+if (s && s.dataset.of === want.join('|')) continue;
+if (!s) { s = document.createElement('span'); s.className = 'about-swatches'; s.setAttribute('aria-hidden', 'true'); dd.prepend(s); }
+s.dataset.of = want.join('|');
+s.replaceChildren(...want.map((c) => { const i = document.createElement('i'); i.className = 'about-swatch'; i.style.background = c; return i; }));
+}
+};
+if (!window.ssAboutHeard) {
+window.ssAboutHeard = true;
+let raf = 0;
+new MutationObserver(() => { cancelAnimationFrame(raf); raf = requestAnimationFrame(() => window.ssAbout()); })
+.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'data-ss-id', 'data-frame', 'data-about-of', 'data-ss-frame'] });
+}
+window.ssAbout();
+})();
 function ssControls() { return [...document.querySelectorAll('.tweaks input[data-var]')].slice(0, 6); }
 function ssStep(i) { return i.dataset.kind === 'switch' || i.dataset.kind === 'choice'; }
 function ssMirror() {
