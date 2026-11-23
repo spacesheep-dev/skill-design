@@ -58,3 +58,17 @@ A skeleton is the page's arrangement: one column, a lead item over a list, a gri
 - A pick, with a change or without ("go with the third", "the third, but bolder"): change only the third, mark it chosen (`data-chosen`), make it the one the space opens on, point the canvas at it (`fold.js focus <slug>`), record the pick in Decisions, and leave the others untouched. The canvas shows the pick large, and the others stay to compare or come back to.
 - "Drop the others" ("just the third", "delete the rest"): only then remove the other directions and the switcher's tabs and script, in one new version (keep its nav while it holds Tweaks or the answers line), point the canvas at the one left, and record it in Decisions. Older versions still hold the others.
 - "Mix them" ("the layout of one with the colours of three"): add it as a new direction named for what it combines, and keep the originals until they choose.
+
+## About blocks
+
+Each direction has an about block on the canvas above it, `<aside class="about no-print" data-about-of="<slug>">`, for the person choosing. It is commentable and outside the design: no picture, PDF, export or build prompt carries it. The starter has one per direction at the start of the canvas area, with an empty `<!-- part:<slug>-about -->`; fold.js keeps each 680 px above its direction and as wide as its frame, and `fold.js round` gives each version one. One design keeps its section's block; push drops the starter's others.
+
+Its words go in last, once the direction can be tried: its helper writes them (references/helper.md), else you do, as `draw/<slug>-about/01.html`. In your own words, never quoting the person:
+
+| Part | Markup | What it says |
+|---|---|---|
+| Intro | `<p class="about-intro">` | 2 or 3 sentences, at most 60 words: what it is for and gives up, then how to try it with its real controls ("Tap a bill to open it; Paid hides the rest") |
+| Spec row | `<dl class="about-spec">` | Type (the faces), Colour (ground and accent, in words: the block adds swatches), Density (Roomy, Regular or Compact), Modes (Light, Dark or both) |
+| Captions | `<ol class="about-frames">` | One `<li data-frame="direction-<slug>">` per frame, the direction's then each view's: name or state, size, what it shows: "Ledger, light · Desktop 1280 × 800 · six bills, the next due on top" |
+
+The canvas numbers the captions as it numbers the frames. A row's blocks start on one line, so their intros read across. Under 600 px of canvas width (a phone at Fit) the blocks hide, and the bar shows the intro of the direction open full page instead, so keep its first sentence able to stand alone. A block is the part `<slug>-about`, so no direction's slug is another's with `-about` after it. check.js names a direction without them. A revision that changes what a direction does, or adds a view, changes its block too.

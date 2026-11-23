@@ -17,11 +17,11 @@ test("shepherd.html is what tools/shepherd.js makes from base.html", () => {
 });
 
 test("it fits in one use_skill read and keeps the starter's metas, with no ss-workspace and no Export", () => {
-  assert.ok([...PAGE].length <= 26000, `${[...PAGE].length} characters`);
+  assert.ok([...PAGE].length <= 30000, `${[...PAGE].length} characters`);
   for (const meta of ['<meta name="ss-chat" content="open">', '<meta name="ss-canvas-focus" content="all">'])
     assert.ok(PAGE.includes(meta), meta);
   assert.doesNotMatch(PAGE, /<meta name="ss-canvas"[ >]/, "no whole-page canvas meta");
-  assert.match(PAGE, /\n<div data-ss-canvas-area>\n\n<section class="direction"[\s\S]*<\/section>\n\n<\/div>\n/, "the directions are in the canvas area");
+  assert.match(PAGE, /\n<div data-ss-canvas-area>\n\n<aside class="about[\s\S]*<\/aside>\n\n<section class="direction"[\s\S]*<\/section>\n\n<\/div>\n/, "the directions are in the canvas area");
   assert.doesNotMatch(PAGE, /ss-workspace/);
   assert.doesNotMatch(PAGE, /class="export|switcher-views|ss-check/);
   assert.ok(PAGE.endsWith("<!-- design: end -->\n</body>\n</html>\n"));
@@ -245,4 +245,37 @@ test("on the slim bar, which sits outside the canvas area, Esc on a tab goes Bac
   assert.ok(key("3"));
   assert.equal(location.hash, "#direction-third", "a tab's 3 opens the third direction");
   assert.equal(key("7"), false, "a number with no direction is left alone");
+});
+
+test("on the slim bar, a direction open full page shows its about intro whole, every letter kept; on the canvas its line", () => {
+  const js = scripts(PAGE)[0].match(/\/\* switcher: start \*\/[\s\S]*?\/\* switcher: end \*\//)[0];
+  class El {
+    constructor(data = {}) { this.dataset = data; this.children = []; this.attrs = {}; this.classList = { toggle() {} }; this.textContent = ""; }
+    hasAttribute(n) { return n in this.attrs; }
+    setAttribute(n, v) { this.attrs[n] = v; }
+    toggleAttribute(n, on) { if (on) this.attrs[n] = ""; else delete this.attrs[n]; }
+    replaceChildren(...k) { this.children = k; }
+    addEventListener() {}
+    contains(x) { return x === this; }
+  }
+  const dirs = ["first", "second"].map((s) => new El({ ssId: `direction-${s}`, ssLabel: s, line: `${s}'s line` }));
+  const intro = Object.assign(new El(), { textContent: "Night Watch shows the next fee.\n   Press Pay now, or Remind me, to see it." });
+  const bar = { ".switcher-tabs": new El(), ".switcher-line": new El(), ".frame-back": new El(), ".switcher": new El(), "[data-ss-canvas-area]": new El(),
+    '.about[data-about-of="second"] .about-intro': intro };
+  const heard = {}, location = { hash: "" };
+  const document = { querySelector: (s) => bar[s] || dirs.find((d) => s === `[data-ss-id="${d.dataset.ssId}"]`) || null,
+    querySelectorAll: (s) => (s === "section.direction:not([data-view-of])" ? dirs : []),
+    getElementById: () => null, createElement: () => new El(), addEventListener: (n, f) => (heard[n] = heard[n] || []).push(f), body: {} };
+  const win = { document, location, history: { replaceState: (a, b, h) => { location.hash = h; } }, CSS: { escape: (s) => s }, HashChangeEvent: class {},
+    MutationObserver: class { observe() {} }, addEventListener() {}, dispatchEvent() {} };
+  win.window = win;
+  vm.runInNewContext(js, win);
+  const canvas = (open) => { win.ss = { canvas: { open, zoom: open ? 1 : 0.3 } }; (heard["ss:canvas"] || []).forEach((f) => f()); };
+  const line = bar[".switcher-line"];
+  canvas(null);
+  assert.equal(line.textContent, "first's line", "on the canvas, the line of the direction the address names");
+  canvas("direction-second");
+  assert.equal(line.textContent, "Night Watch shows the next fee. Press Pay now, or Remind me, to see it.", "open: its intro on one line, every s kept");
+  canvas(null);
+  assert.equal(line.textContent, "first's line");
 });
