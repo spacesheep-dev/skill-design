@@ -1156,16 +1156,17 @@ test("round refuses a parent the page hasn't got, a name already taken or one of
   assert.equal(fs.readFileSync(file, "utf8"), before.replace(' data-ss-x="1600" data-ss-y="0"', ""), "nothing changed");
 });
 
-test("round reads and writes only the about blocks on the canvas, never one quoted in a comment or a script after it", () => {
+test("round reads and writes only the about blocks on the canvas, never one quoted in a comment, or one after the canvas", () => {
   const { folder, fold } = setup();
   assert.equal(fold(["start", "--new", "Poster"]).status, 0);
   const file = path.join(folder, "work", "index.html"), quoted = '<!-- an example: <aside data-about-of="example"></aside> -->';
+  const outside = '<aside data-about-of="example"><p>An aside after the canvas.</p></aside>';
   const page = fs.readFileSync(file, "utf8"), at = page.indexOf("<!-- design: end -->");
-  fs.writeFileSync(file, page.slice(0, at) + quoted + "\n" + page.slice(at));
+  fs.writeFileSync(file, page.slice(0, at) + quoted + "\n" + outside + "\n" + page.slice(at));
   const r = fold(["round", "second", "Bolder"]);
   assert.equal(r.status, 0, r.stdout + r.stderr);
   const out = fs.readFileSync(file, "utf8"), area = out.indexOf("\n<div data-ss-canvas-area>");
-  assert.ok(out.includes(quoted + "\n<!-- design: end -->"), "the comment is as it was");
+  assert.ok(out.includes(quoted + "\n" + outside + "\n<!-- design: end -->"), "the comment and the aside after the canvas are as they were");
   const bolder = out.indexOf('<aside class="about no-print" data-about-of="bolder"');
   assert.ok(bolder > area && bolder < out.indexOf('<section class="direction"', area), "the version's about block is with the others, at the area's start");
 });

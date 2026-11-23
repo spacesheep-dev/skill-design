@@ -835,12 +835,20 @@ const aboutBlock = (slug, name, x, y, w) => `<aside class="about no-print" data-
   <!-- part:${slug}-about --><p data-ss-id="${slug}-about-drawing">What ${name} is for and how to try it, once it is drawn.</p><!-- /part:${slug}-about -->
 </aside>
 `;
-// The page's real about blocks, last first: [{ at, end, block, of }], each in the canvas area (after its opening tag)
-// and none quoted in a comment, a script or a style, so no fold reads or writes one that isn't on the canvas.
+// The page's real about blocks, last first: [{ at, end, block, of }], each inside the canvas area (between its opening
+// tag and the </div> that closes it) and none quoted in a comment, a script or a style, so no fold reads or writes one
+// that isn't on the canvas. A page with no area yet (one from before it) has all its blocks.
 function aboutsOf(page) {
   const flat = page.replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>|<!--[\s\S]*?-->/gi, (c) => c.replace(/[^\n]/g, " "));
   const area = /<div\b[^>]*\sdata-ss-canvas-area(?=[\s=>])[^>]*>/i.exec(flat);
-  return [...flat.matchAll(ABOUT)].filter((m) => !area || m.index > area.index)
+  let from = 0, to = flat.length;
+  if (area) {
+    from = area.index + area[0].length;
+    const tags = /<(\/?)div\b[^>]*>/gi;
+    tags.lastIndex = from;
+    for (let depth = 1, t; (t = tags.exec(flat)); ) if (!(depth += t[1] ? -1 : 1)) { to = t.index; break; }
+  }
+  return [...flat.matchAll(ABOUT)].filter((m) => m.index >= from && m.index + m[0].length <= to)
     .map((m) => { const block = page.slice(m.index, m.index + m[0].length); return { at: m.index, end: m.index + m[0].length, block, of: attrOf(block.match(/^<aside\b[^>]*>/)[0], "data-about-of") }; }).reverse();
 }
 // The page with each real about block put through fn(block, of): "" takes it out, with its line's end.

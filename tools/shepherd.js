@@ -40,7 +40,7 @@ const SWITCHER_JS = `(() => {
   const lineOf = (d) => {
     const c = (window.ss && window.ss.canvas) || {}, o = c.open && dirAt(byId(c.open));
     const p = o && q('.about[data-about-of="' + CSS.escape(o.dataset.ssId.slice(10)) + '"] .about-intro');
-    return (p && p.textContent.replace(/\s+/g, ' ').trim()) || (d && d.dataset.line) || '';
+    return (p && p.textContent.replace(/\\s+/g, ' ').trim()) || (d && d.dataset.line) || '';
   };
   function frame() {
     const c = (window.ss && window.ss.canvas) || {};
