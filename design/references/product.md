@@ -10,7 +10,7 @@ In one message, before step 2's helpers: a Glob for the theme, type, button and 
 |---|---|
 | Header | "Taken from <files> on <date>": use these values and parts, never a new palette, font or button |
 | Type | the families, the title, section and body sizes and weights, mono only where the app uses it |
-| Colour | a table, role and value: ground, surfaces, the text levels, borders, the one accent, success and danger, and what each colour means |
+| Colour | a table, role and value: ground, surfaces, the text levels, borders, the one accent, success and danger, and what each colour means. When the app has a dark theme, a Dark column beside it from the theme's dark block, buttons too |
 | Shape | corners and shadows by kind (cards, menus, buttons, badges) |
 | Buttons | each kind the app has, its face, edge and ink, and its sizes |
 | Parts | the app's header, sidebar, breadcrumb, tabs, badges, segmented control, avatar, empty state, as the code draws them |
@@ -32,6 +32,9 @@ Every direction keeps DESIGN.md's type, colours, buttons and chrome. They differ
 ## 4. States from the product
 
 The Prototype bar's states (SKILL.md section 3) are the product's real cases, in the app's words: who looks (the owner or someone else), admin or not, signed in or out, public or private, empty or full, a menu open, light or dark when the app has both. A menu state opens the real menu over the screen.
+
+- **Dark, when the app has a dark theme:** a Theme switch (`--dark`, Light|Dark) that draws the whole screen dark, the chrome too: every direction's section redefines its tokens and the chrome's with DESIGN.md's Dark column under `[data-ss-id="direction-<slug>"][data-dark="1"]`. So no colour in a part may be a literal (a white card, a tint, a shadow): each is a token, or the dark state leaves a light patch. Only the bar keeps its own light or dark.
+- **What a state hides is never a link in it.** When Private hides the files, a fact that pointed at a file is plain text there, as the app does; the same for an author's page with nothing on it, or an action only the owner has.
 
 ## 5. Real data, and Sample where it is made up
 
