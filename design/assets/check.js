@@ -296,6 +296,8 @@ const norm = (s) => s.replace(/&nbsp;| /g, " ").replace(/&amp;/g, "&").replace(
 const brief = read("draw/BRIEF.md") || "";
 const facts = [...brief.matchAll(/^\s*[-*]?\s*fact:\s*(.+?)\s*$/gim)].map((m) => m[1]);
 const nots = [...brief.matchAll(/^\s*[-*]?\s*not:\s*(.+?)\s*$/gim)].map((m) => m[1]);
+// `sample: …` names what is made up (counts, a chart's data): every direction tags it, and the bar's Sample note names it.
+const samples = [...brief.matchAll(/^\s*[-*]?\s*sample:\s*(.+?)\s*$/gim)].map((m) => m[1]);
 // The request (`ask: …` lines): six of its words in a row on the page are the brief quoted, not designed.
 // Words a `fact:` covers break a run, so facts given in the request's own order still pass.
 const words = (s) => norm(s).match(/[\p{L}\p{N}]+(?:['.,][\p{L}\p{N}]+)*/gu) || [];
@@ -405,6 +407,7 @@ for (const d of dirs) {
     const r = drawnRatio(x, y, g, bg === "--brand-ground");
     if (r < 4.5) fail(d.slug, "tokens", `contrast ${r.toFixed(1)}:1 for ${what} (${fg} ${hex(x)} on ${bg} ${hex(y)}): 4.5 needed; change the token in the direction's rule`);
   }
+  if (samples.length && !d.of && !/\bclass="[^"]*\bk-sample\b/.test(all)) fail(d.slug, units[units.length - 1].file, `no Sample tag: put <span class="k-sample">Sample</span> beside what the brief's sample: lines name`);
   for (const f of nots) if (shown.includes(norm(f))) fail(d.slug, (units.find((u) => norm(u.text.replace(/<[^>]+>/g, " ")).includes(norm(f))) || units[0]).file, `shows "${f}", which the brief says no direction may`);
   const told = new Set();
   for (const u of units) {
@@ -522,7 +525,7 @@ if (!only) {
       fail(m[1] || "page", `work/index.html:${lineAt(page, m.index)}`, `its about block is outside the canvas area, where it doesn't show: move it to the start of <div data-ss-canvas-area>`);
 }
 
-// Controls: the inputs in the page's .tweaks pane, its Tweaks. At most 6, each named by its
+// Controls: the inputs in the page's .tweaks pane, its Prototype bar. At most 8, each named by its
 // label's first words, each a token the page sets and uses. A switch or choice needs a rule for every value past
 // 0, or that value changes nothing.
 if (!only) {
@@ -531,7 +534,9 @@ if (!only) {
   const at = (tag, a) => (tag.match(new RegExp(`\\b${a}="([^"]*)"`)) || [])[1];
   const inputs = [...pane.matchAll(/(<label\b[^>]*>)?\s*([^<]*?)\s*<input\b([^>]*)>/g)].filter((m) => /\bdata-var=/.test(m[3]));
   const said = (m, msg) => fail("controls", "work/index.html", `${at(m[3], "data-var") || "a control"}: ${msg}`);
-  if (inputs.length > 6) fail("controls", "work/index.html", `${inputs.length} controls: 6 at most`);
+  if (inputs.length > 8) fail("controls", "work/index.html", `${inputs.length} states: 8 at most`);
+  const note = norm(shownText((pane.match(/<p\b[^>]*\bclass="[^"]*\bsample-note\b[^"]*"[^>]*>[\s\S]*?<\/p>/) || [""])[0]));
+  for (const f of samples) if (!note.includes(norm(f))) fail("controls", "work/index.html", `the bar's <p class="sample-note"> doesn't name "${f}" (a sample: line)`);
   const vars = new Set();
   for (const m of inputs) {
     const v = at(m[3], "data-var"), type = at(m[3], "type"), kind = at(m[3], "data-kind"), n = (a) => Number(at(m[3], a));

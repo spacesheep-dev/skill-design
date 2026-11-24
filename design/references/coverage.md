@@ -49,5 +49,5 @@ What he would see for each finding that is only partly covered or not covered, u
 | 16 | Attach a .fig, .glb or .blend and the agent says it can't open it, and asks for HTML, colours or a description. |
 | 17 | Every change is a version he can restore, and a variation becomes an extra direction. No named branches, no side-by-side compare. |
 | 18 | Nothing new: his spaces sit in the dashboard's stacks and shelves, with search. No tags or folders. |
-| 19 | He types words straight into the space in Edit mode, and tries colour, spacing and the layout in Tweaks. He can't drag or resize boxes. |
+| 19 | He types words straight into the space in Edit mode, and tries the states on the Prototype bar. He can't drag or resize boxes. |
 | 20 | A "For developers" section and a one-line `spacesheep read` for a coding agent, which someone still has to run. Others can co-edit words in Edit mode, not layout. |

@@ -6,7 +6,7 @@ Read the part you need when the person asks for it. Each change is still shown b
 
 When the person wants sign-off ("send it to the client", "get approval", "I need a yes from Noor"):
 
-1. Make a client copy without the `ss-chat` and `ss-canvas-focus` metas, without `data-ss-canvas-area` on the div around the directions (keep the div), and without the Tweaks pane (`<details class="tweaks">`), so it opens on the design alone, one direction at a time (with Desktop / Phone buttons for a direction that has a view), and without the switcher's `switcher-answers` line ("From your answers: …"). Add an approval form near the end; the platform sends it from anyone who can open the space, with or without an account:
+1. Make a client copy without the `ss-chat` and `ss-canvas-focus` metas, without `data-ss-canvas-area` on the div around the directions (keep the div), and without the Prototype bar (`<details class="tweaks">`), so it opens on the design alone, one direction at a time (with Desktop / Phone buttons for a direction that has a view), and without the switcher's `switcher-answers` line ("From your answers: …"). Add an approval form near the end; the platform sends it from anyone who can open the space, with or without an account:
    ```html
    <form data-ss-form="approvals" class="no-print" aria-label="Approve this design">
      <label>Your name <input name="name" autocomplete="name" required></label>
@@ -35,12 +35,12 @@ When they say "save this look" or "make this our brand": write a design system n
 | They ask for | Say and do |
 |---|---|
 | Change words by hand | "Open ⋯ → Edit and type straight into the space; it's saved as a new version." |
-| Drag, resize or align boxes by hand | "Comment on the block with what to move, or say it here; I'll make the change." Point to Tweaks for colour, spacing and the other controls. |
+| Drag, resize or align boxes by hand | "Comment on the block with what to move, or say it here; I'll make the change." Point to the Prototype bar for the states it offers. |
 | PowerPoint or Google Slides | "The space has a PDF download, and a deck here plays on any phone. There's no PowerPoint or Slides export." |
 | Import a Figma file, a .zip or 3D files | "Paste the HTML, tokens or colours here, or describe the screens; I'll rebuild it here." |
 | Branches | "Each direction in the switcher is a branch you can compare, and every version stays in history." |
 | Live co-editing | "Share it with edit access: they can change words in Edit mode and comment on any block." |
 
-## Tweaks
+## The Prototype bar
 
-The controls (SKILL.md section 3) are the frame's Tweaks pane. A change goes on the shown direction and stays in that tab; nothing is saved until the person presses Keep these, which sends the "Keep these for …" line to the chat in one tap, as Use this does (on a page opened outside Spacesheep, it copies the line to paste). Write those values into the direction's tokens. An older page may still hold values Spacesheep's own Tweaks saved, in `<style data-ss-id="ss-style">` as `!important` rules: when you change one of those tokens yourself, change or remove its rule there.
+The states (SKILL.md section 3) are the frame's Prototype bar, a black strip under the tabs. A change goes on the direction open, or on every direction on the canvas, and stays in that tab; nothing is saved until the person presses Keep these, which sends the "Keep these for …" line to the chat in one tap, as Use this does (on a page opened outside Spacesheep, it copies the line to paste). Write those values into the direction's tokens. An older page may still hold values Spacesheep's own Tweaks saved, in `<style data-ss-id="ss-style">` as `!important` rules: when you change one of those tokens yourself, change or remove its rule there.
