@@ -297,7 +297,7 @@ const brief = read("draw/BRIEF.md") || "";
 const facts = [...brief.matchAll(/^\s*[-*]?\s*fact:\s*(.+?)\s*$/gim)].map((m) => m[1]);
 const nots = [...brief.matchAll(/^\s*[-*]?\s*not:\s*(.+?)\s*$/gim)].map((m) => m[1]);
 // `sample: …` names what is made up (counts, a chart's data): every direction tags it, and the bar's Sample note names it.
-const samples = [...brief.matchAll(/^\s*[-*]?\s*sample:\s*(.+?)\s*$/gim)].map((m) => m[1]);
+const samples = [...brief.split("<!-- end brief -->")[0].matchAll(/^\s*[-*]?\s*sample:\s*(.+?)\s*$/gim)].map((m) => m[1]);
 // The request (`ask: …` lines): six of its words in a row on the page are the brief quoted, not designed.
 // Words a `fact:` covers break a run, so facts given in the request's own order still pass.
 const words = (s) => norm(s).match(/[\p{L}\p{N}]+(?:['.,][\p{L}\p{N}]+)*/gu) || [];

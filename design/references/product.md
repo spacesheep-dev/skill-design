@@ -17,7 +17,7 @@ In one message, before step 2's helpers: a Glob for the theme, type, button and 
 | Today's screen | the nearest screen as it is now, to grow from |
 | Voice | how its words sound, with one line from the app |
 
-With it, write `draw/CHROME.html` in the same message: the app's header and sidebar (or bottom bar on a phone) as one block, with the real logo, labels in their order, and the person's avatar, styled only with DESIGN.md's values. Put its tokens on every direction's section (the same values in each) and its styles once in `draw/frame.html`.
+With it, write `draw/CHROME.html` in the same message: the app's header and sidebar (or bottom bar on a phone) as one block, with the real logo, labels in their order, and the person's avatar, styled only with DESIGN.md's values. Put its tokens on every direction's section (the same values in each) and its styles once in `draw/frame.html`, each selector under the chrome's own root class (`.ss-app .ss-rail-row`), so a direction's link and button rules can't recolour it. No colour in a `style` attribute (check.js flags it): give it a class there. The logo goes once in the frame as `<svg style="display:none"><symbol id="…-logo">…</symbol></svg>` (an svg ignores `hidden`), and CHROME.html draws it with `<use href="#…-logo"/>`, so three directions don't carry three copies.
 
 Each helper's lines then add: "The product's look: read `<folder>/draw/DESIGN.md` and `<folder>/draw/CHROME.html` first."
 
