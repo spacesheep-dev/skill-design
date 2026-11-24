@@ -4,7 +4,7 @@ Read this when the design is a screen, page or panel inside a product that alrea
 
 ## 1. The look file, before the helpers
 
-In one message, before step 2's helpers: a Glob for the theme, type, button and shell (header, sidebar, nav) files, a Grep for colour tokens and font families, then Read the 3 to 5 files they point to, including the screen nearest the one asked for. Then write `draw/DESIGN.md` in one Write, at most 80 lines, every value copied from the code:
+In one message, before step 2's frame and its helpers (or, without helpers, before your own tops in step 4): a Glob for the theme, type, button and shell (header, sidebar, nav) files, a Grep for colour tokens and font families, then Read the 3 to 5 files they point to, including the screen nearest the one asked for. Then write `draw/DESIGN.md` in one Write, at most 80 lines, every value copied from the code:
 
 | Part | What it holds |
 |---|---|

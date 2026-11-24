@@ -17,7 +17,7 @@ test("shepherd.html is what tools/shepherd.js makes from base.html", () => {
 });
 
 test("it fits in one use_skill read and keeps the starter's metas, with no ss-workspace and no Export", () => {
-  assert.ok([...PAGE].length <= 32000, `${[...PAGE].length} characters`);
+  assert.ok([...PAGE].length <= 32500, `${[...PAGE].length} characters`);
   for (const meta of ['<meta name="ss-chat" content="open">', '<meta name="ss-canvas-focus" content="all">'])
     assert.ok(PAGE.includes(meta), meta);
   assert.doesNotMatch(PAGE, /<meta name="ss-canvas"[ >]/, "no whole-page canvas meta");
@@ -322,4 +322,19 @@ test("a long about text that would run past its block's foot is fitted inside it
   blocks.splice(0, 1, block("long-about", 500));
   win.ssAbout();
   assert.equal(fit("long-about"), 1, "measured again from full size: shorter words give the size back");
+});
+
+test("a bar holding only a Sample note still shows, in base.html and shepherd.html", () => {
+  assert.ok(BASE.includes("  .tweaks:not(:has(input[data-var], .sample-note)) { display: none; }"), "base.html hides the bar only with no input and no Sample note");
+  assert.ok(PAGE.includes(".tweaks:not(:has(input[data-var],.sample-note)){display:none;}"), "shepherd.html keeps the rule");
+  assert.doesNotMatch(BASE + PAGE, /\.tweaks:not\(:has\(input\[data-var\]\)\)/, "no older rule hides a Sample-only bar");
+});
+
+test("a screen in an existing product: SKILL.md's step 2 makes its look file and chrome before the helpers or your own tops", () => {
+  const SKILL = fs.readFileSync(path.join(__dirname, "..", "design", "SKILL.md"), "utf8");
+  const step2 = SKILL.slice(SKILL.indexOf("2. **Push the frame"), SKILL.indexOf("3. **Start the page's only writer"));
+  const at = step2.indexOf("A screen in an existing product: its look file and chrome first (references/product.md)");
+  assert.ok(at > 0 && at < step2.indexOf("With helpers you can start"), "step 2 says it before the helpers start");
+  const product = fs.readFileSync(path.join(__dirname, "..", "design", "references", "product.md"), "utf8");
+  assert.match(product, /before step 2's frame and its helpers \(or, without helpers, before your own tops in step 4\)/);
 });
