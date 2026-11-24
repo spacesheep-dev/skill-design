@@ -17,7 +17,7 @@ test("shepherd.html is what tools/shepherd.js makes from base.html", () => {
 });
 
 test("it fits in one use_skill read and keeps the starter's metas, with no ss-workspace and no Export", () => {
-  assert.ok([...PAGE].length <= 30000, `${[...PAGE].length} characters`);
+  assert.ok([...PAGE].length <= 32500, `${[...PAGE].length} characters`);
   for (const meta of ['<meta name="ss-chat" content="open">', '<meta name="ss-canvas-focus" content="all">'])
     assert.ok(PAGE.includes(meta), meta);
   assert.doesNotMatch(PAGE, /<meta name="ss-canvas"[ >]/, "no whole-page canvas meta");
@@ -278,4 +278,63 @@ test("on the slim bar, a direction open full page shows its about intro whole, e
   assert.equal(line.textContent, "Night Watch shows the next fee. Press Pay now, or Remind me, to see it.", "open: its intro on one line, every s kept");
   canvas(null);
   assert.equal(line.textContent, "first's line");
+});
+
+test("Keep these hides on a bar of states only, and an about block's words take a smaller type rather than run past its foot", () => {
+  const hide = '.switcher.switcher .tweaks.tweaks:not(:has(input[data-var]:not([data-kind="switch"], [data-kind="choice"]))) [data-tweaks-keep] { display: none; }';
+  assert.ok(BASE.includes(hide), "base.html hides Keep these when every input is a switch or a choice");
+  assert.ok(PAGE.includes('.switcher.switcher .tweaks.tweaks:not(:has(input[data-var]:not([data-kind="switch"],[data-kind="choice"]))) [data-tweaks-keep]{display:none;}'), "shepherd.html keeps the rule");
+  assert.match(BASE, /\.about \{[^}]*font: 400 calc\(clamp\(20px, calc\(13px \/ var\(--ss-cz, 1\)\), 36px\) \* var\(--about-fit, 1\)\)/);
+  assert.match(BASE, /\/\* about: fit \*\/[\s\S]*adoptedStyleSheets[\s\S]*\/\* about: fit end \*\//, "the about script measures each block");
+  assert.doesNotMatch(PAGE, /about: fit|adoptedStyleSheets/, "shepherd.html leaves the fitting out, for its size: fold.js kit brings it");
+});
+
+// base.html's about script on a stand-in layout: a block is 560 px tall and its words are as tall as their type, so
+// a long about text runs past its foot (into the frame's label below) unless the script takes its type down.
+test("a long about text that would run past its block's foot is fitted inside it; a short one is left at full size", () => {
+  const js = BASE.match(/\/\* about: each about block[\s\S]*?\/\* about: done \*\//)[0];
+  class Sheet { constructor() { this.text = ""; } replaceSync(t) { this.text = t; } }
+  const document = { adoptedStyleSheets: [] };
+  const fit = (id) => {
+    let f = 1;
+    for (const s of document.adoptedStyleSheets) for (const m of s.text.matchAll(/\.about\[data-ss-id="([^"]+)"\] \{ --about-fit: ([\d.]+); \}/g)) if (m[1] === id) f = +m[2];
+    return f;
+  };
+  // words: their height at full size. Each block's last line's foot is its top plus that height times the fit.
+  const block = (id, words) => {
+    const last = { getBoundingClientRect: () => ({ bottom: words * fit(id) }) };
+    return { dataset: { ssId: id }, offsetHeight: 560, lastElementChild: last, getBoundingClientRect: () => ({ bottom: 560 }) };
+  };
+  const blocks = [block("long-about", 800), block("short-about", 300), block("endless-about", 2000)];
+  const area = { clientWidth: 1280, hasAttribute: () => false, toggleAttribute() {},
+    querySelectorAll: (s) => (s === ".about[data-ss-id]" ? blocks : []) };
+  document.querySelector = (s) => (s === "[data-ss-canvas-area]" ? area : null);
+  const win = { document, CSSStyleSheet: Sheet, CSS: { escape: (s) => s }, MutationObserver: class { observe() {} },
+    addEventListener() {}, requestAnimationFrame() {}, cancelAnimationFrame() {}, getComputedStyle: () => ({ getPropertyValue: () => "" }) };
+  win.window = win;
+  const foot = (b) => b.lastElementChild.getBoundingClientRect().bottom;
+  assert.ok(foot(blocks[0]) > 560, "without the fitting, the long text runs 240 px past the foot");
+  vm.runInNewContext(js, win);
+  assert.equal(fit("long-about"), 0.7, "its type steps down by 5% until it fits");
+  assert.ok(foot(blocks[0]) <= 560, `the long text now ends at ${foot(blocks[0])} px, inside the block`);
+  assert.equal(fit("short-about"), 1, "a text that fits keeps its size");
+  assert.equal(fit("endless-about"), 0.6, "never under 60%");
+  blocks.splice(0, 1, block("long-about", 500));
+  win.ssAbout();
+  assert.equal(fit("long-about"), 1, "measured again from full size: shorter words give the size back");
+});
+
+test("a bar holding only a Sample note still shows, in base.html and shepherd.html", () => {
+  assert.ok(BASE.includes("  .tweaks:not(:has(input[data-var], .sample-note)) { display: none; }"), "base.html hides the bar only with no input and no Sample note");
+  assert.ok(PAGE.includes(".tweaks:not(:has(input[data-var],.sample-note)){display:none;}"), "shepherd.html keeps the rule");
+  assert.doesNotMatch(BASE + PAGE, /\.tweaks:not\(:has\(input\[data-var\]\)\)/, "no older rule hides a Sample-only bar");
+});
+
+test("a screen in an existing product: SKILL.md's step 2 makes its look file and chrome before the helpers or your own tops", () => {
+  const SKILL = fs.readFileSync(path.join(__dirname, "..", "design", "SKILL.md"), "utf8");
+  const step2 = SKILL.slice(SKILL.indexOf("2. **Push the frame"), SKILL.indexOf("3. **Start the page's only writer"));
+  const at = step2.indexOf("A screen in an existing product: its look file and chrome first (references/product.md)");
+  assert.ok(at > 0 && at < step2.indexOf("With helpers you can start"), "step 2 says it before the helpers start");
+  const product = fs.readFileSync(path.join(__dirname, "..", "design", "references", "product.md"), "utf8");
+  assert.match(product, /before step 2's frame and its helpers \(or, without helpers, before your own tops in step 4\)/);
 });

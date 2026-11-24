@@ -404,7 +404,7 @@ test("the same rule is read in the page's own styles: the head, or a style betwe
 });
 
 test("the starter's Export is last in the bar's row, its PDF items name sections by data-ss-id, and the end mark is the body's last node", () => {
-  const row = BASE.slice(BASE.indexOf('<div class="switcher-row">'), BASE.indexOf('<div class="switcher-views"'));
+  const row = BASE.slice(BASE.indexOf('<div class="switcher-row">'), BASE.indexOf("<!-- controls: the Prototype bar"));
   assert.match(row, /<div class="export no-print">[\s\S]*<\/p><\/div>\n  <\/div>\n  $/, "Export closes the row");
   for (const c of ["export-pdf", "export-pdf-all", "export-html", "export-prompt"]) assert.match(row, new RegExp(`class="${c}" role="menuitem"`), c);
   assert.equal((row.match(/data-ss-pdf=""/g) || []).length, 2, "both PDF items carry data-ss-pdf, filled in when the menu opens");
@@ -417,50 +417,165 @@ test("the starter's Export is last in the bar's row, its PDF items name sections
   assert.ok(BASE.indexOf("<html") > BASE.indexOf(head) + head.length - 1 && !/<!--[\s\S]*<!--/.test(head), "the page's opening comment holds no comment of its own");
 });
 
-// The controls' script run in a stand-in page with two controls on direction First, framed or not.
-function tweaksPage(framed) {
+// The controls' script run in a stand-in page with two controls, Accent and Density: on direction First, open, or on
+// a canvas of First and Second, each with its own accent; framed by Spacesheep or not.
+function tweaksPage(framed, canvas) {
   const vm = require("vm");
   const src = BASE.slice(BASE.indexOf("/* controls: the inputs"), BASE.indexOf("/* kit: the filters' fold button"));
   const listeners = [], copied = [];
-  const section = { dataset: { ssLabel: "First" }, style: { setProperty() {} } };
+  const sec = (label, accent) => { const vals = { "--brand-accent": accent, "--density": "1" }; return { dataset: { ssLabel: label }, vals, style: { setProperty: (k, v) => { vals[k] = v; } } }; };
+  const first = sec("First", "#112233"), second = sec("Second", "#aa0000");
+  first.dataset.ssId = "direction-first"; second.dataset.ssId = "direction-second";
+  const now = { open: canvas ? null : first };
   const input = (label, attrs) => {
-    const out = { isConnected: true, textContent: "" }, lab = { firstChild: { textContent: label + " " }, querySelector: () => out };
-    return { ...attrs, closest: (s) => (s === "label" ? lab : null), setAttribute() {}, addEventListener() {} };
+    const out = { isConnected: true, textContent: "" }, lab = { firstChild: { textContent: label + " " }, querySelector: () => out }, heard = [];
+    return { ...attrs, heard, closest: (s) => (s === "label" ? lab : null), setAttribute() {}, addEventListener: (n, f) => n === "input" && heard.push(f) };
   };
   const controls = [input("Accent", { type: "color", value: "#112233", dataset: { var: "--brand-accent" } }), input("Density", { type: "range", value: "1", dataset: { var: "--density" } })];
-  const keep = { dataset: { ssSay: "" }, title: "", textContent: "Keep these" };
+  const keep = { dataset: { ssSay: "" }, title: "", textContent: "Keep these", disabled: false };
   keep.closest = (s) => (s === "[data-tweaks-keep]" ? keep : null);
   const document = {
-    querySelector: (s) => (s === "section.direction.on" ? section : s === "[data-tweaks-keep]" ? keep : null),
-    querySelectorAll: (s) => (s === ".tweaks input[data-var]" ? controls : []),
+    querySelector: (s) => (s === "section.direction.on" ? now.open : s === "[data-tweaks-keep]" ? keep
+      : s === ".switcher[data-canvas-view]" ? (now.open ? null : {}) : s === "section.direction" ? first : null),
+    querySelectorAll: (s) => (s === ".tweaks input[data-var]" ? controls : s === "section.direction" ? [first, second] : []),
     addEventListener: (n, f, capture) => listeners.push({ n, f, capture }), createElement: () => ({ isConnected: false }), documentElement: {},
   };
-  const win = { document, getComputedStyle: () => ({ getPropertyValue: (v) => (v === "--brand-accent" ? "#112233" : "1") }), MutationObserver: class { observe() {} },
+  const seen = [];
+  const win = { document, getComputedStyle: (e) => ({ getPropertyValue: (v) => e.vals[v] }), MutationObserver: class { constructor(f) { seen.push(f); } observe() {} },
     navigator: { clipboard: { writeText: async (t) => { copied.push(t); } } }, prompt() {} };
   win.window = win;
   win.parent = framed ? {} : win;
   const run = () => vm.runInNewContext(src, win);
   run();
-  return { run, listeners, copied, keep, controls, tap: () => Promise.all(listeners.filter((l) => l.n === "click").map((l) => l.f({ target: keep }))) };
+  // the person moves a control: a trusted input event, as the browser sends it, then the style it sets is seen
+  const move = (i, v) => { controls[i].value = v; controls[i].heard.forEach((f) => f({ isTrusted: true })); seen.forEach((f) => f([])); };
+  // a direction opened full page (First or Second), or the canvas again (null): the page changes, and the script sees it
+  const view = (d) => { now.open = d && { First: first, Second: second }[d]; seen.forEach((f) => f([])); };
+  return { run, listeners, copied, keep, controls, move, view, first, second, tap: () => Promise.all(listeners.filter((l) => l.n === "click").map((l) => l.f({ target: keep }))) };
 }
 
 test("Tweaks' Keep these carries its line in data-ss-say, current at the tap; with no frame around the page it copies the line", async () => {
   assert.match(BASE, /<button type="button" data-tweaks-keep data-ss-say="">Keep these<\/button>/);
   assert.doesNotMatch(BASE, /data-tweaks-copy|Copy for the chat/);
-  const line = "Keep these for First: Accent #112233, Density 1";
   const page = tweaksPage(true);
-  assert.deepEqual([page.keep.dataset.ssSay, page.keep.title], [line, line], "the line is on the button from load, as its title too, so Spacesheep's send counts it as shown");
+  assert.deepEqual([page.keep.dataset.ssSay, page.keep.disabled], ["", true], "nothing changed yet: no line, and the key is disabled");
   page.run();
   assert.deepEqual(page.listeners.map((l) => [l.n, l.capture]), [["click", true]], "one listener, in the capture phase, however often the script runs");
+  page.move(1, "1.1");
+  const line = "Keep these for First: Density 1.1";
+  assert.deepEqual([page.keep.dataset.ssSay, page.keep.title, page.keep.disabled], [line, line, false], "the line names the value changed, as its title too");
   // A value changed with nothing seen yet: the tap's own first step brings the line up to date, before Spacesheep's listener reads it.
-  page.controls[1].value = "1.1";
+  page.controls[1].value = "1.2";
   await page.tap();
-  assert.equal(page.keep.dataset.ssSay, "Keep these for First: Accent #112233, Density 1.1");
+  assert.equal(page.keep.dataset.ssSay, "Keep these for First: Density 1.2");
   assert.deepEqual(page.copied, [], "in Spacesheep's frame the line goes through data-ss-say, nothing is copied");
   const alone = tweaksPage(false);
+  alone.move(1, "1.1");
   await alone.tap();
   assert.deepEqual(alone.copied, [line], "a page opened outside Spacesheep copies the line");
   assert.equal(alone.keep.textContent, "Copied: paste it in the chat");
+});
+
+test("on the canvas, Keep these names only the values the person changed, so no direction's own value is sent for every direction", () => {
+  const page = tweaksPage(true, true);
+  assert.equal(page.controls[0].value, "#112233", "the bar shows the first direction's accent");
+  page.move(1, "1.1");
+  assert.equal(page.keep.dataset.ssSay, "Keep these for every direction: Density 1.1", "Accent, untouched, stays out: Second keeps #aa0000");
+  assert.equal(page.controls[0].value, "#112233");
+  page.move(0, "#00ff00");
+  assert.equal(page.keep.dataset.ssSay, "Keep these for every direction: Accent #00ff00, Density 1.1");
+});
+
+test("Keep these names a change only where it was made: one direction's edit isn't offered for another, nor for every direction", () => {
+  const page = tweaksPage(true, false);
+  page.move(0, "#00ff00");
+  assert.equal(page.keep.dataset.ssSay, "Keep these for First: Accent #00ff00");
+  page.view("Second");
+  assert.equal(page.controls[0].value, "#aa0000", "the bar shows Second's own accent");
+  assert.deepEqual([page.keep.dataset.ssSay, page.keep.disabled], ["", true], "First's edit isn't offered for Second, and Second's accent is untouched");
+  page.move(0, "#0000ff");
+  assert.equal(page.keep.dataset.ssSay, "Keep these for Second: Accent #0000ff");
+  page.view(null);
+  assert.deepEqual([page.keep.dataset.ssSay, page.keep.disabled], ["", true], "back on the canvas, no direction's edit is offered for every direction");
+  page.move(1, "1.1");
+  assert.equal(page.keep.dataset.ssSay, "Keep these for every direction: Density 1.1");
+  assert.deepEqual([page.first.vals["--brand-accent"], page.second.vals["--brand-accent"]], ["#00ff00", "#0000ff"], "each keeps its own accent");
+});
+
+// The Prototype bar's script with one choice (Viewer) and a named switch (Activity), on a canvas of two directions
+// or with First open.
+function barStates(canvas) {
+  const vm = require("vm");
+  const src = BASE.slice(BASE.indexOf("/* controls: the inputs"), BASE.indexOf("/* kit: the filters' fold button"));
+  const el = (tag) => { const e = { tag, children: [], attrs: {}, on: {}, dataset: {}, isConnected: false, textContent: "" };
+    e.setAttribute = (k, v) => { e.attrs[k] = String(v); }; e.getAttribute = (k) => e.attrs[k] ?? null;
+    e.addEventListener = (n, f) => { e.on[n] = f; }; e.append = (c) => e.children.push(c); return e; };
+  const attrs = (o) => Object.assign(o, { a: {}, getAttribute: (k) => o.a[k] ?? null, hasAttribute: (k) => k in o.a, setAttribute: (k, v) => { o.a[k] = String(v); }, removeAttribute: (k) => { delete o.a[k]; } });
+  const dir = (name) => { const vals = {}; return attrs({ dataset: { ssLabel: name }, vals, style: { setProperty: (k, v) => { vals[k] = v; } } }); };
+  const first = dir("First"), second = dir("Second");
+  const input = (label, attrs) => { const lab = el("label"), out = el("output"); out.isConnected = true; lab.firstChild = { textContent: label + " " }; lab.querySelector = () => out;
+    const i = { ...attrs, after: (n) => { i.seg = n; }, closest: (q) => (q === "label" ? lab : null), lab, setAttribute() {}, addEventListener: (n, f) => { i.on = f; },
+      dispatchEvent: (ev) => i.on(ev) }; return i; };
+  const controls = [input("Viewer", { type: "range", value: "0", dataset: { var: "--viewer", kind: "choice", options: "Someone else|The owner" } }),
+    input("Activity", { type: "range", value: "0", dataset: { var: "--activity", kind: "switch", options: "Shown|Hidden" } })];
+  const keep = { dataset: { ssSay: "" }, title: "" };
+  keep.closest = (q) => (q === "[data-tweaks-keep]" ? keep : null);
+  const document = {
+    querySelector: (q) => (q === "section.direction.on" ? first : q === "[data-tweaks-keep]" ? keep : q === ".switcher[data-canvas-view]" ? (canvas ? {} : null) : q === "section.direction" ? first : null),
+    querySelectorAll: (q) => (q === ".tweaks input[data-var]" ? controls : q === "section.direction" ? [first, second] : []),
+    addEventListener() {}, createElement: el, documentElement: attrs({}),
+  };
+  const win = { document, getComputedStyle: () => ({ getPropertyValue: () => "0" }), MutationObserver: class { observe() {} }, Event: class { constructor(t) { this.type = t; } } };
+  win.window = win; win.parent = {};
+  vm.runInNewContext(src, win);
+  // the tap on Keep these brings its line up to date first, as on the page
+  return { controls, first, second, keep, tap: () => win.ssKeep({ target: keep }) };
+}
+
+test("the Prototype bar draws a choice or a named switch as labelled segments, and a tap sets every direction on the canvas, or the open one", async () => {
+  assert.match(BASE, /<details class="tweaks" open>\n    <summary>Prototype<\/summary>/, "the bar is open from the start, titled Prototype");
+  assert.ok(BASE.indexOf('<details class="tweaks"') > BASE.indexOf('<div class="export no-print">'), "it sits under the tabs' row, after Export");
+  const bar = barStates(true), [viewer, activity] = bar.controls;
+  assert.deepEqual(viewer.seg.children.map((b) => b.textContent), ["Someone else", "The owner"]);
+  assert.deepEqual(activity.seg.children.map((b) => b.textContent), ["Shown", "Hidden"], "a switch's data-options name its two segments");
+  assert.equal(viewer.seg.attrs.role, "radiogroup"); assert.equal(viewer.seg.attrs["aria-label"], "Viewer");
+  assert.equal(viewer.lab.attrs["data-seg"], "", "its label hides the slider and its number");
+  assert.deepEqual(viewer.seg.children.map((b) => b.attrs["aria-checked"]), ["true", "false"]);
+  viewer.seg.children[1].on.click();
+  assert.deepEqual([bar.first.vals["--viewer"], bar.second.vals["--viewer"]], ["1", "1"], "on the canvas both directions take it");
+  assert.deepEqual(viewer.seg.children.map((b) => b.attrs["aria-checked"]), ["false", "true"]);
+  await bar.tap();
+  assert.equal(bar.keep.dataset.ssSay, "Keep these for every direction: Viewer The owner", "Activity, untouched, isn't named");
+  const open = barStates(false);
+  open.controls[1].seg.children[1].on.click();
+  assert.deepEqual([open.first.vals["--activity"], open.second.vals["--activity"]], ["1", undefined], "with First open, only First");
+  await open.tap();
+  assert.equal(open.keep.dataset.ssSay, "Keep these for First: Activity Hidden");
+});
+
+function barLines(page, brief) {
+  const folder = fs.mkdtempSync(path.join(os.tmpdir(), "check-test-"));
+  try {
+    fs.mkdirSync(path.join(folder, "work")); fs.mkdirSync(path.join(folder, "draw"));
+    fs.writeFileSync(path.join(folder, "work", "index.html"), page);
+    fs.writeFileSync(path.join(folder, "draw", "BRIEF.md"), brief);
+    const r = spawnSync(process.execPath, [CHECK, "-C", folder], { encoding: "utf8", timeout: 20000 });
+    return r.stdout.split("\n").filter((l) => /sample|Sample|states/.test(l)).map((l) => l.replace(/  [^ ]+:\d+  |  work\/index\.html  /, "  "));
+  } finally {
+    fs.rmSync(folder, { recursive: true, force: true });
+  }
+}
+test("a sample: line needs a Sample tag in every direction and the bar's note naming it; the bar holds 8 states at most", () => {
+  const brief = "ask: a profile\nsample: 41 actions in 20 weeks\n<!-- end brief -->\n";
+  const bare = barLines(ABOUT_FILLED, brief);
+  assert.deepEqual(bare.map((l) => l.split("  ")[0]), ["first", "second", "third", "controls"]);
+  assert.match(bare[0], /no Sample tag: put <span class="k-sample">Sample<\/span> beside what the brief's sample: lines name/);
+  assert.match(bare[3], /doesn't name "41 actions in 20 weeks"/);
+  let marked = ABOUT_FILLED.replace('<button type="button" data-tweaks-keep data-ss-say="">Keep these</button>', '<button type="button" data-tweaks-keep data-ss-say="">Keep these</button>\n      <p class="sample-note"><b>Sample</b> 41 actions in 20 weeks</p>');
+  for (const slug of ["first", "second", "third"]) marked = marked.replace(`data-ss-id="${slug}-about-drawing"`, `data-ss-id="${slug}-about-drawing"`).replace(new RegExp(`(<section class="direction"[^>]*data-ss-id="direction-${slug}"[^>]*>)`), `$1<span class="k-sample">Sample</span>`);
+  assert.deepEqual(barLines(marked, brief), []);
+  const nine = Array.from({ length: 9 }, (_, k) => `<label>S${k} <input type="range" data-var="--s${k}" min="0" max="1" step="1" data-kind="switch"></label>`).join("\n");
+  assert.ok(barLines(ABOUT_FILLED.replace('<div class="tweaks-body">', `<div class="tweaks-body">\n${nine}`), "ask: x\n<!-- end brief -->\n").some((l) => /9 states: 8 at most/.test(l)));
 });
 
 // The switcher's script run in a stand-in page whose Spacesheep SDK is loaded, with a direction "second".

@@ -31,7 +31,7 @@
   /* keys: every button on the bar is Spacesheep's button atom (assets/components/button.ts in the app, with the
      --ss-btn-* values of its theme), at its small size, 28 px (a touch screen reaches it from 44). A space can't load the app's styles, so
      the values are copied here, light and dark: change them with the app's. A key is a face, a 1px edge and a lip along
-     its foot. Hover darkens the edge, a press sinks it a pixel, and a selected one (the open tab, an open Tweaks or
+     its foot. Hover darkens the edge, a press sinks it a pixel, and a selected one (the open tab, an open
      Export, a device view, the chosen Use this) stays pressed in. Use this and Keep these are the primary, the one thing
      to press; every other is secondary. Rules set a key's --k-* slots, never its paint, so a state never has to outrank
      a kind. A hidden key is left to the browser's own [hidden] rule. */
@@ -105,9 +105,10 @@
      picture, PDF, HTML export or build prompt has it, and without the canvas it doesn't show. Its type stays 13 px
      on screen at any zoom, from 20 to 36 px. Under 600 px of canvas width (a phone at Fit) the blocks would run into
      the cards below them: the area is data-narrow there (the about script measures it), they hide, and the bar
-     shows the intro of the direction open full page. */
+     shows the intro of the direction open full page. Words that would run past its 560 px, into the frame's label below,
+     take a smaller type instead (--about-fit, set by the about script). */
   .about { box-sizing: border-box; height: 560px; display: flex; flex-direction: column; justify-content: flex-start; gap: .55em;
-    color: var(--bar-ink); font: 400 clamp(20px, calc(13px / var(--ss-cz, 1)), 36px)/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+    color: var(--bar-ink); font: 400 calc(clamp(20px, calc(13px / var(--ss-cz, 1)), 36px) * var(--about-fit, 1))/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
   [data-ss-canvas-item].about { outline: none; }
   .about p { margin: 0; max-width: 62ch; }
   .about-spec { display: flex; flex-wrap: wrap; gap: .2em 1.4em; margin: 0; font-size: .82em; }
@@ -174,7 +175,7 @@
      card menu's does. Open, it is tinted, not filled: a filled pill is the open direction. What it says back (Copied,
      or why a PDF or file wasn't made) is a small card in the same place. */
   .export { position: relative; flex: none; margin-left: auto; font: 14px/1.3 system-ui, -apple-system, "Segoe UI", sans-serif; }
-  .switcher-row > :is(.tweaks:has(input[data-var]), .frame-use:not([hidden])) ~ .export { margin-left: 0; }
+  .switcher-row > .frame-use:not([hidden]) ~ .export { margin-left: 0; }
   .export-open svg { flex: none; width: 16px; height: 16px; }
   @container (max-width: 40rem) { .switcher.switcher .export > .export-open { width: 28px; padding: 0; } .export-word { display: none; } }
   .export .menu, .export-said { position: absolute; z-index: 1; top: calc(100% + 6px); right: 0; background: var(--bar-bg); color: var(--bar-ink);
@@ -191,20 +192,35 @@
   .export-said pre { max-height: 40vh; overflow: auto; margin: 8px 0 0; font: 12px/1.4 ui-monospace, monospace; white-space: pre-wrap; user-select: all; }
   /* switcher: end */
 
-  /* controls: the Tweaks pane, a button at the right end of the tabs' row, the design's own strip: Spacesheep's
-     round buttons and tools bar hold the screen's bottom corners. Open, its pane drops down over the directions without moving them, and the
-     canvas doesn't count it as part of the pinned row. */
-  .tweaks { position: relative; flex: none; margin-left: auto; color: var(--bar-ink); font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
-  .tweaks:not(:has(input[data-var])) { display: none; }
+  /* controls: the Prototype bar, a black strip under the tabs, open from the start (its title folds it). Each state
+     worth comparing (who looks, empty or full, a menu open, dark) is a labelled switch of segments that really changes
+     the design, as in Open Design's prototypes: a switch or choice draws its segments from its input, which hides; a
+     colour or slider stays an input. A Sample note in it names what is made up. It is the frame's, not the design's:
+     black and white and 12 px, in light or dark. On the canvas a change goes to every direction, with one open to it. */
+  .tweaks { margin: 8px -12px 0; padding: 6px 12px; background: #111; color: #bdbdc4; font: 500 12px/1.3 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .tweaks:not(:has(input[data-var], .sample-note)) { display: none; }
   .tweaks summary { list-style: none; }
   .tweaks summary::-webkit-details-marker { display: none; }
-  .tweaks-body { position: absolute; right: 0; top: calc(100% + 6px); width: min(300px, calc(100vw - 24px));
-    max-height: calc(50vh - 16px); max-height: calc(50svh - 16px); overflow-y: auto; padding: 14px; display: grid; gap: 10px;
-    background: var(--bar-bg); border: 1px solid var(--bar-line); border-radius: 8px; box-shadow: 0 6px 24px rgba(0,0,0,.14); }
-  .tweaks label { display: grid; grid-template-columns: 1fr auto; gap: 4px 8px; }
-  .tweaks input { grid-column: 1 / -1; width: 100%; min-height: 32px; margin: 0; }
-  .tweaks input[type="color"] { height: 36px; border: 1px solid var(--bar-line); border-radius: 6px; background: var(--bar-bg); }
-  .tweaks output { color: var(--bar-muted); font-variant-numeric: tabular-nums; }
+  .switcher.switcher .tweaks.tweaks > summary { display: inline; padding: 0; border: 0; background: none; box-shadow: none; color: #fff;
+    font: inherit; font-size: 11px; font-weight: 650; letter-spacing: .08em; text-transform: uppercase; }
+  .tweaks-body { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px; margin-top: 6px; }
+  .tweaks label { display: inline-flex; align-items: center; gap: 8px; }
+  .tweaks input { margin: 0; accent-color: #fff; }
+  .tweaks label[data-seg] :is(input, output) { display: none; }
+  .tweaks .seg { display: inline-flex; padding: 2px; border-radius: 7px; background: #26262e; }
+  .switcher.switcher .tweaks :is(.seg > button, [data-tweaks-keep]) { min-height: 22px; padding: 2px 9px; border: 0; border-radius: 5px;
+    background: none; box-shadow: none; color: inherit; font: inherit; &:hover { background: #33333d; color: #fff; } &:focus-visible { outline-color: #fff; } }
+  .switcher.switcher .tweaks .seg > button[aria-checked="true"] { background: #fff; color: #111; }
+  .switcher.switcher .tweaks.tweaks [data-tweaks-keep] { order: 8; box-shadow: inset 0 0 0 1px #6b6b75; color: #fff; &:disabled { opacity: .45; } }
+  /* Keep these is for values to settle (a colour, a slider): a bar of states only (switches and choices) has none */
+  .switcher.switcher .tweaks.tweaks:not(:has(input[data-var]:not([data-kind="switch"], [data-kind="choice"]))) [data-tweaks-keep] { display: none; }
+  .sample-note { order: 9; margin: 0 0 0 auto; }
+  :is(.sample-note b, .k-sample) { margin-right: 6px; padding: 1px 5px; border: 1px solid; border-radius: 4px;
+    font-size: 10px; font-weight: 650; letter-spacing: .08em; text-transform: uppercase; }
+  .sample-note b { border-color: #4a4a55; color: #fff; }
+  /* a Sample tag in the design, beside a made-up number or list: quiet, in the design's own muted ink */
+  .k-sample { display: inline-block; vertical-align: .15em; margin-left: 6px; color: var(--brand-muted, currentColor); white-space: nowrap; }
+  @media (pointer: coarse) { .switcher.switcher .tweaks .seg > button { min-height: 32px; } }
 
   /* shared: what every direction uses */
   :root { --space: 8px; --radius: 6px; --step-0: 16px; --step-1: 20px; --step-2: 25px; --step-3: 31px; --step-4: 39px; --step-5: 49px;
@@ -390,24 +406,26 @@ function ssDraw(fn) { fn(); document.addEventListener('ss:live', () => fn()); }
   <div class="switcher-row">
     <button type="button" class="frame-back" data-ss-canvas-back aria-keyshortcuts="Escape" title="Back to all directions (Esc)" hidden>← Back</button>
     <div class="switcher-tabs" role="tablist"></div>
-    <!-- controls: what the person will likely try, at most 6, each a token every direction sets on its own section.
-         Write a <label>Name <input …></label> per control:
-           colour   <input type="color" data-var="--brand-accent">
-           slider   <input type="range" data-var="--density" min="0.8" max="1.25" step="0.05">  (data-unit="px" for px)
-           switch   <input type="range" data-var="--dark" min="0" max="1" step="1" data-kind="switch">
-           choice   <input type="range" data-var="--hero" min="0" max="2" step="1" data-kind="choice" data-options="Split|Centred|Photo">
-         A choice has 2 to 4 options of at most 14 characters. A switch or choice also shows on each direction as
-         data-dark="1", data-hero="2": style its variants with [data-ss-id="direction-<slug>"][data-hero="2"] … -->
-    <details class="tweaks">
-      <summary>Tweaks</summary>
-      <div class="tweaks-body">
-        <button type="button" data-tweaks-keep data-ss-say="">Keep these</button>
-      </div>
-    </details>
     <button type="button" class="frame-use" data-ss-say="" hidden><span class="use">Use this</span><span class="chosen">✓ Chosen</span></button>
     <button type="button" class="frame-round" data-ss-say="" hidden>Another round</button>
     <div class="export no-print"><button type="button" class="export-open" aria-haspopup="menu" aria-expanded="false" aria-label="Export" title="Export"><svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2.5v7.5M4.75 6.75 8 10l3.25-3.25M2.5 11v2.5h11V11"/></svg><span class="export-word">Export</span></button><div class="menu" role="menu" aria-label="Export" hidden><button type="button" class="export-pdf" role="menuitem" data-ss-pdf="" hidden>PDF</button><button type="button" class="export-pdf-all" role="menuitem" data-ss-pdf="" hidden>PDF of every direction</button><button type="button" class="export-html" role="menuitem">HTML</button><hr><button type="button" class="export-prompt" role="menuitem">Copy prompt for a coding agent</button></div><p class="export-said" role="status"></p></div>
   </div>
+  <!-- controls: the Prototype bar. The states worth comparing, at most 8, each a token every direction sets on its own
+       section. Write a <label>Name <input …></label> per state:
+         choice   <input type="range" data-var="--viewer" min="0" max="1" step="1" data-kind="choice" data-options="Someone else|The owner">
+         switch   <input type="range" data-var="--dark" min="0" max="1" step="1" data-kind="switch">  (data-options="Light|Dark" names its two)
+         colour   <input type="color" data-var="--brand-accent">
+         slider   <input type="range" data-var="--density" min="0.8" max="1.25" step="0.05">  (data-unit="px" for px)
+       A choice has 2 to 4 options of at most 14 characters; the bar draws a switch or choice as segments. Each also shows
+       on each direction as data-viewer="1", data-dark="1": style its values with [data-ss-id="direction-<slug>"][data-viewer="1"] …
+       Made-up numbers: <p class="sample-note"><b>Sample</b> what is made up</p> after the inputs, and a
+       <span class="k-sample">Sample</span> beside each in the design. -->
+  <details class="tweaks" open>
+    <summary>Prototype</summary>
+    <div class="tweaks-body">
+      <button type="button" data-tweaks-keep data-ss-say="">Keep these</button>
+    </div>
+  </details>
   <div class="switcher-views" role="group" aria-label="Device views"></div>
   <p class="switcher-line" aria-live="polite"></p>
   <p class="switcher-answers"></p>
@@ -825,11 +843,11 @@ function ssDraw(fn) { fn(); document.addEventListener('ss:live', () => fn()); }
   draw();
 })();
 /* switcher: end */
-/* controls: the inputs in .tweaks are the controls, shown in this pane, whose changes go on the direction
-   on show and stay in this tab until Keep these sends them to the chat. Each switch and choice also shows on every direction as an attribute named
+/* controls: the inputs in .tweaks are the Prototype bar's states, a switch or choice drawn as segments, whose
+   changes go on the direction open, or on every direction on the canvas, and stay in this tab until Keep these sends them to the chat. Each switch and choice also shows on every direction as an attribute named
    for its token, --hero: 2 as data-hero="2", so its variants are plain CSS. That runs on load and whenever a
    direction's style changes: a Tweaks change, a saved value after a reload, a live push. */
-function ssControls() { return [...document.querySelectorAll('.tweaks input[data-var]')].slice(0, 6); }
+function ssControls() { return [...document.querySelectorAll('.tweaks input[data-var]')].slice(0, 8); }
 function ssStep(i) { return i.dataset.kind === 'switch' || i.dataset.kind === 'choice'; }
 function ssMirror() {
   const steps = ssControls().filter(ssStep);
@@ -845,9 +863,14 @@ function ssMirror() {
 }
 (() => {
   const shown = () => document.querySelector('section.direction.on') || document.documentElement;
+  // on the canvas (no direction open) a state goes to every direction, so they compare in the same state
+  const targets = () => document.querySelector('.switcher[data-canvas-view]') && document.querySelector('section.direction') ? [...document.querySelectorAll('section.direction')] : [shown()];
+  // where a change goes: every direction on the canvas, else the open one (or the page)
+  const at = () => (targets().length > 1 ? '*' : shown().dataset?.ssId || '-');
+  const opts = (i) => (i.dataset.options ? i.dataset.options.split('|') : i.dataset.kind === 'switch' ? ['Off', 'On'] : []);
   const said = (i) => {
-    const v = i.type === 'color' ? i.value : String(+i.value), o = i.dataset.options ? i.dataset.options.split('|') : [];
-    return i.dataset.kind === 'switch' ? (+v ? 'on' : 'off') : i.dataset.kind === 'choice' ? (o[+v] || v) : v + (i.type === 'color' ? '' : i.dataset.unit || '');
+    const v = i.type === 'color' ? i.value : String(+i.value), o = opts(i);
+    return i.dataset.kind === 'switch' && !i.dataset.options ? (+v ? 'on' : 'off') : ssStep(i) ? (o[+v] || v) : v + (i.type === 'color' ? '' : i.dataset.unit || '');
   };
   const name = (i) => (i.closest('label')?.firstChild?.textContent || i.dataset.var).trim();
   function wire() {
@@ -856,18 +879,31 @@ function ssMirror() {
       i.ssWired = true;
       const out = i.closest('label')?.querySelector('output') || document.createElement('output');
       if (!out.isConnected) i.before(out);
-      const show = () => { const t = said(i); if (out.textContent !== t) out.textContent = t; if (ssStep(i)) i.setAttribute('aria-valuetext', t); }; // unchanged text: no mutation to answer
-      i.ssRead = () => { const v = getComputedStyle(shown()).getPropertyValue(i.dataset.var).trim(); if (v) i.value = i.type === 'color' ? v : parseFloat(v); show(); };
-      i.addEventListener('input', () => { shown().style.setProperty(i.dataset.var, i.type === 'color' ? i.value : i.value + (i.dataset.unit || '')); show(); });
+      // a switch or choice: one segment per value, a radio each, in place of its slider
+      const seg = ssStep(i) && document.createElement('span');
+      if (seg) {
+        seg.className = 'seg'; seg.setAttribute('role', 'radiogroup'); seg.setAttribute('aria-label', name(i));
+        opts(i).forEach((o, k) => { const b = document.createElement('button'); b.type = 'button'; b.setAttribute('role', 'radio'); b.textContent = o;
+          b.addEventListener('click', () => { i.ssTouched = at(); i.value = k; i.dispatchEvent(new Event('input')); }); seg.append(b); });
+        i.after(seg); i.closest('label')?.setAttribute('data-seg', '');
+      }
+      const show = () => { const t = said(i); if (out.textContent !== t) out.textContent = t; if (ssStep(i)) i.setAttribute('aria-valuetext', t);
+        if (seg) [...seg.children].forEach((b, k) => { const on = String(k === +i.value); if (b.getAttribute('aria-checked') !== on) b.setAttribute('aria-checked', on); }); }; // unchanged: no mutation to answer
+      i.ssRead = () => { const v = getComputedStyle(targets()[0]).getPropertyValue(i.dataset.var).trim(); if (v) i.value = i.type === 'color' ? v : parseFloat(v); show(); };
+      i.addEventListener('input', (e) => { if (e.isTrusted) i.ssTouched = at(); for (const t of targets()) t.style.setProperty(i.dataset.var, i.type === 'color' ? i.value : i.value + (i.dataset.unit || '')); show(); });
       i.ssRead();
     }
   }
   // Keep these carries its line, "Keep these for <direction>: <Name> <value>, …", as data-ss-say and as its title (the
-  // line the tap shows), so Spacesheep sends it to the chat as it does Use this's. It is set again whenever a value or
+  // line the tap shows), so Spacesheep sends it to the chat as it does Use this's. It names only the values the person
+  // changed where it would send them (the open direction, or the canvas): the bar shows the first direction's, and an
+  // untouched one would overwrite the others'.
+  // Until a value changes it is disabled, so a tap sends nothing. It is set again whenever a value or
   // the shown direction changes, and as the tap begins, before Spacesheep reads it. A page with no frame around it,
   // opened outside Spacesheep, copies the line instead. The listener is added once and calls this script's keep().
-  const line = () => { const d = shown(), who = d.dataset?.ssLabel ? 'for ' + d.dataset.ssLabel : 'for this page'; return `Keep these ${who}: ` + ssControls().map((i) => `${name(i)} ${said(i)}`).join(', '); };
-  const keep = () => { const b = document.querySelector('[data-tweaks-keep]'), l = b && line(); if (b && b.dataset.ssSay !== l) { b.dataset.ssSay = l; b.title = l; } return b; };
+  const line = () => { const d = shown(), who = targets().length > 1 ? 'for every direction' : d.dataset?.ssLabel ? 'for ' + d.dataset.ssLabel : 'for this page', t = ssControls().filter((i) => i.ssTouched === at());
+    return t[0] ? `Keep these ${who}: ` + t.map((i) => `${name(i)} ${said(i)}`).join(', ') : ''; };
+  const keep = () => { const b = document.querySelector('[data-tweaks-keep]'), l = b && line(); if (b) { if (b.dataset.ssSay !== l) b.dataset.ssSay = b.title = l; b.disabled = !l; } return b; };
   window.ssKeep = async (e) => {
     const b = e.target.closest && e.target.closest('[data-tweaks-keep]');
     if (!b || !keep()) return;
@@ -877,7 +913,7 @@ function ssMirror() {
   };
   if (!window.ssKeepHeard) { window.ssKeepHeard = true; document.addEventListener('click', (e) => window.ssKeep(e), true); }
   const again = () => { wire(); ssMirror(); ssControls().forEach((i) => i.ssRead && i.ssRead()); keep(); };
-  new MutationObserver(again).observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class'] });
+  new MutationObserver(again).observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class', 'data-canvas-view'] });
   again();
 })();
 /* kit: the filters' fold button on a phone */
@@ -914,13 +950,29 @@ document.addEventListener('click', (e) => {
       s.dataset.of = want.join('|');
       s.replaceChildren(...want.map((c) => { const i = document.createElement('i'); i.className = 'about-swatch'; i.style.background = c; return i; }));
     }
+    /* about: fit */
+    // A block whose words run past its foot takes its type down in steps of 5%, to 60% at least, until they fit. The
+    // sizes go in a sheet of the script's own, never on the page, so the measuring is no change for anyone to answer.
+    // (Not in shepherd.html, for its size: fold.js kit brings it.)
+    if (!document.adoptedStyleSheets) return;
+    const sheet = window.ssAboutSheet || (window.ssAboutSheet = new CSSStyleSheet());
+    if (!document.adoptedStyleSheets.includes(sheet)) document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
+    const fits = {}, rules = () => Object.entries(fits).filter(([, f]) => f < 1).map(([id, f]) => `.about[data-ss-id="${CSS.escape(id)}"] { --about-fit: ${f}; }`).join('\n');
+    sheet.replaceSync('');
+    for (const a of area.querySelectorAll('.about[data-ss-id]')) {
+      const last = a.lastElementChild, id = a.dataset.ssId;
+      if (!last || !a.offsetHeight) continue;
+      const over = () => last.getBoundingClientRect().bottom > a.getBoundingClientRect().bottom + 1;
+      for (let f = 1; over() && f > 0.6; ) { f = Math.round((f - 0.05) * 100) / 100; fits[id] = f; sheet.replaceSync(rules()); }
+    }
+    /* about: fit end */
   };
   if (!window.ssAboutHeard) {
     window.ssAboutHeard = true;
     addEventListener('resize', () => window.ssAbout());
     let raf = 0;
     new MutationObserver(() => { cancelAnimationFrame(raf); raf = requestAnimationFrame(() => window.ssAbout()); })
-      .observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'data-ss-id', 'data-frame', 'data-about-of', 'data-ss-frame'] });
+      .observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'data-ss-id', 'data-frame', 'data-about-of', 'data-ss-frame'] });
   }
   window.ssAbout();
 })();
@@ -944,7 +996,9 @@ if (/[?&]ss-check\b/.test(location.search)) {
 if (/[?&]ss-check\b/.test(location.search)) addEventListener('load', () => (document.fonts ? document.fonts.ready : Promise.resolve()).then(() => {
   const own = (v) => v && !/^auto-/.test(v) ? v : ''; // the renderer gives unnamed blocks auto- ids
   const name = (e) => e.tagName.toLowerCase() + (own(e.dataset.ssId) ? `[data-ss-id=${e.dataset.ssId}]` : e.id ? `#${e.id}` : e.classList.length ? `.${[...e.classList].slice(0, 2).join('.')}` : '');
-  const shown = (e) => { for (let x = e; x; x = x.parentElement) { const s = getComputedStyle(x); if (s.display === 'none' || s.visibility === 'hidden') return false; } return true; };
+  // a closed <details> hides all but its summary from its own shadow, where no style of theirs says so
+  const shown = (e) => { for (let x = e; x; x = x.parentElement) { const s = getComputedStyle(x); if (s.display === 'none' || s.visibility === 'hidden') return false;
+    if (x.parentElement?.localName === 'details' && !x.parentElement.open && x.localName !== 'summary') return false; } return true; };
   const skip = 'script, style, template, svg, [hidden], [aria-hidden=true]';
   // With controls, each direction is measured with every slider, switch and choice at its lowest, then at its
   // highest (over any saved value), then as designed, which the picture shows. A fault at an end says which.
