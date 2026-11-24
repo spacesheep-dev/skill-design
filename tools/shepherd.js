@@ -263,7 +263,8 @@ function make(base) {
   const draw = base.match(/function ssDraw\(fn\)[^\n]*/)[0];
   const script = base.slice(base.lastIndexOf("<script>") + 8, base.lastIndexOf("</script>"));
   const controls = script.slice(script.indexOf("/* controls:"), script.indexOf("/* kit:"));
-  const about = script.slice(script.indexOf("/* about: each"), script.indexOf("/* about: done */"));
+  // The about blocks' type fitting stays out, for the page's size: fold.js kit brings it.
+  const about = script.slice(script.indexOf("/* about: each"), script.indexOf("/* about: done */")).replace(/\s*\/\* about: fit \*\/[\s\S]*?\/\* about: fit end \*\//, "");
   const js = `/* switcher: start */\n${SWITCHER_JS.split("\n").map((l) => l.trim()).join("\n")}\n/* switcher: end */\n${bare(about)}\n${bare(controls)}`;
   for (const [what, ok] of [["metas", /ss-canvas/.test(head)], ["nav", /switcher-row/.test(nav)], ["tokens", /direction-first/.test(tokens)], ["sections", sections.length === 3], ["about blocks", abouts.length === 3], ["about script", /window\.ssAbout =/.test(about)], ["controls", /function ssControls/.test(controls)]])
     if (!ok) throw new Error(`base.html: its ${what} weren't found`);

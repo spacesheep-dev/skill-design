@@ -279,3 +279,12 @@ test("on the slim bar, a direction open full page shows its about intro whole, e
   canvas(null);
   assert.equal(line.textContent, "first's line");
 });
+
+test("Keep these hides on a bar of states only, and an about block's words take a smaller type rather than run past its foot", () => {
+  const hide = '.switcher.switcher .tweaks.tweaks:not(:has(input[data-var]:not([data-kind="switch"], [data-kind="choice"]))) [data-tweaks-keep] { display: none; }';
+  assert.ok(BASE.includes(hide), "base.html hides Keep these when every input is a switch or a choice");
+  assert.ok(PAGE.includes('.switcher.switcher .tweaks.tweaks:not(:has(input[data-var]:not([data-kind="switch"],[data-kind="choice"]))) [data-tweaks-keep]{display:none;}'), "shepherd.html keeps the rule");
+  assert.match(BASE, /\.about \{[^}]*font: 400 calc\(clamp\(20px, calc\(13px \/ var\(--ss-cz, 1\)\), 36px\) \* var\(--about-fit, 1\)\)/);
+  assert.match(BASE, /\/\* about: fit \*\/[\s\S]*adoptedStyleSheets[\s\S]*\/\* about: fit end \*\//, "the about script measures each block");
+  assert.doesNotMatch(PAGE, /about: fit|adoptedStyleSheets/, "shepherd.html leaves the fitting out, for its size: fold.js kit brings it");
+});

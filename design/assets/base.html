@@ -105,9 +105,10 @@
      picture, PDF, HTML export or build prompt has it, and without the canvas it doesn't show. Its type stays 13 px
      on screen at any zoom, from 20 to 36 px. Under 600 px of canvas width (a phone at Fit) the blocks would run into
      the cards below them: the area is data-narrow there (the about script measures it), they hide, and the bar
-     shows the intro of the direction open full page. */
+     shows the intro of the direction open full page. Words that would run past its 560 px, into the frame's label below,
+     take a smaller type instead (--about-fit, set by the about script). */
   .about { box-sizing: border-box; height: 560px; display: flex; flex-direction: column; justify-content: flex-start; gap: .55em;
-    color: var(--bar-ink); font: 400 clamp(20px, calc(13px / var(--ss-cz, 1)), 36px)/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+    color: var(--bar-ink); font: 400 calc(clamp(20px, calc(13px / var(--ss-cz, 1)), 36px) * var(--about-fit, 1))/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
   [data-ss-canvas-item].about { outline: none; }
   .about p { margin: 0; max-width: 62ch; }
   .about-spec { display: flex; flex-wrap: wrap; gap: .2em 1.4em; margin: 0; font-size: .82em; }
@@ -211,6 +212,8 @@
     background: none; box-shadow: none; color: inherit; font: inherit; &:hover { background: #33333d; color: #fff; } &:focus-visible { outline-color: #fff; } }
   .switcher.switcher .tweaks .seg > button[aria-checked="true"] { background: #fff; color: #111; }
   .switcher.switcher .tweaks.tweaks [data-tweaks-keep] { order: 8; box-shadow: inset 0 0 0 1px #6b6b75; color: #fff; }
+  /* Keep these is for values to settle (a colour, a slider): a bar of states only (switches and choices) has none */
+  .switcher.switcher .tweaks.tweaks:not(:has(input[data-var]:not([data-kind="switch"], [data-kind="choice"]))) [data-tweaks-keep] { display: none; }
   .sample-note { order: 9; margin: 0 0 0 auto; }
   :is(.sample-note b, .k-sample) { margin-right: 6px; padding: 1px 5px; border: 1px solid; border-radius: 4px;
     font-size: 10px; font-weight: 650; letter-spacing: .08em; text-transform: uppercase; }
@@ -941,13 +944,29 @@ document.addEventListener('click', (e) => {
       s.dataset.of = want.join('|');
       s.replaceChildren(...want.map((c) => { const i = document.createElement('i'); i.className = 'about-swatch'; i.style.background = c; return i; }));
     }
+    /* about: fit */
+    // A block whose words run past its foot takes its type down in steps of 5%, to 60% at least, until they fit. The
+    // sizes go in a sheet of the script's own, never on the page, so the measuring is no change for anyone to answer.
+    // (Not in shepherd.html, for its size: fold.js kit brings it.)
+    if (!document.adoptedStyleSheets) return;
+    const sheet = window.ssAboutSheet || (window.ssAboutSheet = new CSSStyleSheet());
+    if (!document.adoptedStyleSheets.includes(sheet)) document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
+    const fits = {}, rules = () => Object.entries(fits).filter(([, f]) => f < 1).map(([id, f]) => `.about[data-ss-id="${CSS.escape(id)}"] { --about-fit: ${f}; }`).join('\n');
+    sheet.replaceSync('');
+    for (const a of area.querySelectorAll('.about[data-ss-id]')) {
+      const last = a.lastElementChild, id = a.dataset.ssId;
+      if (!last || !a.offsetHeight) continue;
+      const over = () => last.getBoundingClientRect().bottom > a.getBoundingClientRect().bottom + 1;
+      for (let f = 1; over() && f > 0.6; ) { f = Math.round((f - 0.05) * 100) / 100; fits[id] = f; sheet.replaceSync(rules()); }
+    }
+    /* about: fit end */
   };
   if (!window.ssAboutHeard) {
     window.ssAboutHeard = true;
     addEventListener('resize', () => window.ssAbout());
     let raf = 0;
     new MutationObserver(() => { cancelAnimationFrame(raf); raf = requestAnimationFrame(() => window.ssAbout()); })
-      .observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'data-ss-id', 'data-frame', 'data-about-of', 'data-ss-frame'] });
+      .observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'data-ss-id', 'data-frame', 'data-about-of', 'data-ss-frame'] });
   }
   window.ssAbout();
 })();
@@ -971,7 +990,9 @@ if (/[?&]ss-check\b/.test(location.search)) {
 if (/[?&]ss-check\b/.test(location.search)) addEventListener('load', () => (document.fonts ? document.fonts.ready : Promise.resolve()).then(() => {
   const own = (v) => v && !/^auto-/.test(v) ? v : ''; // the renderer gives unnamed blocks auto- ids
   const name = (e) => e.tagName.toLowerCase() + (own(e.dataset.ssId) ? `[data-ss-id=${e.dataset.ssId}]` : e.id ? `#${e.id}` : e.classList.length ? `.${[...e.classList].slice(0, 2).join('.')}` : '');
-  const shown = (e) => { for (let x = e; x; x = x.parentElement) { const s = getComputedStyle(x); if (s.display === 'none' || s.visibility === 'hidden') return false; } return true; };
+  // a closed <details> hides all but its summary from its own shadow, where no style of theirs says so
+  const shown = (e) => { for (let x = e; x; x = x.parentElement) { const s = getComputedStyle(x); if (s.display === 'none' || s.visibility === 'hidden') return false;
+    if (x.parentElement?.localName === 'details' && !x.parentElement.open && x.localName !== 'summary') return false; } return true; };
   const skip = 'script, style, template, svg, [hidden], [aria-hidden=true]';
   // With controls, each direction is measured with every slider, switch and choice at its lowest, then at its
   // highest (over any saved value), then as designed, which the picture shows. A fault at an end says which.
