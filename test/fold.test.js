@@ -193,6 +193,17 @@ test("stop with a message saves, and that save takes the work card down: no empt
   assert.ok(!sent().some((b) => b.status === ""), "no empty status");
 });
 
+test("every deploy names the skill, so the space counts as made with it: the new space and each save (a copy: below)", () => {
+  const { fold, calls } = setup();
+  assert.equal(fold(["start", "--new", "Poster"]).status, 0);
+  assert.equal(fold(["save", "Frame", "Drawing three directions"]).status, 0);
+  assert.equal(fold(["wait"]).status, 0);
+  assert.equal(fold(["stop", "Three poster looks"]).status, 0);
+  const deploys = calls().filter((a) => a[0] === "deploy");
+  assert.equal(deploys.length, 3, JSON.stringify(deploys));
+  for (const d of deploys) assert.equal(d[d.indexOf("--skill") + 1], "@spacesheep/design", JSON.stringify(d));
+});
+
 test("start says the next step, and push names the starter's placeholders after their sections without touching the rest", () => {
   const { folder, fold, sent } = setup();
   const r = fold(["start", "--new", "Poster"]);
@@ -1002,7 +1013,7 @@ test("copy puts one direction alone, its views with it, in a new space named aft
   const r = fold(["copy", "second"]);
   assert.equal(r.status, 0, r.stderr);
   assert.match(r.stdout, /^copy: Second alone in a new space, private: https:\/\/stage\.test\/s; this space is as it was$/m);
-  assert.deepEqual(calls().slice(n), [["deploy", "draw/_copy/second", "--title", "Second", "--json"]], "one deploy, of the copy, as a new space");
+  assert.deepEqual(calls().slice(n), [["deploy", "draw/_copy/second", "--title", "Second", "--skill", "@spacesheep/design", "--json"]], "one deploy, of the copy, as a new space, naming the skill");
   assert.equal(fs.readFileSync(file, "utf8"), before, "work/index.html as it was");
   const copy = fs.readFileSync(path.join(folder, "draw", "_copy", "second", "index.html"), "utf8");
   assert.deepEqual([...copy.matchAll(/<section class="direction"[^>]*data-ss-id="([a-z-]+)"/g)].map((m) => m[1]), ["direction-second", "second-phone"]);

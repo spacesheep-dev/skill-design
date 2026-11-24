@@ -313,6 +313,9 @@ for (const find of ["command -v spacesheep", "npx -y -p spacesheep@latest -c 'co
     if (bin) { cli = [bin]; break; }
   } catch {}
 }
+// Every deploy names this skill, so the space counts as made with it on the skill's page (the first note per space
+// counts; a CLI or server without the field publishes as before).
+const MADE_WITH = ["--skill", "@spacesheep/design"];
 const run = (args, opts = {}) => execFileSync(cli[0], [...cli.slice(1), ...args], { encoding: "utf8", stdio: ["pipe", "pipe", "pipe"], timeout: 60000, killSignal: "SIGKILL", ...opts });
 const runAsync = (args) => new Promise((ok) => {
   const t = allowed(90000);
@@ -373,7 +376,7 @@ function deploy(message) {
   if (!t) return { ok: false, lines: [`not called: ${lost}`] };
   let page = null;
   try { page = fs.readFileSync("work/index.html"); } catch {}
-  const r = spawnSync(cli[0], [...cli.slice(1), "deploy", "work", "--space", space, "-m", message], { encoding: "utf8", timeout: t, killSignal: "SIGKILL" });
+  const r = spawnSync(cli[0], [...cli.slice(1), "deploy", "work", "--space", space, "-m", message, ...MADE_WITH], { encoding: "utf8", timeout: t, killSignal: "SIGKILL" });
   const said = `${r.stdout || ""}\n${r.stderr || ""}`.split("\n").map((l) => l.trim()).filter(Boolean).filter((l) => !/^spacesheep /.test(l));
   if (r.error && r.error.code === "ETIMEDOUT") {
     const s = `${Math.round(t / 1000)} s`, v = landed(message, before, page);
@@ -618,7 +621,7 @@ if (cmd === "start") {
     mkdir("work");
     const base = baseHtml(), title = plain("title", argv[2]) || "Design";
     if (!work() || !setWork(firstPage(title, base))) process.exit(2);
-    const out = run(["deploy", "work", "--title", title, "--json"]);
+    const out = run(["deploy", "work", "--title", title, ...MADE_WITH, "--json"]);
     const j = JSON.parse(out.slice(out.indexOf("{")));
     space = (j.space || {}).id;
     if (!UUID.test(space || "")) { console.error("start: the new space's id isn't in the answer"); process.exit(1); }
@@ -1039,7 +1042,7 @@ if (cmd === "copy") {
   mkdir(dir);
   if (!write(`${dir}/index.html`, out)) process.exit(2);
   let j;
-  try { const r = run(["deploy", dir, "--title", name, "--json"]); j = JSON.parse(r.slice(r.indexOf("{"))); }
+  try { const r = run(["deploy", dir, "--title", name, ...MADE_WITH, "--json"]); j = JSON.parse(r.slice(r.indexOf("{"))); }
   catch (e) { console.error(`copy: the new space wasn't made: ${String(e.stderr || e.message || e).trim().split("\n").pop()}`); process.exit(1); }
   console.log(`copy: ${name} alone in a new space, private: ${(j.space || {}).url || (j.space || {}).id}; this space is as it was`);
   process.exit(0);
