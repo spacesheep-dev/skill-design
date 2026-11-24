@@ -2,6 +2,20 @@
 
 Each release is a heading with its tag. The release workflow uses the words under it as the release's notes.
 
+## v1.2.29
+
+- States sit on a Prototype bar: a black strip under the tabs, always shown, where each switch or choice is a row of labelled segments (Screen: Skill page | Author page). Tapping one changes every direction on the canvas, or the open one. The hidden Tweaks pane is gone. Keep these shows only when the bar holds a value to settle (a colour, a slider); a bar of states only has none. Up to 8 states.
+- A screen inside a product that already exists starts from that product (references/product.md): a look file, `draw/DESIGN.md`, with every value copied from the app's code, and its chrome, `draw/CHROME.html`, the app's real header and sidebar. Every direction sits inside that chrome and keeps the app's type, colours and buttons. Directions differ in the screen, not the look. The chrome's styles are scoped under its root class, it uses no colour in a style attribute, and the logo is in the frame once, as a hidden symbol.
+- Dark, when the app has a dark theme: the look file has a Dark column taken from the theme, and a Theme switch (Light | Dark) draws the whole screen dark, chrome included. Parts keep every colour in tokens, so nothing stays light.
+- What a state hides is never a link in it. When Private hides the files, a fact that pointed at a file is plain text.
+- Sample marks for made-up data: a `sample:` line in the brief, and a Sample tag beside each made-up value in every direction and on the bar. check.js asks for both, reading `sample:` lines only from the brief itself. A Sample tag takes the design's muted ink.
+- An about block's words take a smaller type, in steps down to 60%, rather than run past the block's 560 px into the frame's label. shepherd.html leaves this out for its size; `fold.js kit` brings it.
+- The layout check skips the hidden contents of a closed `<details>`.
+- Keep these names only the values the person changed, where they changed them: in the open direction, or on the canvas for every direction. The bar shows the first direction's values, so an untouched one would have overwritten the others' own, and one direction's edit is never offered for another. It is disabled until a value changes.
+- A bar that holds only a Sample note still shows (base.html and shepherd.html).
+- For a screen in an existing product, SKILL.md's step 2 makes the look file and chrome before the helpers start, or before your own tops without helpers.
+- shepherd.html may be 32,500 characters (was 30,000), for the Prototype bar. use_skill reads up to 40,000.
+
 ## v1.2.28
 
 - Each direction says what it is, on the canvas above it. Its about block holds an intro of 2 or 3 sentences (what it is for, and how to try it), a spec row (Type, Colour with the direction's swatches, Density, Modes) and a numbered caption for each of its frames, the direction's and each view's, with its size ("Ledger, light · Desktop 1280 × 800 · six bills, the next due on top"). The canvas numbers the captions as it numbers the frames.
