@@ -344,6 +344,7 @@ if (n === null ? d.hasAttribute(a) : d.getAttribute(a) !== n) n === null ? d.rem
 (() => {
 const shown = () => document.querySelector('section.direction.on') || document.documentElement;
 const targets = () => document.querySelector('.switcher[data-canvas-view]') && document.querySelector('section.direction') ? [...document.querySelectorAll('section.direction')] : [shown()];
+const at = () => (targets().length > 1 ? '*' : shown().dataset?.ssId || '-');
 const opts = (i) => (i.dataset.options ? i.dataset.options.split('|') : i.dataset.kind === 'switch' ? ['Off', 'On'] : []);
 const said = (i) => {
 const v = i.type === 'color' ? i.value : String(+i.value), o = opts(i);
@@ -360,17 +361,17 @@ const seg = ssStep(i) && document.createElement('span');
 if (seg) {
 seg.className = 'seg'; seg.setAttribute('role', 'radiogroup'); seg.setAttribute('aria-label', name(i));
 opts(i).forEach((o, k) => { const b = document.createElement('button'); b.type = 'button'; b.setAttribute('role', 'radio'); b.textContent = o;
-b.addEventListener('click', () => { i.ssTouched = 1; i.value = k; i.dispatchEvent(new Event('input')); }); seg.append(b); });
+b.addEventListener('click', () => { i.ssTouched = at(); i.value = k; i.dispatchEvent(new Event('input')); }); seg.append(b); });
 i.after(seg); i.closest('label')?.setAttribute('data-seg', '');
 }
 const show = () => { const t = said(i); if (out.textContent !== t) out.textContent = t; if (ssStep(i)) i.setAttribute('aria-valuetext', t);
 if (seg) [...seg.children].forEach((b, k) => { const on = String(k === +i.value); if (b.getAttribute('aria-checked') !== on) b.setAttribute('aria-checked', on); }); };
 i.ssRead = () => { const v = getComputedStyle(targets()[0]).getPropertyValue(i.dataset.var).trim(); if (v) i.value = i.type === 'color' ? v : parseFloat(v); show(); };
-i.addEventListener('input', (e) => { i.ssTouched ||= e.isTrusted; for (const t of targets()) t.style.setProperty(i.dataset.var, i.type === 'color' ? i.value : i.value + (i.dataset.unit || '')); show(); });
+i.addEventListener('input', (e) => { if (e.isTrusted) i.ssTouched = at(); for (const t of targets()) t.style.setProperty(i.dataset.var, i.type === 'color' ? i.value : i.value + (i.dataset.unit || '')); show(); });
 i.ssRead();
 }
 }
-const line = () => { const d = shown(), who = targets().length > 1 ? 'for every direction' : d.dataset?.ssLabel ? 'for ' + d.dataset.ssLabel : 'for this page', t = ssControls().filter((i) => i.ssTouched);
+const line = () => { const d = shown(), who = targets().length > 1 ? 'for every direction' : d.dataset?.ssLabel ? 'for ' + d.dataset.ssLabel : 'for this page', t = ssControls().filter((i) => i.ssTouched === at());
 return t[0] ? `Keep these ${who}: ` + t.map((i) => `${name(i)} ${said(i)}`).join(', ') : ''; };
 const keep = () => { const b = document.querySelector('[data-tweaks-keep]'), l = b && line(); if (b) { if (b.dataset.ssSay !== l) b.dataset.ssSay = b.title = l; b.disabled = !l; } return b; };
 window.ssKeep = async (e) => {

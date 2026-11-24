@@ -425,6 +425,8 @@ function tweaksPage(framed, canvas) {
   const listeners = [], copied = [];
   const sec = (label, accent) => { const vals = { "--brand-accent": accent, "--density": "1" }; return { dataset: { ssLabel: label }, vals, style: { setProperty: (k, v) => { vals[k] = v; } } }; };
   const first = sec("First", "#112233"), second = sec("Second", "#aa0000");
+  first.dataset.ssId = "direction-first"; second.dataset.ssId = "direction-second";
+  const now = { open: canvas ? null : first };
   const input = (label, attrs) => {
     const out = { isConnected: true, textContent: "" }, lab = { firstChild: { textContent: label + " " }, querySelector: () => out }, heard = [];
     return { ...attrs, heard, closest: (s) => (s === "label" ? lab : null), setAttribute() {}, addEventListener: (n, f) => n === "input" && heard.push(f) };
@@ -433,8 +435,8 @@ function tweaksPage(framed, canvas) {
   const keep = { dataset: { ssSay: "" }, title: "", textContent: "Keep these", disabled: false };
   keep.closest = (s) => (s === "[data-tweaks-keep]" ? keep : null);
   const document = {
-    querySelector: (s) => (s === "section.direction.on" ? (canvas ? null : first) : s === "[data-tweaks-keep]" ? keep
-      : s === ".switcher[data-canvas-view]" ? (canvas ? {} : null) : s === "section.direction" ? first : null),
+    querySelector: (s) => (s === "section.direction.on" ? now.open : s === "[data-tweaks-keep]" ? keep
+      : s === ".switcher[data-canvas-view]" ? (now.open ? null : {}) : s === "section.direction" ? first : null),
     querySelectorAll: (s) => (s === ".tweaks input[data-var]" ? controls : s === "section.direction" ? [first, second] : []),
     addEventListener: (n, f, capture) => listeners.push({ n, f, capture }), createElement: () => ({ isConnected: false }), documentElement: {},
   };
@@ -447,7 +449,9 @@ function tweaksPage(framed, canvas) {
   run();
   // the person moves a control: a trusted input event, as the browser sends it, then the style it sets is seen
   const move = (i, v) => { controls[i].value = v; controls[i].heard.forEach((f) => f({ isTrusted: true })); seen.forEach((f) => f([])); };
-  return { run, listeners, copied, keep, controls, move, tap: () => Promise.all(listeners.filter((l) => l.n === "click").map((l) => l.f({ target: keep }))) };
+  // a direction opened full page (First or Second), or the canvas again (null): the page changes, and the script sees it
+  const view = (d) => { now.open = d && { First: first, Second: second }[d]; seen.forEach((f) => f([])); };
+  return { run, listeners, copied, keep, controls, move, view, first, second, tap: () => Promise.all(listeners.filter((l) => l.n === "click").map((l) => l.f({ target: keep }))) };
 }
 
 test("Tweaks' Keep these carries its line in data-ss-say, current at the tap; with no frame around the page it copies the line", async () => {
@@ -482,6 +486,22 @@ test("on the canvas, Keep these names only the values the person changed, so no 
   assert.equal(page.keep.dataset.ssSay, "Keep these for every direction: Accent #00ff00, Density 1.1");
 });
 
+test("Keep these names a change only where it was made: one direction's edit isn't offered for another, nor for every direction", () => {
+  const page = tweaksPage(true, false);
+  page.move(0, "#00ff00");
+  assert.equal(page.keep.dataset.ssSay, "Keep these for First: Accent #00ff00");
+  page.view("Second");
+  assert.equal(page.controls[0].value, "#aa0000", "the bar shows Second's own accent");
+  assert.deepEqual([page.keep.dataset.ssSay, page.keep.disabled], ["", true], "First's edit isn't offered for Second, and Second's accent is untouched");
+  page.move(0, "#0000ff");
+  assert.equal(page.keep.dataset.ssSay, "Keep these for Second: Accent #0000ff");
+  page.view(null);
+  assert.deepEqual([page.keep.dataset.ssSay, page.keep.disabled], ["", true], "back on the canvas, no direction's edit is offered for every direction");
+  page.move(1, "1.1");
+  assert.equal(page.keep.dataset.ssSay, "Keep these for every direction: Density 1.1");
+  assert.deepEqual([page.first.vals["--brand-accent"], page.second.vals["--brand-accent"]], ["#00ff00", "#0000ff"], "each keeps its own accent");
+});
+
 // The Prototype bar's script with one choice (Viewer) and a named switch (Activity), on a canvas of two directions
 // or with First open.
 function barStates(canvas) {
@@ -495,7 +515,7 @@ function barStates(canvas) {
   const first = dir("First"), second = dir("Second");
   const input = (label, attrs) => { const lab = el("label"), out = el("output"); out.isConnected = true; lab.firstChild = { textContent: label + " " }; lab.querySelector = () => out;
     const i = { ...attrs, after: (n) => { i.seg = n; }, closest: (q) => (q === "label" ? lab : null), lab, setAttribute() {}, addEventListener: (n, f) => { i.on = f; },
-      dispatchEvent: () => i.on() }; return i; };
+      dispatchEvent: (ev) => i.on(ev) }; return i; };
   const controls = [input("Viewer", { type: "range", value: "0", dataset: { var: "--viewer", kind: "choice", options: "Someone else|The owner" } }),
     input("Activity", { type: "range", value: "0", dataset: { var: "--activity", kind: "switch", options: "Shown|Hidden" } })];
   const keep = { dataset: { ssSay: "" }, title: "" };
