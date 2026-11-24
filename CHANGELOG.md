@@ -2,6 +2,10 @@
 
 Each release is a heading with its tag. The release workflow uses the words under it as the release's notes.
 
+## v1.2.30
+
+- fold.js names the skill on every deploy (`--skill @spacesheep/design`): the new space at start, each save and a copy. A Design space then counts as made with Design on the skill's page. A CLI or server without the field publishes as before; spacesheep 1.39.0 is the first CLI that sends it.
+
 ## v1.2.29
 
 - States sit on a Prototype bar: a black strip under the tabs, always shown, where each switch or choice is a row of labelled segments (Screen: Skill page | Author page). Tapping one changes every direction on the canvas, or the open one. The hidden Tweaks pane is gone. Keep these shows only when the bar holds a value to settle (a colour, a slider); a bar of states only has none. Up to 8 states.
